@@ -1,0 +1,23 @@
+# Binaries — downloaded by init.ps1
+nginx/
+mysql/
+php/
+phpmyadmin/
+
+# WordPress sites — each dev has their own
+sites/
+
+# Logs
+logs/
+
+# Generated configs and scripts — created by init.ps1
+config/nginx/
+scripts/
+status.php
+ssl/
+
+# MySQL data
+mysql/
+
+# Ports tracker
+config/ports.txt
