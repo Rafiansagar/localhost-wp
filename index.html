@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Local WordPress Stack</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .container { max-width: 900px; margin: 0 auto; }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 40px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid #1e2533;
+    }
+
+    header .logo {
+      width: 48px; height: 48px;
+      background: #3b82f6;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+    }
+
+    header h1 { font-size: 1.6rem; font-weight: 700; color: #f1f5f9; }
+    header p  { font-size: 0.85rem; color: #64748b; margin-top: 2px; }
+
+    .status-bar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 36px;
+      flex-wrap: wrap;
+    }
+
+    .status-item {
+      flex: 1;
+      min-width: 160px;
+      background: #161b27;
+      border: 1px solid #1e2533;
+      border-radius: 12px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: #22c55e;
+      flex-shrink: 0;
+      box-shadow: 0 0 6px #22c55e88;
+    }
+
+    .status-item .label { font-size: 0.75rem; color: #64748b; }
+    .status-item .value { font-size: 0.9rem; font-weight: 600; color: #e2e8f0; }
+    .status-item .value a { color: #60a5fa; text-decoration: none; }
+    .status-item .value a:hover { text-decoration: underline; }
+
+    section { margin-bottom: 36px; }
+
+    section h2 {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #475569;
+      margin-bottom: 12px;
+    }
+
+    .card {
+      background: #161b27;
+      border: 1px solid #1e2533;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+
+    .card-header {
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid #1e2533;
+    }
+
+    .card-header .icon {
+      font-size: 1rem;
+      width: 28px; height: 28px;
+      background: #1e2533;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .card-header h3 { font-size: 0.9rem; font-weight: 600; color: #f1f5f9; }
+
+    .card-header .badge {
+      margin-left: auto;
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: #1e3a5f;
+      color: #60a5fa;
+      font-weight: 600;
+    }
+
+    .card-header .badge.green {
+      background: #14301f;
+      color: #4ade80;
+    }
+
+    .card-body { padding: 14px 18px; }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid #1e253388;
+      font-size: 0.85rem;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-row .key   { color: #64748b; }
+    .info-row .val   { color: #e2e8f0; font-weight: 500; }
+    .info-row .val a { color: #60a5fa; text-decoration: none; }
+    .info-row .val a:hover { text-decoration: underline; }
+
+    /* Sites grid */
+    #sites-grid { display: flex; flex-direction: column; gap: 10px; }
+
+    .site-card {
+      background: #161b27;
+      border: 1px solid #1e2533;
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      align-items: stretch;
+    }
+
+    .site-card .port-bar {
+      width: 72px;
+      background: #1e2533;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      border-right: 1px solid #1e2533;
+      flex-shrink: 0;
+    }
+
+    .site-card .port-bar .port-label { font-size: 0.6rem; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; }
+    .site-card .port-bar .port-num   { font-size: 1.1rem; font-weight: 700; color: #60a5fa; }
+
+    .site-card .site-info {
+      padding: 14px 18px;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .site-card .site-name {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+
+    .site-card .site-meta {
+      font-size: 0.75rem;
+      color: #475569;
+      margin-top: 2px;
+    }
+
+    .site-card .site-actions {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .btn {
+      font-size: 0.75rem;
+      padding: 5px 12px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      display: inline-block;
+    }
+
+    .btn-primary { background: #1e3a5f; color: #60a5fa; }
+    .btn-primary:hover { background: #1e4a7f; }
+    .btn-admin   { background: #1e2533; color: #94a3b8; }
+    .btn-admin:hover { background: #2d3748; color: #e2e8f0; }
+
+    .installed-badge {
+      font-size: 0.68rem;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: #14301f;
+      color: #4ade80;
+      font-weight: 600;
+    }
+
+    .pending-badge {
+      font-size: 0.68rem;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: #2d1e0e;
+      color: #fb923c;
+      font-weight: 600;
+    }
+
+    .loading { color: #475569; font-size: 0.85rem; padding: 16px 0; }
+
+    .code-block {
+      background: #0d1117;
+      border: 1px solid #1e2533;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      position: relative;
+    }
+
+    .code-block .lang {
+      font-size: 0.65rem;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    .code-block pre {
+      font-family: 'Cascadia Code', 'Consolas', monospace;
+      font-size: 0.82rem;
+      color: #a5f3fc;
+      white-space: pre-wrap;
+      word-break: break-all;
+      line-height: 1.7;
+    }
+
+    .code-block pre .flag { color: #c4b5fd; }
+
+    .copy-btn {
+      position: absolute;
+      top: 10px; right: 10px;
+      background: #1e2533;
+      border: 1px solid #334155;
+      color: #94a3b8;
+      font-size: 0.72rem;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .copy-btn:hover { background: #2d3748; color: #e2e8f0; }
+
+    .paths-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+    .paths-table th {
+      text-align: left;
+      color: #475569;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 8px 12px;
+      border-bottom: 1px solid #1e2533;
+    }
+    .paths-table td {
+      padding: 9px 12px;
+      border-bottom: 1px solid #1e253344;
+      color: #e2e8f0;
+    }
+    .paths-table td:first-child { color: #94a3b8; }
+    .paths-table td code {
+      font-family: 'Cascadia Code', 'Consolas', monospace;
+      font-size: 0.8rem;
+      color: #fde68a;
+      background: #1e2533;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .paths-table td a { color: #60a5fa; text-decoration: none; }
+    .paths-table td a:hover { text-decoration: underline; }
+    .paths-table tr:last-child td { border-bottom: none; }
+
+    .refresh-btn {
+      background: none;
+      border: 1px solid #1e2533;
+      color: #475569;
+      font-size: 0.72rem;
+      padding: 3px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .refresh-btn:hover { color: #94a3b8; border-color: #334155; }
+
+    footer {
+      margin-top: 48px;
+      padding-top: 20px;
+      border-top: 1px solid #1e2533;
+      font-size: 0.75rem;
+      color: #334155;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo">⚡</div>
+    <div>
+      <h1>Local WordPress Stack</h1>
+      <p>Nginx · MySQL 8.0 · PHP 8.0 · Windows 10</p>
+    </div>
+  </header>
+
+  <!-- Status -->
+  <div class="status-bar">
+    <div class="status-item">
+      <div class="status-dot"></div>
+      <div><div class="label">Nginx</div><div class="value">80 · 443 SSL</div></div>
+    </div>
+    <div class="status-item">
+      <div class="status-dot"></div>
+      <div><div class="label">MySQL 8.0</div><div class="value">Port 3307</div></div>
+    </div>
+    <div class="status-item">
+      <div class="status-dot"></div>
+      <div><div class="label">PHP FastCGI</div><div class="value">Port 9000</div></div>
+    </div>
+    <div class="status-item">
+      <div class="status-dot" style="background:#60a5fa;box-shadow:0 0 6px #60a5fa88"></div>
+      <div><div class="label">phpMyAdmin</div><div class="value"><a href="http://localhost:8080">localhost:8080</a></div></div>
+    </div>
+  </div>
+
+  <!-- Live Sites -->
+  <section>
+    <h2>
+      Active Sites
+      <button class="refresh-btn" onclick="loadSites()">↺ Refresh</button>
+    </h2>
+    <div id="sites-grid">
+      <p class="loading">Loading sites...</p>
+    </div>
+  </section>
+
+  <!-- Create new site -->
+  <section>
+    <h2>Create a New Site</h2>
+    <div class="card">
+      <div class="card-body">
+        <div class="info-row">
+          <span class="key">Command</span>
+          <span class="val">
+            <div class="code-block" style="margin:0;padding:8px 12px;">
+              <button class="copy-btn" style="top:6px;right:8px" onclick="copy(this)">Copy</button>
+              <pre><span style="color:#86efac">scripts\new-site.bat</span> <span class="flag">sitename</span></pre>
+            </div>
+          </span>
+        </div>
+        <div class="info-row">
+          <span class="key">Port</span>
+          <span class="val">Auto-assigned (increments from last used)</span>
+        </div>
+        <div class="info-row">
+          <span class="key">Hosts file</span>
+          <span class="val" style="color:#4ade80">Not required</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Scripts -->
+  <section>
+    <h2>Scripts</h2>
+    <div class="card">
+      <div class="card-body">
+        <table class="paths-table">
+          <thead><tr><th>Script</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><code>scripts\start.bat</code></td><td>Start MySQL, PHP FastCGI, Nginx</td></tr>
+            <tr><td><code>scripts\stop.bat</code></td><td>Stop all three processes</td></tr>
+            <tr><td><code>scripts\reload-nginx.bat</code></td><td>Reload Nginx config without downtime</td></tr>
+            <tr><td><code>scripts\new-site.bat</code></td><td>Create a new WordPress site</td></tr>
+            <tr><td><code>scripts\delete-site.bat</code></td><td>Delete a site, its files and database</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- MySQL -->
+  <section>
+    <h2>MySQL</h2>
+    <div class="card">
+      <div class="card-body">
+        <div class="info-row"><span class="key">Host</span><span class="val">127.0.0.1</span></div>
+        <div class="info-row"><span class="key">Port</span><span class="val">3307</span></div>
+        <div class="info-row"><span class="key">Username</span><span class="val">root</span></div>
+        <div class="info-row"><span class="key">Password</span><span class="val"><em style="color:#475569">none (empty)</em></span></div>
+        <div class="info-row"><span class="key">Config</span><span class="val">E:\worpress-sites\mysql\my.ini</span></div>
+        <div class="info-row"><span class="key">Data</span><span class="val">E:\worpress-sites\mysql\data\</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- phpMyAdmin -->
+  <section>
+    <h2>phpMyAdmin</h2>
+    <div class="card">
+      <div class="card-body">
+        <div class="info-row"><span class="key">URL</span><span class="val"><a href="http://localhost:8080" target="_blank">http://localhost:8080</a></span></div>
+        <div class="info-row"><span class="key">Username</span><span class="val">root</span></div>
+        <div class="info-row"><span class="key">Password</span><span class="val"><em style="color:#475569">none (empty)</em></span></div>
+        <div class="info-row"><span class="key">Version</span><span class="val">5.2.2</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SSL -->
+  <section>
+    <h2>SSL Certificate</h2>
+    <div class="card">
+      <div class="card-body">
+        <div class="info-row"><span class="key">Dashboard HTTPS</span><span class="val"><a href="https://localhost" target="_blank">https://localhost</a></span></div>
+        <div class="info-row"><span class="key">phpMyAdmin HTTPS</span><span class="val"><a href="https://localhost:8443" target="_blank">https://localhost:8443</a></span></div>
+        <div class="info-row"><span class="key">Sites HTTPS</span><span class="val">https://localhost:PORT (e.g. 8001, 8002…)</span></div>
+        <div class="info-row"><span class="key">Certificate</span><span class="val"><code style="color:#fde68a;background:#1e2533;padding:2px 6px;border-radius:4px;font-family:monospace">ssl\cert.pem</code></span></div>
+        <div class="info-row"><span class="key">Valid for</span><span class="val">10 years · localhost · 127.0.0.1</span></div>
+      </div>
+    </div>
+    <div class="card" style="border-color:#1e3a2a">
+      <div class="card-header" style="border-color:#1e3a2a">
+        <div class="icon">🔒</div>
+        <h3>Trust the certificate on this PC</h3>
+        <span class="badge green">One-time setup</span>
+      </div>
+      <div class="card-body">
+        <div style="font-size:0.82rem;color:#94a3b8;margin-bottom:12px">Run once in terminal — no admin required. After running, fully restart your browser.</div>
+        <div class="code-block">
+          <div class="lang">PowerShell</div>
+          <button class="copy-btn" onclick="copy(this)">Copy</button>
+          <pre>Import-Certificate -FilePath '<span style="color:#fde68a">E:\worpress-sites\ssl\cert.pem</span>' -CertStoreLocation '<span style="color:#c4b5fd">Cert:\CurrentUser\Root</span>'</pre>
+        </div>
+        <div style="font-size:0.82rem;color:#94a3b8;margin-top:16px;margin-bottom:8px;font-weight:600">Or manually via File Explorer:</div>
+        <ol style="font-size:0.82rem;color:#94a3b8;padding-left:20px;line-height:2">
+          <li>Open <code style="color:#fde68a;background:#1e2533;padding:2px 6px;border-radius:4px;font-family:monospace">E:\worpress-sites\ssl\</code> in File Explorer</li>
+          <li>Right-click <code style="color:#fde68a;background:#1e2533;padding:2px 6px;border-radius:4px;font-family:monospace">cert.crt</code> → <strong style="color:#e2e8f0">Install Certificate</strong></li>
+          <li>Select <strong style="color:#e2e8f0">Local Machine</strong> → Next</li>
+          <li>Choose <strong style="color:#e2e8f0">Place all certificates in the following store</strong> → Browse</li>
+          <li>Select <strong style="color:#e2e8f0">Trusted Root Certification Authorities</strong> → OK</li>
+          <li>Next → <strong style="color:#e2e8f0">Finish</strong></li>
+          <li>Fully close and reopen your browser</li>
+        </ol>
+        <div style="font-size:0.8rem;color:#475569;margin-top:12px">
+          ⚠ Self-signed cert — only valid on this machine. Visitors from other IPs will still see "Not Secure".
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Paths -->
+  <section>
+    <h2>Directory Layout</h2>
+    <div class="card">
+      <div class="card-body">
+        <table class="paths-table">
+          <thead><tr><th>Path</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>nginx\</code></td><td>Nginx 1.26 binary and config</td></tr>
+            <tr><td><code>mysql\</code></td><td>MySQL 8.0 binaries, data, logs, my.ini</td></tr>
+            <tr><td><code>phpmyadmin\</code></td><td>phpMyAdmin 5.2 — <a href="http://localhost:8080">localhost:8080</a></td></tr>
+            <tr><td><code>sites\{name}\public\</code></td><td>WordPress files per site</td></tr>
+            <tr><td><code>config\nginx\</code></td><td>One .conf per site (auto-loaded)</td></tr>
+            <tr><td><code>config\ports.txt</code></td><td>Last assigned port number</td></tr>
+            <tr><td><code>logs\nginx\</code></td><td>Per-site access and error logs</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    E:\worpress-sites &nbsp;·&nbsp; Nginx 1.26 · MySQL 8.0.36 · PHP 8.5.5 · phpMyAdmin 5.2.2
+  </footer>
+</div>
+
+<script>
+  async function loadSites() {
+    const grid = document.getElementById('sites-grid');
+    grid.innerHTML = '<p class="loading">Loading...</p>';
+    try {
+      const res = await fetch('/status.php');
+      const sites = await res.json();
+      if (!sites.length) {
+        grid.innerHTML = '<p class="loading">No sites yet. Run scripts\\new-site.bat to create one.</p>';
+        return;
+      }
+      grid.innerHTML = sites.map(s => `
+        <div class="site-card">
+          <div class="port-bar">
+            <div class="port-label">HTTP</div>
+            <div class="port-num">${s.port}</div>
+            <div class="port-label" style="margin-top:6px">HTTPS</div>
+            <div class="port-num" style="font-size:0.85rem">${s.port + 1000}</div>
+          </div>
+          <div class="site-info">
+            <div>
+              <div class="site-name">${s.name}</div>
+              <div class="site-meta">${s.root}</div>
+            </div>
+            <div class="site-actions">
+              ${s.installed
+                ? `<span class="installed-badge">Installed</span>`
+                : `<span class="pending-badge">Setup needed</span>`}
+              <a class="btn btn-primary" href="${s.url}" target="_blank">HTTP</a>
+              <a class="btn btn-primary" href="${s.url_https}" target="_blank">HTTPS</a>
+              <a class="btn btn-admin" href="${s.url}/wp-admin" target="_blank">WP Admin</a>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    } catch(e) {
+      grid.innerHTML = '<p class="loading">Could not load site list.</p>';
+    }
+  }
+
+  function copy(btn) {
+    const pre = btn.closest('.code-block').querySelector('pre');
+    navigator.clipboard.writeText(pre.innerText).then(() => {
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy', 1500);
+    });
+  }
+
+  loadSites();
+</script>
+</body>
+</html>
