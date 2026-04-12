@@ -40,6 +40,7 @@ The setup generates:
 
 If Git is not installed, SSL certificate generation may fail because `openssl.exe` cannot be found.
 
-## Quick Glimpse
+## Quick Glimpse  
+Dashboard: https:localhost
 
 ![Localhost Dashboard](./localhost-dashboard.png)
