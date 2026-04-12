@@ -1,6 +1,6 @@
 # Local WordPress Stack
 
-This project sets up a local WordPress development stack on Windows with PHP, Nginx, MariaDB, phpMyAdmin, and SSL support.
+This project sets up a local WordPress development stack on Windows with PHP, Nginx, MySQL, phpMyAdmin, and SSL support.
 
 ## Requirement
 
