@@ -1,0 +1,1289 @@
+localhost-wp/
+├─ config/
+│  └─ nginx/
+│     └─ snippets/
+├─ logs/
+│  ├─ nginx/
+│  └─ php/
+├─ mysql/
+│  ├─ bin/
+│  ├─ data/
+│  │  ├─ #innodb_redo/
+│  │  ├─ #innodb_temp/
+│  │  ├─ mysql/
+│  │  ├─ performance_schema/
+│  │  ├─ sys/
+│  │  └─ wp@002dtest/
+│  ├─ include/
+│  │  ├─ mysql/
+│  │  └─ openssl/
+│  ├─ lib/
+│  │  ├─ mecab/
+│  │  │  ├─ dic/
+│  │  │  │  ├─ ipadic_euc-jp/
+│  │  │  │  ├─ ipadic_sjis/
+│  │  │  │  └─ ipadic_utf-8/
+│  │  │  └─ etc/
+│  │  ├─ plugin/
+│  │  │  └─ debug/
+│  │  └─ private/
+│  │     └─ icudt73l/
+│  │        └─ brkitr/
+│  ├─ logs/
+│  └─ share/
+│     ├─ bulgarian/
+│     ├─ charsets/
+│     ├─ czech/
+│     ├─ danish/
+│     ├─ dutch/
+│     ├─ english/
+│     ├─ estonian/
+│     ├─ french/
+│     ├─ german/
+│     ├─ greek/
+│     ├─ hungarian/
+│     ├─ italian/
+│     ├─ japanese/
+│     ├─ korean/
+│     ├─ norwegian/
+│     ├─ norwegian-ny/
+│     ├─ polish/
+│     ├─ portuguese/
+│     ├─ romanian/
+│     ├─ russian/
+│     ├─ serbian/
+│     ├─ slovak/
+│     ├─ spanish/
+│     ├─ swedish/
+│     └─ ukrainian/
+├─ nginx/
+│  ├─ conf/
+│  ├─ contrib/
+│  │  ├─ unicode2nginx/
+│  │  └─ vim/
+│  │     ├─ ftdetect/
+│  │     ├─ ftplugin/
+│  │     ├─ indent/
+│  │     └─ syntax/
+│  ├─ docs/
+│  ├─ html/
+│  ├─ logs/
+│  └─ temp/
+│     ├─ client_body_temp/
+│     ├─ fastcgi_temp/
+│     ├─ proxy_temp/
+│     ├─ scgi_temp/
+│     └─ uwsgi_temp/
+├─ php/
+│  ├─ dev/
+│  ├─ ext/
+│  ├─ extras/
+│  │  └─ ssl/
+│  └─ lib/
+│     └─ enchant/
+├─ phpmyadmin/
+│  ├─ doc/
+│  │  └─ html/
+│  │     ├─ _images/
+│  │     ├─ _sources/
+│  │     └─ _static/
+│  ├─ examples/
+│  ├─ js/
+│  │  ├─ config/
+│  │  │  └─ ol/
+│  │  ├─ dist/
+│  │  │  ├─ codemirror/
+│  │  │  │  └─ addon/
+│  │  │  │     └─ lint/
+│  │  │  ├─ database/
+│  │  │  ├─ designer/
+│  │  │  ├─ jqplot/
+│  │  │  │  └─ plugins/
+│  │  │  ├─ server/
+│  │  │  │  └─ status/
+│  │  │  ├─ setup/
+│  │  │  ├─ table/
+│  │  │  └─ transformations/
+│  │  ├─ src/
+│  │  │  ├─ codemirror/
+│  │  │  │  └─ addon/
+│  │  │  │     └─ lint/
+│  │  │  ├─ database/
+│  │  │  ├─ designer/
+│  │  │  ├─ jqplot/
+│  │  │  │  └─ plugins/
+│  │  │  ├─ server/
+│  │  │  │  └─ status/
+│  │  │  ├─ setup/
+│  │  │  ├─ table/
+│  │  │  └─ transformations/
+│  │  └─ vendor/
+│  │     ├─ bootstrap/
+│  │     ├─ codemirror/
+│  │     │  ├─ addon/
+│  │     │  │  ├─ hint/
+│  │     │  │  ├─ lint/
+│  │     │  │  └─ runmode/
+│  │     │  ├─ lib/
+│  │     │  └─ mode/
+│  │     │     ├─ javascript/
+│  │     │     ├─ sql/
+│  │     │     └─ xml/
+│  │     ├─ jqplot/
+│  │     │  └─ plugins/
+│  │     ├─ jquery/
+│  │     └─ openlayers/
+│  │        └─ theme/
+│  ├─ libraries/
+│  │  ├─ cache/
+│  │  └─ classes/
+│  │     ├─ Charsets/
+│  │     ├─ Command/
+│  │     ├─ Config/
+│  │     │  ├─ Forms/
+│  │     │  │  ├─ Page/
+│  │     │  │  ├─ Setup/
+│  │     │  │  └─ User/
+│  │     │  └─ Settings/
+│  │     ├─ ConfigStorage/
+│  │     │  └─ Features/
+│  │     ├─ Controllers/
+│  │     │  ├─ Config/
+│  │     │  ├─ Database/
+│  │     │  │  ├─ CentralColumns/
+│  │     │  │  ├─ MultiTableQuery/
+│  │     │  │  ├─ Operations/
+│  │     │  │  └─ Structure/
+│  │     │  │     └─ CentralColumns/
+│  │     │  ├─ Export/
+│  │     │  │  └─ Template/
+│  │     │  ├─ Import/
+│  │     │  ├─ Preferences/
+│  │     │  ├─ Server/
+│  │     │  │  ├─ Databases/
+│  │     │  │  ├─ Privileges/
+│  │     │  │  ├─ Status/
+│  │     │  │  │  ├─ Monitor/
+│  │     │  │  │  └─ Processes/
+│  │     │  │  └─ Variables/
+│  │     │  ├─ Setup/
+│  │     │  ├─ Sql/
+│  │     │  ├─ Table/
+│  │     │  │  ├─ Maintenance/
+│  │     │  │  ├─ Partition/
+│  │     │  │  └─ Structure/
+│  │     │  ├─ Transformation/
+│  │     │  └─ View/
+│  │     ├─ Crypto/
+│  │     ├─ Database/
+│  │     │  └─ Designer/
+│  │     ├─ Dbal/
+│  │     ├─ Display/
+│  │     ├─ Engines/
+│  │     ├─ Exceptions/
+│  │     ├─ Export/
+│  │     ├─ Gis/
+│  │     ├─ Html/
+│  │     ├─ Http/
+│  │     │  └─ Factory/
+│  │     ├─ Image/
+│  │     ├─ Import/
+│  │     ├─ Navigation/
+│  │     │  └─ Nodes/
+│  │     ├─ Partitioning/
+│  │     ├─ Plugins/
+│  │     │  ├─ Auth/
+│  │     │  ├─ Export/
+│  │     │  │  └─ Helpers/
+│  │     │  ├─ Import/
+│  │     │  │  └─ Upload/
+│  │     │  ├─ Schema/
+│  │     │  │  ├─ Dia/
+│  │     │  │  ├─ Eps/
+│  │     │  │  ├─ Pdf/
+│  │     │  │  └─ Svg/
+│  │     │  ├─ Transformations/
+│  │     │  │  ├─ Abs/
+│  │     │  │  ├─ Input/
+│  │     │  │  └─ Output/
+│  │     │  └─ TwoFactor/
+│  │     ├─ Properties/
+│  │     │  ├─ Options/
+│  │     │  │  ├─ Groups/
+│  │     │  │  └─ Items/
+│  │     │  └─ Plugins/
+│  │     ├─ Providers/
+│  │     │  └─ ServerVariables/
+│  │     ├─ Query/
+│  │     ├─ Server/
+│  │     │  ├─ Privileges/
+│  │     │  ├─ Status/
+│  │     │  └─ SysInfo/
+│  │     ├─ Setup/
+│  │     ├─ Table/
+│  │     │  └─ Maintenance/
+│  │     ├─ Twig/
+│  │     ├─ Utils/
+│  │     └─ WebAuthn/
+│  ├─ locale/
+│  │  ├─ ar/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ az/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ be/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ bg/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ bn/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ ca/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ cs/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ da/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ de/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ el/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ en_GB/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ es/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ et/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ fi/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ fr/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ gl/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ he/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ hu/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ hy/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ ia/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ id/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ it/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ ja/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ ka/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ kk/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ ko/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ nb/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ nl/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ pl/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ pt/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ pt_BR/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ ro/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ ru/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ si/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ sk/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ sl/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ sq/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ sv/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ tr/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ ug/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ uk/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ vi/
+│  │  │  └─ LC_MESSAGES/
+│  │  ├─ zh_CN/
+│  │  │  └─ LC_MESSAGES/
+│  │  └─ zh_TW/
+│  │     └─ LC_MESSAGES/
+│  ├─ setup/
+│  │  ├─ lib/
+│  │  ├─ scss/
+│  │  └─ themes/
+│  ├─ sql/
+│  ├─ templates/
+│  │  ├─ columns_definitions/
+│  │  ├─ components/
+│  │  ├─ config/
+│  │  │  └─ form_display/
+│  │  ├─ console/
+│  │  ├─ database/
+│  │  │  ├─ central_columns/
+│  │  │  ├─ data_dictionary/
+│  │  │  ├─ designer/
+│  │  │  ├─ events/
+│  │  │  ├─ export/
+│  │  │  ├─ import/
+│  │  │  ├─ multi_table_query/
+│  │  │  ├─ operations/
+│  │  │  ├─ privileges/
+│  │  │  ├─ qbe/
+│  │  │  ├─ routines/
+│  │  │  ├─ search/
+│  │  │  ├─ structure/
+│  │  │  ├─ tracking/
+│  │  │  └─ triggers/
+│  │  ├─ display/
+│  │  │  └─ results/
+│  │  ├─ encoding/
+│  │  ├─ error/
+│  │  ├─ export/
+│  │  ├─ home/
+│  │  ├─ import/
+│  │  ├─ javascript/
+│  │  ├─ login/
+│  │  │  └─ twofactor/
+│  │  ├─ menu/
+│  │  ├─ modals/
+│  │  ├─ navigation/
+│  │  │  └─ tree/
+│  │  ├─ plugins/
+│  │  ├─ preferences/
+│  │  │  ├─ forms/
+│  │  │  ├─ manage/
+│  │  │  └─ two_factor/
+│  │  ├─ relation/
+│  │  ├─ server/
+│  │  │  ├─ binlog/
+│  │  │  ├─ collations/
+│  │  │  ├─ databases/
+│  │  │  ├─ engines/
+│  │  │  ├─ export/
+│  │  │  ├─ import/
+│  │  │  ├─ plugins/
+│  │  │  ├─ privileges/
+│  │  │  ├─ replication/
+│  │  │  ├─ select/
+│  │  │  ├─ status/
+│  │  │  │  ├─ advisor/
+│  │  │  │  ├─ monitor/
+│  │  │  │  ├─ processes/
+│  │  │  │  ├─ queries/
+│  │  │  │  ├─ status/
+│  │  │  │  └─ variables/
+│  │  │  ├─ user_groups/
+│  │  │  └─ variables/
+│  │  ├─ setup/
+│  │  │  ├─ config/
+│  │  │  ├─ form/
+│  │  │  ├─ home/
+│  │  │  └─ servers/
+│  │  ├─ sql/
+│  │  └─ table/
+│  │     ├─ browse_foreigners/
+│  │     ├─ chart/
+│  │     ├─ delete/
+│  │     ├─ export/
+│  │     ├─ find_replace/
+│  │     ├─ gis_visualization/
+│  │     ├─ import/
+│  │     ├─ insert/
+│  │     ├─ maintenance/
+│  │     ├─ operations/
+│  │     ├─ partition/
+│  │     ├─ privileges/
+│  │     ├─ relation/
+│  │     ├─ search/
+│  │     ├─ structure/
+│  │     ├─ tracking/
+│  │     └─ zoom_search/
+│  ├─ themes/
+│  │  ├─ bootstrap/
+│  │  │  ├─ css/
+│  │  │  ├─ img/
+│  │  │  │  └─ designer/
+│  │  │  ├─ jquery/
+│  │  │  │  └─ images/
+│  │  │  └─ scss/
+│  │  ├─ metro/
+│  │  │  ├─ css/
+│  │  │  ├─ img/
+│  │  │  │  └─ designer/
+│  │  │  ├─ jquery/
+│  │  │  │  └─ images/
+│  │  │  └─ scss/
+│  │  ├─ original/
+│  │  │  ├─ css/
+│  │  │  ├─ img/
+│  │  │  ├─ jquery/
+│  │  │  │  └─ images/
+│  │  │  └─ scss/
+│  │  └─ pmahomme/
+│  │     ├─ css/
+│  │     ├─ img/
+│  │     │  └─ designer/
+│  │     ├─ jquery/
+│  │     │  └─ images/
+│  │     └─ scss/
+│  └─ vendor/
+│     ├─ bacon/
+│     │  └─ bacon-qr-code/
+│     │     └─ src/
+│     │        ├─ Common/
+│     │        ├─ Encoder/
+│     │        ├─ Exception/
+│     │        └─ Renderer/
+│     │           ├─ Color/
+│     │           ├─ Eye/
+│     │           ├─ Image/
+│     │           ├─ Module/
+│     │           │  └─ EdgeIterator/
+│     │           ├─ Path/
+│     │           └─ RendererStyle/
+│     ├─ beberlei/
+│     │  └─ assert/
+│     │     └─ lib/
+│     │        └─ Assert/
+│     ├─ brick/
+│     │  └─ math/
+│     │     └─ src/
+│     │        ├─ Exception/
+│     │        └─ Internal/
+│     │           └─ Calculator/
+│     ├─ code-lts/
+│     │  └─ u2f-php-server/
+│     │     └─ src/
+│     ├─ composer/
+│     │  └─ ca-bundle/
+│     │     ├─ res/
+│     │     └─ src/
+│     ├─ dasprid/
+│     │  └─ enum/
+│     │     └─ src/
+│     │        └─ Exception/
+│     ├─ fgrosse/
+│     │  └─ phpasn1/
+│     │     └─ lib/
+│     │        ├─ ASN1/
+│     │        │  ├─ Composite/
+│     │        │  ├─ Exception/
+│     │        │  └─ Universal/
+│     │        ├─ Utility/
+│     │        └─ X509/
+│     │           ├─ CSR/
+│     │           └─ SAN/
+│     ├─ fig/
+│     │  └─ http-message-util/
+│     │     └─ src/
+│     ├─ google/
+│     │  └─ recaptcha/
+│     │     └─ src/
+│     │        └─ ReCaptcha/
+│     │           └─ RequestMethod/
+│     ├─ league/
+│     │  ├─ uri/
+│     │  │  └─ src/
+│     │  │     ├─ Exceptions/
+│     │  │     └─ UriTemplate/
+│     │  └─ uri-interfaces/
+│     │     └─ src/
+│     │        ├─ Contracts/
+│     │        ├─ Exceptions/
+│     │        └─ Idna/
+│     ├─ nikic/
+│     │  └─ fast-route/
+│     │     └─ src/
+│     │        ├─ DataGenerator/
+│     │        ├─ Dispatcher/
+│     │        └─ RouteParser/
+│     ├─ paragonie/
+│     │  ├─ constant_time_encoding/
+│     │  │  └─ src/
+│     │  ├─ random_compat/
+│     │  │  └─ lib/
+│     │  └─ sodium_compat/
+│     │     ├─ lib/
+│     │     ├─ namespaced/
+│     │     │  └─ Core/
+│     │     │     ├─ ChaCha20/
+│     │     │     ├─ Curve25519/
+│     │     │     │  └─ Ge/
+│     │     │     └─ Poly1305/
+│     │     └─ src/
+│     │        ├─ Core/
+│     │        │  ├─ AEGIS/
+│     │        │  ├─ AES/
+│     │        │  ├─ Base64/
+│     │        │  ├─ ChaCha20/
+│     │        │  ├─ Curve25519/
+│     │        │  │  └─ Ge/
+│     │        │  ├─ Poly1305/
+│     │        │  └─ SecretStream/
+│     │        └─ Core32/
+│     │           ├─ ChaCha20/
+│     │           ├─ Curve25519/
+│     │           │  └─ Ge/
+│     │           ├─ Poly1305/
+│     │           └─ SecretStream/
+│     ├─ phpmyadmin/
+│     │  ├─ motranslator/
+│     │  │  └─ src/
+│     │  │     └─ Cache/
+│     │  ├─ shapefile/
+│     │  │  └─ src/
+│     │  ├─ sql-parser/
+│     │  │  ├─ locale/
+│     │  │  │  ├─ af/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ ar/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ ast/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ az/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ be/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ be@latin/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ bg/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ bn/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ br/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ brx/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ bs/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ ca/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ ckb/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ cs/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ cy/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ da/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ de/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ el/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ en_GB/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ eo/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ es/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ et/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ eu/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ fa/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ fi/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ fr/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ fy/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ gl/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ gu/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ he/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ hi/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ hr/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ hu/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ hy/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ ia/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ id/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ it/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ ja/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ ka/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ kk/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ km/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ kmr/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ kn/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ ko/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ ksh/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ ky/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ li/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ lt/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ lv/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ mk/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ ml/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ mn/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ ms/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ nb/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ ne/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ nl/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ pa/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ pl/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ pt/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ pt_BR/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ rcf/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ ro/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ ru/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ si/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ sk/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ sl/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ sq/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ sr/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ sr@latin/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ sv/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ ta/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ te/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ th/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ tk/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ tr/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ tt/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ ug/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ uk/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ ur/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ uz/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ uz@latin/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ vi/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ vls/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  ├─ zh_CN/
+│     │  │  │  │  └─ LC_MESSAGES/
+│     │  │  │  └─ zh_TW/
+│     │  │  │     └─ LC_MESSAGES/
+│     │  │  └─ src/
+│     │  │     ├─ Components/
+│     │  │     ├─ Contexts/
+│     │  │     ├─ Exceptions/
+│     │  │     ├─ Statements/
+│     │  │     └─ Utils/
+│     │  └─ twig-i18n-extension/
+│     │     └─ src/
+│     │        ├─ Node/
+│     │        └─ TokenParser/
+│     ├─ pragmarx/
+│     │  ├─ google2fa/
+│     │  │  └─ src/
+│     │  │     ├─ Exceptions/
+│     │  │     │  └─ Contracts/
+│     │  │     └─ Support/
+│     │  └─ google2fa-qrcode/
+│     │     └─ src/
+│     │        ├─ Exceptions/
+│     │        └─ QRCode/
+│     ├─ psr/
+│     │  ├─ cache/
+│     │  │  └─ src/
+│     │  ├─ container/
+│     │  │  └─ src/
+│     │  ├─ http-client/
+│     │  │  └─ src/
+│     │  ├─ http-factory/
+│     │  │  └─ src/
+│     │  ├─ http-message/
+│     │  │  └─ src/
+│     │  └─ log/
+│     │     └─ Psr/
+│     │        └─ Log/
+│     ├─ ralouphie/
+│     │  └─ getallheaders/
+│     │     └─ src/
+│     ├─ ramsey/
+│     │  ├─ collection/
+│     │  │  ├─ bin/
+│     │  │  └─ src/
+│     │  │     ├─ Exception/
+│     │  │     ├─ Map/
+│     │  │     └─ Tool/
+│     │  └─ uuid/
+│     │     └─ src/
+│     │        ├─ Builder/
+│     │        ├─ Codec/
+│     │        ├─ Converter/
+│     │        │  ├─ Number/
+│     │        │  └─ Time/
+│     │        ├─ Exception/
+│     │        ├─ Fields/
+│     │        ├─ Generator/
+│     │        ├─ Guid/
+│     │        ├─ Lazy/
+│     │        ├─ Math/
+│     │        ├─ Nonstandard/
+│     │        ├─ Provider/
+│     │        │  ├─ Dce/
+│     │        │  ├─ Node/
+│     │        │  └─ Time/
+│     │        ├─ Rfc4122/
+│     │        ├─ Type/
+│     │        └─ Validator/
+│     ├─ slim/
+│     │  └─ psr7/
+│     │     └─ src/
+│     │        ├─ Factory/
+│     │        └─ Interfaces/
+│     ├─ spomky-labs/
+│     │  ├─ base64url/
+│     │  │  └─ src/
+│     │  └─ cbor-php/
+│     │     └─ src/
+│     │        ├─ OtherObject/
+│     │        └─ Tag/
+│     ├─ symfony/
+│     │  ├─ cache/
+│     │  │  ├─ Adapter/
+│     │  │  ├─ DataCollector/
+│     │  │  ├─ DependencyInjection/
+│     │  │  ├─ Exception/
+│     │  │  ├─ Marshaller/
+│     │  │  ├─ Messenger/
+│     │  │  └─ Traits/
+│     │  ├─ cache-contracts/
+│     │  ├─ config/
+│     │  │  ├─ Builder/
+│     │  │  ├─ Definition/
+│     │  │  │  ├─ Builder/
+│     │  │  │  ├─ Dumper/
+│     │  │  │  └─ Exception/
+│     │  │  ├─ Exception/
+│     │  │  ├─ Loader/
+│     │  │  ├─ Resource/
+│     │  │  └─ Util/
+│     │  │     └─ Exception/
+│     │  ├─ dependency-injection/
+│     │  │  ├─ Argument/
+│     │  │  ├─ Attribute/
+│     │  │  ├─ Compiler/
+│     │  │  ├─ Config/
+│     │  │  ├─ Dumper/
+│     │  │  ├─ Exception/
+│     │  │  ├─ Extension/
+│     │  │  ├─ LazyProxy/
+│     │  │  │  ├─ Instantiator/
+│     │  │  │  └─ PhpDumper/
+│     │  │  ├─ Loader/
+│     │  │  │  ├─ Configurator/
+│     │  │  │  │  └─ Traits/
+│     │  │  │  └─ schema/
+│     │  │  │     └─ dic/
+│     │  │  │        └─ services/
+│     │  │  └─ ParameterBag/
+│     │  ├─ deprecation-contracts/
+│     │  ├─ expression-language/
+│     │  │  └─ Node/
+│     │  ├─ filesystem/
+│     │  │  └─ Exception/
+│     │  ├─ polyfill-ctype/
+│     │  ├─ polyfill-mbstring/
+│     │  │  └─ Resources/
+│     │  │     └─ unidata/
+│     │  ├─ polyfill-php73/
+│     │  │  └─ Resources/
+│     │  │     └─ stubs/
+│     │  ├─ polyfill-php80/
+│     │  │  └─ Resources/
+│     │  │     └─ stubs/
+│     │  ├─ polyfill-php81/
+│     │  │  └─ Resources/
+│     │  │     └─ stubs/
+│     │  ├─ process/
+│     │  │  ├─ Exception/
+│     │  │  └─ Pipes/
+│     │  ├─ service-contracts/
+│     │  │  └─ Attribute/
+│     │  └─ var-exporter/
+│     │     ├─ Exception/
+│     │     └─ Internal/
+│     ├─ tecnickcom/
+│     │  └─ tcpdf/
+│     │     ├─ config/
+│     │     ├─ fonts/
+│     │     └─ include/
+│     │        └─ barcodes/
+│     ├─ thecodingmachine/
+│     │  └─ safe/
+│     │     ├─ deprecated/
+│     │     │  └─ Exceptions/
+│     │     ├─ generated/
+│     │     │  └─ Exceptions/
+│     │     └─ lib/
+│     │        └─ Exceptions/
+│     ├─ twig/
+│     │  └─ twig/
+│     │     └─ src/
+│     │        ├─ Attribute/
+│     │        ├─ Cache/
+│     │        ├─ Error/
+│     │        ├─ Extension/
+│     │        ├─ Loader/
+│     │        ├─ Node/
+│     │        │  └─ Expression/
+│     │        │     ├─ Binary/
+│     │        │     ├─ Filter/
+│     │        │     ├─ Test/
+│     │        │     └─ Unary/
+│     │        ├─ NodeVisitor/
+│     │        ├─ Profiler/
+│     │        │  ├─ Dumper/
+│     │        │  ├─ Node/
+│     │        │  └─ NodeVisitor/
+│     │        ├─ Resources/
+│     │        ├─ Runtime/
+│     │        ├─ RuntimeLoader/
+│     │        ├─ Sandbox/
+│     │        ├─ TokenParser/
+│     │        └─ Util/
+│     ├─ web-auth/
+│     │  ├─ cose-lib/
+│     │  │  └─ src/
+│     │  │     ├─ Algorithm/
+│     │  │     │  ├─ Mac/
+│     │  │     │  └─ Signature/
+│     │  │     │     ├─ ECDSA/
+│     │  │     │     ├─ EdDSA/
+│     │  │     │     └─ RSA/
+│     │  │     └─ Key/
+│     │  ├─ metadata-service/
+│     │  │  └─ src/
+│     │  └─ webauthn-lib/
+│     │     └─ src/
+│     │        ├─ AttestationStatement/
+│     │        ├─ AuthenticationExtensions/
+│     │        ├─ CertificateChainChecker/
+│     │        ├─ Counter/
+│     │        ├─ TokenBinding/
+│     │        ├─ TrustPath/
+│     │        └─ Util/
+│     ├─ webmozart/
+│     │  └─ assert/
+│     │     └─ src/
+│     └─ williamdes/
+│        └─ mariadb-mysql-kbs/
+│           ├─ dist/
+│           └─ src/
+├─ scripts/
+├─ sites/
+│  └─ wp-test/
+│     └─ public/
+│        ├─ wp-admin/
+│        │  ├─ css/
+│        │  │  └─ colors/
+│        │  │     ├─ blue/
+│        │  │     ├─ coffee/
+│        │  │     ├─ ectoplasm/
+│        │  │     ├─ light/
+│        │  │     ├─ midnight/
+│        │  │     ├─ modern/
+│        │  │     ├─ ocean/
+│        │  │     └─ sunrise/
+│        │  ├─ images/
+│        │  ├─ includes/
+│        │  ├─ js/
+│        │  │  └─ widgets/
+│        │  ├─ maint/
+│        │  ├─ network/
+│        │  └─ user/
+│        ├─ wp-content/
+│        │  ├─ plugins/
+│        │  │  └─ akismet/
+│        │  │     ├─ _inc/
+│        │  │     │  ├─ fonts/
+│        │  │     │  ├─ img/
+│        │  │     │  └─ rtl/
+│        │  │     └─ views/
+│        │  ├─ themes/
+│        │  │  ├─ twentytwentyfive/
+│        │  │  │  ├─ assets/
+│        │  │  │  │  ├─ css/
+│        │  │  │  │  ├─ fonts/
+│        │  │  │  │  │  ├─ beiruti/
+│        │  │  │  │  │  ├─ fira-code/
+│        │  │  │  │  │  ├─ fira-sans/
+│        │  │  │  │  │  ├─ literata/
+│        │  │  │  │  │  ├─ manrope/
+│        │  │  │  │  │  ├─ platypi/
+│        │  │  │  │  │  ├─ roboto-slab/
+│        │  │  │  │  │  ├─ vollkorn/
+│        │  │  │  │  │  └─ ysabeau-office/
+│        │  │  │  │  └─ images/
+│        │  │  │  ├─ parts/
+│        │  │  │  ├─ patterns/
+│        │  │  │  ├─ styles/
+│        │  │  │  │  ├─ blocks/
+│        │  │  │  │  ├─ colors/
+│        │  │  │  │  ├─ sections/
+│        │  │  │  │  └─ typography/
+│        │  │  │  └─ templates/
+│        │  │  ├─ twentytwentyfour/
+│        │  │  │  ├─ assets/
+│        │  │  │  │  ├─ css/
+│        │  │  │  │  ├─ fonts/
+│        │  │  │  │  │  ├─ cardo/
+│        │  │  │  │  │  ├─ instrument-sans/
+│        │  │  │  │  │  ├─ inter/
+│        │  │  │  │  │  └─ jost/
+│        │  │  │  │  └─ images/
+│        │  │  │  ├─ parts/
+│        │  │  │  ├─ patterns/
+│        │  │  │  ├─ styles/
+│        │  │  │  └─ templates/
+│        │  │  └─ twentytwentythree/
+│        │  │     ├─ assets/
+│        │  │     │  └─ fonts/
+│        │  │     │     ├─ dm-sans/
+│        │  │     │     ├─ ibm-plex-mono/
+│        │  │     │     ├─ inter/
+│        │  │     │     └─ source-serif-pro/
+│        │  │     ├─ parts/
+│        │  │     ├─ patterns/
+│        │  │     ├─ styles/
+│        │  │     └─ templates/
+│        │  └─ uploads/
+│        │     └─ 2026/
+│        │        └─ 04/
+│        └─ wp-includes/
+│           ├─ abilities-api/
+│           ├─ assets/
+│           ├─ block-bindings/
+│           ├─ block-patterns/
+│           ├─ block-supports/
+│           ├─ blocks/
+│           │  ├─ accordion/
+│           │  ├─ accordion-heading/
+│           │  ├─ accordion-item/
+│           │  ├─ accordion-panel/
+│           │  ├─ archives/
+│           │  ├─ audio/
+│           │  ├─ avatar/
+│           │  ├─ block/
+│           │  ├─ button/
+│           │  ├─ buttons/
+│           │  ├─ calendar/
+│           │  ├─ categories/
+│           │  ├─ code/
+│           │  ├─ column/
+│           │  ├─ columns/
+│           │  ├─ comment-author-name/
+│           │  ├─ comment-content/
+│           │  ├─ comment-date/
+│           │  ├─ comment-edit-link/
+│           │  ├─ comment-reply-link/
+│           │  ├─ comment-template/
+│           │  ├─ comments/
+│           │  ├─ comments-pagination/
+│           │  ├─ comments-pagination-next/
+│           │  ├─ comments-pagination-numbers/
+│           │  ├─ comments-pagination-previous/
+│           │  ├─ comments-title/
+│           │  ├─ cover/
+│           │  ├─ details/
+│           │  ├─ embed/
+│           │  ├─ file/
+│           │  ├─ footnotes/
+│           │  ├─ freeform/
+│           │  ├─ gallery/
+│           │  ├─ group/
+│           │  ├─ heading/
+│           │  ├─ home-link/
+│           │  ├─ html/
+│           │  ├─ image/
+│           │  ├─ latest-comments/
+│           │  ├─ latest-posts/
+│           │  ├─ legacy-widget/
+│           │  ├─ list/
+│           │  ├─ list-item/
+│           │  ├─ loginout/
+│           │  ├─ math/
+│           │  ├─ media-text/
+│           │  ├─ missing/
+│           │  ├─ more/
+│           │  ├─ navigation/
+│           │  ├─ navigation-link/
+│           │  ├─ navigation-submenu/
+│           │  ├─ nextpage/
+│           │  ├─ page-list/
+│           │  ├─ page-list-item/
+│           │  ├─ paragraph/
+│           │  ├─ pattern/
+│           │  ├─ post-author/
+│           │  ├─ post-author-biography/
+│           │  ├─ post-author-name/
+│           │  ├─ post-comments-count/
+│           │  ├─ post-comments-form/
+│           │  ├─ post-comments-link/
+│           │  ├─ post-content/
+│           │  ├─ post-date/
+│           │  ├─ post-excerpt/
+│           │  ├─ post-featured-image/
+│           │  ├─ post-navigation-link/
+│           │  ├─ post-template/
+│           │  ├─ post-terms/
+│           │  ├─ post-time-to-read/
+│           │  ├─ post-title/
+│           │  ├─ preformatted/
+│           │  ├─ pullquote/
+│           │  ├─ query/
+│           │  ├─ query-no-results/
+│           │  ├─ query-pagination/
+│           │  ├─ query-pagination-next/
+│           │  ├─ query-pagination-numbers/
+│           │  ├─ query-pagination-previous/
+│           │  ├─ query-title/
+│           │  ├─ query-total/
+│           │  ├─ quote/
+│           │  ├─ read-more/
+│           │  ├─ rss/
+│           │  ├─ search/
+│           │  ├─ separator/
+│           │  ├─ shortcode/
+│           │  ├─ site-logo/
+│           │  ├─ site-tagline/
+│           │  ├─ site-title/
+│           │  ├─ social-link/
+│           │  ├─ social-links/
+│           │  ├─ spacer/
+│           │  ├─ table/
+│           │  ├─ tag-cloud/
+│           │  ├─ template-part/
+│           │  ├─ term-count/
+│           │  ├─ term-description/
+│           │  ├─ term-name/
+│           │  ├─ term-template/
+│           │  ├─ terms-query/
+│           │  ├─ text-columns/
+│           │  ├─ verse/
+│           │  ├─ video/
+│           │  └─ widget-group/
+│           ├─ certificates/
+│           ├─ css/
+│           │  └─ dist/
+│           │     ├─ admin-ui/
+│           │     ├─ base-styles/
+│           │     ├─ block-directory/
+│           │     ├─ block-editor/
+│           │     ├─ block-library/
+│           │     ├─ commands/
+│           │     ├─ components/
+│           │     ├─ customize-widgets/
+│           │     ├─ edit-post/
+│           │     ├─ edit-site/
+│           │     ├─ edit-widgets/
+│           │     ├─ editor/
+│           │     ├─ format-library/
+│           │     ├─ list-reusable-blocks/
+│           │     ├─ nux/
+│           │     ├─ patterns/
+│           │     ├─ preferences/
+│           │     ├─ reusable-blocks/
+│           │     └─ widgets/
+│           ├─ customize/
+│           ├─ fonts/
+│           ├─ html-api/
+│           ├─ ID3/
+│           ├─ images/
+│           │  ├─ crystal/
+│           │  ├─ media/
+│           │  └─ smilies/
+│           ├─ interactivity-api/
+│           ├─ IXR/
+│           ├─ js/
+│           │  ├─ codemirror/
+│           │  ├─ crop/
+│           │  ├─ dist/
+│           │  │  ├─ development/
+│           │  │  ├─ script-modules/
+│           │  │  │  ├─ a11y/
+│           │  │  │  ├─ block-editor/
+│           │  │  │  │  └─ utils/
+│           │  │  │  ├─ block-library/
+│           │  │  │  │  ├─ accordion/
+│           │  │  │  │  ├─ file/
+│           │  │  │  │  ├─ form/
+│           │  │  │  │  ├─ image/
+│           │  │  │  │  ├─ navigation/
+│           │  │  │  │  ├─ query/
+│           │  │  │  │  └─ search/
+│           │  │  │  ├─ interactivity/
+│           │  │  │  └─ interactivity-router/
+│           │  │  └─ vendor/
+│           │  ├─ imgareaselect/
+│           │  ├─ jcrop/
+│           │  ├─ jquery/
+│           │  │  └─ ui/
+│           │  ├─ mediaelement/
+│           │  │  └─ renderers/
+│           │  ├─ plupload/
+│           │  ├─ swfupload/
+│           │  ├─ thickbox/
+│           │  └─ tinymce/
+│           │     ├─ langs/
+│           │     ├─ plugins/
+│           │     │  ├─ charmap/
+│           │     │  ├─ colorpicker/
+│           │     │  ├─ compat3x/
+│           │     │  │  └─ css/
+│           │     │  ├─ directionality/
+│           │     │  ├─ fullscreen/
+│           │     │  ├─ hr/
+│           │     │  ├─ image/
+│           │     │  ├─ link/
+│           │     │  ├─ lists/
+│           │     │  ├─ media/
+│           │     │  ├─ paste/
+│           │     │  ├─ tabfocus/
+│           │     │  ├─ textcolor/
+│           │     │  ├─ wordpress/
+│           │     │  ├─ wpautoresize/
+│           │     │  ├─ wpdialogs/
+│           │     │  ├─ wpeditimage/
+│           │     │  ├─ wpemoji/
+│           │     │  ├─ wpgallery/
+│           │     │  ├─ wplink/
+│           │     │  ├─ wptextpattern/
+│           │     │  └─ wpview/
+│           │     ├─ skins/
+│           │     │  ├─ lightgray/
+│           │     │  │  ├─ fonts/
+│           │     │  │  └─ img/
+│           │     │  └─ wordpress/
+│           │     │     └─ images/
+│           │     ├─ themes/
+│           │     │  ├─ inlite/
+│           │     │  └─ modern/
+│           │     └─ utils/
+│           ├─ l10n/
+│           ├─ php-compat/
+│           ├─ PHPMailer/
+│           ├─ pomo/
+│           ├─ Requests/
+│           │  ├─ library/
+│           │  └─ src/
+│           │     ├─ Auth/
+│           │     ├─ Cookie/
+│           │     ├─ Exception/
+│           │     │  ├─ Http/
+│           │     │  └─ Transport/
+│           │     ├─ Proxy/
+│           │     ├─ Response/
+│           │     ├─ Transport/
+│           │     └─ Utility/
+│           ├─ rest-api/
+│           │  ├─ endpoints/
+│           │  ├─ fields/
+│           │  └─ search/
+│           ├─ SimplePie/
+│           │  ├─ library/
+│           │  │  └─ SimplePie/
+│           │  │     ├─ Cache/
+│           │  │     ├─ Content/
+│           │  │     │  └─ Type/
+│           │  │     ├─ Decode/
+│           │  │     │  └─ HTML/
+│           │  │     ├─ HTTP/
+│           │  │     ├─ Net/
+│           │  │     ├─ Parse/
+│           │  │     └─ XML/
+│           │  │        └─ Declaration/
+│           │  └─ src/
+│           │     ├─ Cache/
+│           │     ├─ Content/
+│           │     │  └─ Type/
+│           │     ├─ HTTP/
+│           │     ├─ Net/
+│           │     ├─ Parse/
+│           │     └─ XML/
+│           │        └─ Declaration/
+│           ├─ sitemaps/
+│           │  └─ providers/
+│           ├─ sodium_compat/
+│           │  ├─ lib/
+│           │  ├─ namespaced/
+│           │  │  └─ Core/
+│           │  │     ├─ ChaCha20/
+│           │  │     ├─ Curve25519/
+│           │  │     │  └─ Ge/
+│           │  │     └─ Poly1305/
+│           │  └─ src/
+│           │     ├─ Core/
+│           │     │  ├─ AEGIS/
+│           │     │  ├─ AES/
+│           │     │  ├─ Base64/
+│           │     │  ├─ ChaCha20/
+│           │     │  ├─ Curve25519/
+│           │     │  │  └─ Ge/
+│           │     │  ├─ Poly1305/
+│           │     │  └─ SecretStream/
+│           │     ├─ Core32/
+│           │     │  ├─ ChaCha20/
+│           │     │  ├─ Curve25519/
+│           │     │  │  └─ Ge/
+│           │     │  ├─ Poly1305/
+│           │     │  └─ SecretStream/
+│           │     └─ PHP52/
+│           ├─ style-engine/
+│           ├─ Text/
+│           │  └─ Diff/
+│           │     ├─ Engine/
+│           │     └─ Renderer/
+│           ├─ theme-compat/
+│           └─ widgets/
+└─ ssl/
