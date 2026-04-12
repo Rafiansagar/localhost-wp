@@ -8,7 +8,7 @@ This project sets up a local WordPress development stack on Windows with PHP, Ng
 - The initializer uses `openssl.exe` to generate the local SSL certificate.
 - In this project, OpenSSL is expected from **Git for Windows** if a system OpenSSL install is not available.
 
-## Root Directory Tree
+## Root Directory Tree Will Create Automatically
 
 ```text
 localhost-wp
