@@ -1,1 +1,1 @@
-E:\worpress-sites
+E:wordpress-sites

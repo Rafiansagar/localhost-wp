@@ -1,5 +1,6 @@
-param([string]$Base = "E:\worpress-sites")
+param([string]$Base = "")
 
+$Base = if ([string]::IsNullOrWhiteSpace($Base)) { $PSScriptRoot } else { $Base }
 $Base = $Base.TrimEnd('\').TrimEnd('/')
 $ErrorActionPreference = "Stop"
 
@@ -139,27 +140,44 @@ if (!(Test-Path "$Base\mysql\data\mysql")) {
 # ============================================================
 if (!(Test-Path "$Base\ssl\cert.pem")) {
     Step "Generating self-signed SSL certificate..."
-    # Write generate-ssl.php temporarily then run it
-    $sslScript = @"
-<?php
-`$sslDir = '$BaseSlash/ssl';
-`$conf = "[req]\ndistinguished_name = req_distinguished_name\nx509_extensions = v3_req\nprompt = no\n\n[req_distinguished_name]\nCN = localhost\n\n[v3_req]\nsubjectAltName = @alt_names\nkeyUsage = digitalSignature, keyEncipherment, dataEncipherment\nextendedKeyUsage = serverAuth\n\n[alt_names]\nDNS.1 = localhost\nIP.1  = 127.0.0.1\n";
-`$confFile = `$sslDir . '/openssl.cnf';
-file_put_contents(`$confFile, `$conf);
-`$config = ['digest_alg'=>'sha256','private_key_bits'=>2048,'private_key_type'=>OPENSSL_KEYTYPE_RSA,'config'=>`$confFile,'x509_extensions'=>'v3_req'];
-`$key  = openssl_pkey_new(`$config);
-`$csr  = openssl_csr_new(['CN'=>'localhost'], `$key, `$config);
-`$cert = openssl_csr_sign(`$csr, null, `$key, 3650, `$config);
-openssl_x509_export(`$cert, `$certPem);
-openssl_pkey_export(`$key, `$keyPem, null, `$config);
-file_put_contents(`$sslDir . '/cert.pem', `$certPem);
-file_put_contents(`$sslDir . '/key.pem',  `$keyPem);
-@unlink(`$confFile);
-echo "[+] SSL certificate generated.\n";
-"@
-    $sslScript | Set-Content "$Base\ssl\_gen.php"
-    & "$Base\php\php.exe" "$Base\ssl\_gen.php"
-    Remove-Item "$Base\ssl\_gen.php" -Force
+    $openSsl = $null
+    $cmd = Get-Command openssl -ErrorAction SilentlyContinue
+    if ($cmd) { $openSsl = $cmd.Source }
+    if (-not $openSsl) {
+        foreach ($candidate in @(
+            "C:\Program Files\Git\mingw64\bin\openssl.exe",
+            "C:\Program Files\Git\usr\bin\openssl.exe"
+        )) {
+            if (Test-Path $candidate) {
+                $openSsl = $candidate
+                break
+            }
+        }
+    }
+    if (-not $openSsl) { Fail "OpenSSL executable not found." }
+    @"
+[req]
+distinguished_name = req_distinguished_name
+x509_extensions = v3_req
+prompt = no
+
+[req_distinguished_name]
+CN = localhost
+
+[v3_req]
+subjectAltName = @alt_names
+keyUsage = digitalSignature, keyEncipherment, dataEncipherment
+extendedKeyUsage = serverAuth
+
+[alt_names]
+DNS.1 = localhost
+IP.1 = 127.0.0.1
+"@ | Set-Content "$Base\ssl\openssl.cnf"
+    try {
+        & $openSsl req -x509 -nodes -newkey rsa:2048 -keyout "$Base\ssl\key.pem" -out "$Base\ssl\cert.pem" -days 3650 -config "$Base\ssl\openssl.cnf" -extensions v3_req -subj "/CN=localhost" | Out-Null
+    } finally {
+        Remove-Item "$Base\ssl\openssl.cnf" -Force -ErrorAction SilentlyContinue
+    }
     OK "SSL certificate ready."
 } else { Skip "SSL certificate" }
 
@@ -171,8 +189,8 @@ Step "Writing Nginx configs..."
 @"
 worker_processes  1;
 
-error_log  $BaseSlash/logs/nginx/error.log warn;
-pid        $BaseSlash/nginx/logs/nginx.pid;
+error_log  "$BaseSlash/logs/nginx/error.log" warn;
+pid        "$BaseSlash/nginx/logs/nginx.pid";
 
 events {
     worker_connections  1024;
@@ -197,7 +215,7 @@ http {
     server {
         listen 80 default_server;
         server_name _;
-        root $BaseSlash;
+        root "$BaseSlash";
         index index.html;
         location / { try_files `$uri `$uri/ =404; }
         location ~ \.php$ {
@@ -212,11 +230,11 @@ http {
     server {
         listen 443 ssl default_server;
         server_name _;
-        ssl_certificate     $BaseSlash/ssl/cert.pem;
-        ssl_certificate_key $BaseSlash/ssl/key.pem;
+        ssl_certificate     "$BaseSlash/ssl/cert.pem";
+        ssl_certificate_key "$BaseSlash/ssl/key.pem";
         ssl_protocols       TLSv1.2 TLSv1.3;
         ssl_ciphers         HIGH:!aNULL:!MD5;
-        root $BaseSlash;
+        root "$BaseSlash";
         index index.html;
         location / { try_files `$uri `$uri/ =404; }
         location ~ \.php$ {
@@ -228,7 +246,7 @@ http {
         }
     }
 
-    include $BaseSlash/config/nginx/*.conf;
+    include "$BaseSlash/config/nginx/*.conf";
 }
 "@ | Set-Content "$Base\nginx\conf\nginx.conf"
 
@@ -253,6 +271,11 @@ location ~ \.php$ {
     fastcgi_pass php;
     fastcgi_index index.php;
     fastcgi_param SCRIPT_FILENAME `$document_root`$fastcgi_script_name;
+    fastcgi_param HTTPS `$https if_not_empty;
+    fastcgi_param REQUEST_SCHEME `$scheme;
+    fastcgi_param HTTP_X_FORWARDED_PROTO `$scheme;
+    fastcgi_param HTTP_X_FORWARDED_PORT `$server_port;
+    fastcgi_param SERVER_PORT `$server_port;
     include fastcgi_params;
     fastcgi_read_timeout 300;
     fastcgi_buffers 16 16k;
@@ -264,10 +287,10 @@ location ~ \.php$ {
 server {
     listen 8080;
     server_name localhost;
-    root $BaseSlash/phpmyadmin;
+    root "$BaseSlash/phpmyadmin";
     index index.php;
-    access_log $BaseSlash/logs/nginx/pma-access.log main;
-    error_log  $BaseSlash/logs/nginx/pma-error.log warn;
+    access_log "$BaseSlash/logs/nginx/pma-access.log" main;
+    error_log  "$BaseSlash/logs/nginx/pma-error.log" warn;
     location / { try_files `$uri `$uri/ =404; }
     location ~ \.php$ {
         try_files `$uri =404;
@@ -282,14 +305,14 @@ server {
 server {
     listen 8443 ssl;
     server_name localhost;
-    ssl_certificate     $BaseSlash/ssl/cert.pem;
-    ssl_certificate_key $BaseSlash/ssl/key.pem;
+    ssl_certificate     "$BaseSlash/ssl/cert.pem";
+    ssl_certificate_key "$BaseSlash/ssl/key.pem";
     ssl_protocols       TLSv1.2 TLSv1.3;
     ssl_ciphers         HIGH:!aNULL:!MD5;
-    root $BaseSlash/phpmyadmin;
+    root "$BaseSlash/phpmyadmin";
     index index.php;
-    access_log $BaseSlash/logs/nginx/pma-access.log main;
-    error_log  $BaseSlash/logs/nginx/pma-error.log warn;
+    access_log "$BaseSlash/logs/nginx/pma-access.log" main;
+    error_log  "$BaseSlash/logs/nginx/pma-error.log" warn;
     location / { try_files `$uri `$uri/ =404; }
     location ~ \.php$ {
         try_files `$uri =404;
@@ -335,82 +358,253 @@ if (!(Test-Path "$Base\config\ports.txt")) {
 }
 
 # ============================================================
-# SCRIPTS  (use __BASE__ placeholder then replace)
+# SCRIPTS
 # ============================================================
 Step "Writing management scripts..."
 
 function WriteScript($path, $content) {
-    $content = $content.Replace('__BASE__', $Base)
     Set-Content $path $content
 }
 
+# --- ensure-php-runtime.ps1 ---
+WriteScript "$Base\scripts\ensure-php-runtime.ps1" @'
+param([string]$Base = "")
+
+$ErrorActionPreference = "Stop"
+$Base = if ([string]::IsNullOrWhiteSpace($Base)) { Split-Path -Parent $PSScriptRoot } else { $Base }
+$phpDir = Join-Path $Base "php"
+
+if (!(Test-Path (Join-Path $phpDir "php.exe"))) {
+    throw "PHP directory not found at $phpDir"
+}
+
+$sources = @(
+    "C:\Program Files (x86)\Microsoft\Edge\Application\146.0.3856.84",
+    "C:\Program Files (x86)\Microsoft\EdgeCore\146.0.3856.84",
+    "C:\Program Files (x86)\Microsoft\EdgeWebView\Application\146.0.3856.84",
+    "C:\Program Files (x86)\Microsoft\EdgeCore\Optimized"
+)
+
+$required = @("vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll")
+$copied = @()
+
+foreach ($name in $required) {
+    $dest = Join-Path $phpDir $name
+    if (Test-Path $dest) { continue }
+
+    $source = $null
+    foreach ($dir in $sources) {
+        $candidate = Join-Path $dir $name
+        if (Test-Path $candidate) {
+            $source = $candidate
+            break
+        }
+    }
+
+    if (-not $source) {
+        throw "Required runtime DLL not found: $name"
+    }
+
+    Copy-Item $source $dest -Force
+    $copied += $name
+}
+
+if ($copied.Count -gt 0) {
+    Write-Host "[+] PHP runtime DLLs copied: $($copied -join ', ')"
+} else {
+    Write-Host "[=] PHP runtime DLLs already present."
+}
+'@
+
 # --- start-php.ps1 ---
 WriteScript "$Base\scripts\start-php.ps1" @'
-param([string]$PhpCgi = "__BASE__\php\php-cgi.exe", [int]$Workers = 3)
-for ($i = 1; $i -le $Workers; $i++) {
-    Start-Process -FilePath $PhpCgi -ArgumentList "-b 127.0.0.1:9000" -WindowStyle Hidden
+param([string]$PhpCgi = "")
+
+$ErrorActionPreference = "Stop"
+
+$PhpCgi = if ([string]::IsNullOrWhiteSpace($PhpCgi)) { Join-Path (Split-Path -Parent $PSScriptRoot) "php\php-cgi.exe" } else { $PhpCgi }
+
+if (!(Test-Path $PhpCgi)) { throw "php-cgi.exe not found: $PhpCgi" }
+
+$phpDir = Split-Path -Parent $PhpCgi
+$iniPath = Join-Path $phpDir "php.ini"
+if (!(Test-Path $iniPath)) { throw "php.ini not found: $iniPath" }
+
+Start-Process -FilePath $PhpCgi -ArgumentList "-c `"$iniPath`" -b 127.0.0.1:9000" -WorkingDirectory $phpDir -WindowStyle Hidden
+Write-Host "[+] PHP FastCGI started on 127.0.0.1:9000."
+'@
+
+# --- generate-ssl.ps1 ---
+WriteScript "$Base\scripts\generate-ssl.ps1" @'
+param([string]$Base = "")
+
+$ErrorActionPreference = "Stop"
+$Base = if ([string]::IsNullOrWhiteSpace($Base)) { Split-Path -Parent $PSScriptRoot } else { $Base }
+$Base = $Base.TrimEnd('\').TrimEnd('/')
+$sslDir = Join-Path $Base "ssl"
+$certPath = Join-Path $sslDir "cert.pem"
+$keyPath = Join-Path $sslDir "key.pem"
+$confPath = Join-Path $sslDir "openssl.cnf"
+
+if ((Test-Path $certPath) -and (Test-Path $keyPath)) {
+    Write-Host "[=] SSL certificate already exists."
+    exit 0
 }
-Write-Host "[+] PHP FastCGI started ($Workers workers)."
+
+$openSsl = $null
+$cmd = Get-Command openssl -ErrorAction SilentlyContinue
+if ($cmd) {
+    $openSsl = $cmd.Source
+}
+
+if (-not $openSsl) {
+    foreach ($candidate in @(
+        "C:\Program Files\Git\mingw64\bin\openssl.exe",
+        "C:\Program Files\Git\usr\bin\openssl.exe"
+    )) {
+        if (Test-Path $candidate) {
+            $openSsl = $candidate
+            break
+        }
+    }
+}
+
+if (-not $openSsl) {
+    throw "OpenSSL executable not found."
+}
+
+New-Item -ItemType Directory -Force -Path $sslDir | Out-Null
+
+@"
+[req]
+distinguished_name = req_distinguished_name
+x509_extensions = v3_req
+prompt = no
+
+[req_distinguished_name]
+CN = localhost
+
+[v3_req]
+subjectAltName = @alt_names
+keyUsage = digitalSignature, keyEncipherment, dataEncipherment
+extendedKeyUsage = serverAuth
+
+[alt_names]
+DNS.1 = localhost
+IP.1 = 127.0.0.1
+"@ | Set-Content $confPath
+
+try {
+    & $openSsl req -x509 -nodes -newkey rsa:2048 -keyout $keyPath -out $certPath -days 3650 -config $confPath -extensions v3_req -subj "/CN=localhost"
+    if (!(Test-Path $certPath) -or !(Test-Path $keyPath)) {
+        throw "Certificate generation did not produce cert.pem and key.pem."
+    }
+    Write-Host "[+] SSL certificate generated."
+} finally {
+    if (Test-Path $confPath) {
+        Remove-Item $confPath -Force
+    }
+}
 '@
 
 # --- create-nginx-conf.ps1 ---
 WriteScript "$Base\scripts\create-nginx-conf.ps1" @'
-param([string]$SiteName, [string]$Port, [string]$Base = "__BASE__")
+param([string]$SiteName, [string]$Port, [string]$Base = "")
+
+$ErrorActionPreference = "Stop"
+
+if ([string]::IsNullOrWhiteSpace($SiteName)) { throw "SiteName parameter is required." }
+if ([string]::IsNullOrWhiteSpace($Port))     { throw "Port parameter is required." }
+
+$Base = if ([string]::IsNullOrWhiteSpace($Base)) { Split-Path -Parent $PSScriptRoot } else { $Base }
 $Base = $Base.Replace('\', '/')
 $httpsPort = [int]$Port + 1000
 $out = "server {`n"
 $out += "    listen $Port;`n"
 $out += "    server_name localhost 192.168.1.222;`n`n"
-$out += "    root $Base/sites/$SiteName/public;`n"
-$out += "    access_log $Base/logs/nginx/$SiteName-access.log main;`n"
-$out += "    error_log  $Base/logs/nginx/$SiteName-error.log warn;`n`n"
-$out += "    include $Base/config/nginx/snippets/wordpress-common.conf;`n"
+$out += "    access_log `"$Base/logs/nginx/$SiteName-access.log`" main;`n"
+$out += "    error_log  `"$Base/logs/nginx/$SiteName-error.log`" warn;`n"
+$out += "    return 301 https://`$host:$httpsPort`$request_uri;`n"
 $out += "}`n`n"
 $out += "server {`n"
 $out += "    listen $httpsPort ssl;`n"
 $out += "    server_name localhost 192.168.1.222;`n`n"
-$out += "    ssl_certificate     $Base/ssl/cert.pem;`n"
-$out += "    ssl_certificate_key $Base/ssl/key.pem;`n"
+$out += "    ssl_certificate     `"$Base/ssl/cert.pem`";`n"
+$out += "    ssl_certificate_key `"$Base/ssl/key.pem`";`n"
 $out += "    ssl_protocols       TLSv1.2 TLSv1.3;`n"
 $out += "    ssl_ciphers         HIGH:!aNULL:!MD5;`n`n"
-$out += "    root $Base/sites/$SiteName/public;`n"
-$out += "    access_log $Base/logs/nginx/$SiteName-access.log main;`n"
-$out += "    error_log  $Base/logs/nginx/$SiteName-error.log warn;`n`n"
-$out += "    include $Base/config/nginx/snippets/wordpress-common.conf;`n"
+$out += "    root `"$Base/sites/$SiteName/public`";`n"
+$out += "    access_log `"$Base/logs/nginx/$SiteName-access.log`" main;`n"
+$out += "    error_log  `"$Base/logs/nginx/$SiteName-error.log`" warn;`n`n"
+$out += "    include `"$Base/config/nginx/snippets/wordpress-common.conf`";`n"
 $out += "}`n"
-Set-Content "$Base\config\nginx\$SiteName.conf" $out
+$confDir = "$Base\config\nginx"
+if (!(Test-Path $confDir)) { throw "Nginx config directory not found: $confDir" }
+
+Set-Content "$confDir\$SiteName.conf" $out
 Write-Host "[+] Nginx config created (HTTP $Port / HTTPS $httpsPort)."
 '@
 
 # --- start.bat ---
 WriteScript "$Base\scripts\start.bat" @'
 @echo off
-setlocal
-set BASE=__BASE__
+setlocal EnableDelayedExpansion
+set "BASE=%~dp0.."
+for %%I in ("%BASE%") do set "BASE=%%~fI"
 set NGINX_DIR=%BASE%\nginx
 set PHP_CGI=%BASE%\php\php-cgi.exe
 set MYSQLD=%BASE%\mysql\bin\mysqld.exe
+set MYSQLADMIN=%BASE%\mysql\bin\mysqladmin.exe
 set MYSQL_BASE=%BASE%\mysql
+set STACK_STATUS=OK
 
 echo [*] Starting local WordPress stack...
 
 tasklist /FI "IMAGENAME eq mysqld.exe" 2>NUL | find /I "mysqld.exe" >NUL
 if %ERRORLEVEL% NEQ 0 (
     echo [*] Starting MySQL...
-    powershell -Command "Start-Process -FilePath '%MYSQLD%' -ArgumentList '--defaults-file=%MYSQL_BASE%\my.ini','--standalone' -WindowStyle Hidden"
-    timeout /t 5 /nobreak >NUL
-    echo [+] MySQL started.
+    start "" /min /d "%MYSQL_BASE%\bin" "%MYSQLD%" "--defaults-file=%MYSQL_BASE%\my.ini" --console
+    set MYSQL_READY=
+    for /L %%I in (1,1,20) do (
+        if not defined MYSQL_READY (
+            "%MYSQLADMIN%" --protocol=TCP --host=127.0.0.1 --port=3307 -u root ping --silent >NUL 2>&1
+            if !ERRORLEVEL! EQU 0 set MYSQL_READY=1
+            if not defined MYSQL_READY timeout /t 1 /nobreak >NUL
+        )
+    )
+    if defined MYSQL_READY (
+        echo [+] MySQL started on 127.0.0.1:3307.
+    ) else (
+        echo [ERROR] MySQL did not become ready on 127.0.0.1:3307.
+        set STACK_STATUS=ERROR
+    )
 ) else (
     echo [=] MySQL already running.
 )
 
 tasklist /FI "IMAGENAME eq php-cgi.exe" 2>NUL | find /I "php-cgi.exe" >NUL
 if %ERRORLEVEL% NEQ 0 (
-    echo [*] Starting PHP FastCGI on port 9000...
+    echo [*] Starting PHP FastCGI on 127.0.0.1:9000...
+    powershell -ExecutionPolicy Bypass -File "%BASE%\scripts\ensure-php-runtime.ps1" -Base "%BASE%"
     powershell -ExecutionPolicy Bypass -File "%BASE%\scripts\start-php.ps1" -PhpCgi "%PHP_CGI%"
     timeout /t 2 /nobreak >NUL
 ) else (
     echo [=] PHP FastCGI already running.
+)
+
+if not exist "%BASE%\ssl\cert.pem" (
+    echo [*] Generating SSL certificate...
+    powershell -ExecutionPolicy Bypass -File "%BASE%\scripts\generate-ssl.ps1" -Base "%BASE%"
+)
+
+if not exist "%BASE%\ssl\cert.pem" (
+    echo [ERROR] SSL certificate is missing. Nginx cannot start.
+    set STACK_STATUS=ERROR
+)
+
+if not exist "%BASE%\ssl\key.pem" (
+    echo [ERROR] SSL private key is missing. Nginx cannot start.
+    set STACK_STATUS=ERROR
 )
 
 tasklist /FI "IMAGENAME eq nginx.exe" 2>NUL | find /I "nginx.exe" >NUL
@@ -418,13 +612,23 @@ if %ERRORLEVEL% NEQ 0 (
     echo [*] Starting Nginx...
     powershell -Command "$psi=New-Object System.Diagnostics.ProcessStartInfo; $psi.FileName='%NGINX_DIR%\nginx.exe'; $psi.WorkingDirectory='%NGINX_DIR%'; $psi.UseShellExecute=$false; $psi.EnvironmentVariables.Remove('NGINX'); [System.Diagnostics.Process]::Start($psi)|Out-Null"
     timeout /t 2 /nobreak >NUL
-    echo [+] Nginx started.
+    tasklist /FI "IMAGENAME eq nginx.exe" 2>NUL | find /I "nginx.exe" >NUL
+    if !ERRORLEVEL! EQU 0 (
+        echo [+] Nginx started.
+    ) else (
+        echo [ERROR] Nginx failed to start. Check logs\nginx\error.log
+        set STACK_STATUS=ERROR
+    )
 ) else (
     echo [=] Nginx already running.
 )
 
 echo.
-echo [OK] Stack is running.
+if "!STACK_STATUS!"=="OK" (
+    echo [OK] Stack is running.
+) else (
+    echo [WARN] Stack started with errors.
+)
 echo      Dashboard : https://localhost
 echo      phpMyAdmin: http://localhost:8080
 echo      Sites dir : %BASE%\sites
@@ -447,7 +651,9 @@ pause
 # --- reload-nginx.bat ---
 WriteScript "$Base\scripts\reload-nginx.bat" @'
 @echo off
-set NGINX_DIR=__BASE__\nginx
+set "BASE=%~dp0.."
+for %%I in ("%BASE%") do set "BASE=%%~fI"
+set NGINX_DIR=%BASE%\nginx
 echo [*] Reloading Nginx config...
 powershell -Command "$psi=New-Object System.Diagnostics.ProcessStartInfo; $psi.FileName='%NGINX_DIR%\nginx.exe'; $psi.WorkingDirectory='%NGINX_DIR%'; $psi.Arguments='-s reload'; $psi.UseShellExecute=$false; $psi.EnvironmentVariables.Remove('NGINX'); [System.Diagnostics.Process]::Start($psi)|Out-Null"
 echo [+] Done.
@@ -457,8 +663,11 @@ echo [+] Done.
 WriteScript "$Base\scripts\new-site.bat" @'
 @echo off
 setlocal EnableDelayedExpansion
-set BASE=__BASE__
+set "BASE=%~dp0.."
+for %%I in ("%BASE%") do set "BASE=%%~fI"
 set MYSQL_BIN=%BASE%\mysql\bin
+set MYSQL_EXE=%MYSQL_BIN%\mysql.exe
+set MYSQLADMIN_EXE=%MYSQL_BIN%\mysqladmin.exe
 set PORTS_FILE=%BASE%\config\ports.txt
 
 if "%~1"=="" (
@@ -466,19 +675,35 @@ if "%~1"=="" (
 ) else (
     set SITE_NAME=%~1
 )
-if "%SITE_NAME%"=="" ( echo [!] No site name provided. & exit /b 1 )
+if "%SITE_NAME%"=="" ( echo [!] No site name provided. & goto :error )
 
 set SITE_DIR=%BASE%\sites\%SITE_NAME%
 set PUBLIC_DIR=%SITE_DIR%\public
 set DB_NAME=%SITE_NAME%
 set DB_USER=root
 
+if exist "%PUBLIC_DIR%" ( echo [!] Directory already exists. & goto :error )
+
+echo [*] Checking MySQL on 127.0.0.1:3307...
+"%MYSQLADMIN_EXE%" --protocol=TCP --host=127.0.0.1 --port=3307 -u root ping --silent >NUL 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    echo [!] MySQL is not ready on 127.0.0.1:3307. Run scripts\start.bat first.
+    goto :error
+)
+
+echo [*] Creating database: %DB_NAME%...
+"%MYSQL_EXE%" --protocol=TCP --host=127.0.0.1 --port=3307 -u root -e "CREATE DATABASE IF NOT EXISTS `%DB_NAME%` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+if %ERRORLEVEL% NEQ 0 (
+    echo [!] Failed to create database.
+    goto :error
+)
+echo [+] Database created.
+
 set PORT=8000
 if exist "%PORTS_FILE%" (
     for /F "tokens=*" %%A in (%PORTS_FILE%) do set PORT=%%A
     set /A PORT=PORT+1
 )
-echo !PORT! > "%PORTS_FILE%"
 
 echo.
 echo [*] Creating site: %SITE_NAME%
@@ -488,22 +713,19 @@ set /A HTTPS_PORT=!PORT!+1000
 echo     URL       : http://localhost:!PORT!  /  https://localhost:!HTTPS_PORT!
 echo.
 
-if exist "%PUBLIC_DIR%" ( echo [!] Directory already exists. & exit /b 1 )
 mkdir "%PUBLIC_DIR%"
 echo [+] Created directory.
 
 echo [*] Downloading WordPress...
 powershell -Command "Invoke-WebRequest -Uri 'https://wordpress.org/latest.zip' -OutFile '%SITE_DIR%\wp.zip' -UseBasicParsing"
+if %ERRORLEVEL% NEQ 0 ( echo [!] Failed to download WordPress. & goto :error )
 powershell -Command "Expand-Archive -Path '%SITE_DIR%\wp.zip' -DestinationPath '%SITE_DIR%\wp_tmp' -Force"
+if %ERRORLEVEL% NEQ 0 ( echo [!] Failed to extract WordPress archive. & goto :error )
 xcopy /E /Q "%SITE_DIR%\wp_tmp\wordpress\*" "%PUBLIC_DIR%\" >NUL
+if %ERRORLEVEL% GEQ 4 ( echo [!] Failed to copy WordPress files. & goto :error )
 rmdir /S /Q "%SITE_DIR%\wp_tmp"
 del "%SITE_DIR%\wp.zip"
 echo [+] WordPress downloaded and extracted.
-
-echo [*] Creating database: %DB_NAME%...
-"%MYSQL_BIN%\mysql.exe" -uroot -h127.0.0.1 -P3307 -e "CREATE DATABASE IF NOT EXISTS %DB_NAME% CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-if %ERRORLEVEL% NEQ 0 ( echo [!] Failed to create database. Is MySQL running? & exit /b 1 )
-echo [+] Database created.
 
 echo [*] Creating wp-config.php...
 copy "%PUBLIC_DIR%\wp-config-sample.php" "%PUBLIC_DIR%\wp-config.php" >NUL
@@ -512,6 +734,9 @@ echo [+] wp-config.php created.
 
 echo [*] Creating Nginx config on port !PORT!...
 powershell -ExecutionPolicy Bypass -File "%BASE%\scripts\create-nginx-conf.ps1" -SiteName "%SITE_NAME%" -Port "!PORT!" -Base "%BASE%"
+if %ERRORLEVEL% NEQ 0 ( echo [!] Failed to create Nginx config. & goto :error )
+
+echo !PORT! > "%PORTS_FILE%"
 
 call "%BASE%\scripts\reload-nginx.bat"
 
@@ -525,6 +750,13 @@ echo  DB    : %DB_NAME% (root / no password)
 echo  PMA   : http://localhost:8080
 echo ============================================
 echo.
+goto :done
+
+:error
+echo.
+echo [!] Setup failed. See error above.
+
+:done
 pause
 '@
 
@@ -532,8 +764,10 @@ pause
 WriteScript "$Base\scripts\delete-site.bat" @'
 @echo off
 setlocal EnableDelayedExpansion
-set BASE=__BASE__
+set "BASE=%~dp0.."
+for %%I in ("%BASE%") do set "BASE=%%~fI"
 set MYSQL_BIN=%BASE%\mysql\bin
+set MYSQL_EXE=%MYSQL_BIN%\mysql.exe
 
 if "%~1"=="" (
     echo.
@@ -566,7 +800,7 @@ if exist "%SITE_DIR%" (
 ) else ( echo [=] No files found. )
 
 echo [*] Dropping database...
-"%MYSQL_BIN%\mysql.exe" -uroot -h127.0.0.1 -P3307 -e "DROP DATABASE IF EXISTS %SITE_NAME%;"
+"%MYSQL_EXE%" --protocol=TCP --host=127.0.0.1 --port=3307 -u root -e "DROP DATABASE IF EXISTS `%SITE_NAME%`;"
 if %ERRORLEVEL% EQU 0 ( echo [+] Database dropped. ) else ( echo [!] Could not drop DB. Is MySQL running? )
 
 if exist "%NGINX_CONF%" (
@@ -601,7 +835,7 @@ foreach (glob(`$configDir . '/*.conf') as `$file) {
     preg_match('/listen\s+(\d+)/', `$content, `$portMatch);
     preg_match('/root\s+([^\n;]+)/', `$content, `$rootMatch);
     `$port = `$portMatch[1] ?? null;
-    `$root = trim(`$rootMatch[1] ?? '');
+    `$root = trim(`$rootMatch[1] ?? '', " \t\n\r\0\x0B\"'");
     if (!`$port) continue;
     `$sites[] = [
         'name'      => `$name,
@@ -622,23 +856,7 @@ OK "Dashboard files written."
 # START THE STACK
 # ============================================================
 Step "Starting MySQL..."
-Start-Process -FilePath "$Base\mysql\bin\mysqld.exe" -ArgumentList "--defaults-file=$Base\mysql\my.ini","--standalone" -WindowStyle Hidden
-Start-Sleep 6
-OK "MySQL started on port 3307."
-
-Step "Starting PHP FastCGI..."
-& powershell -ExecutionPolicy Bypass -File "$Base\scripts\start-php.ps1"
-Start-Sleep 2
-
-Step "Starting Nginx..."
-$psi2 = New-Object System.Diagnostics.ProcessStartInfo
-$psi2.FileName = "$Base\nginx\nginx.exe"
-$psi2.WorkingDirectory = "$Base\nginx"
-$psi2.UseShellExecute = $false
-$psi2.EnvironmentVariables.Remove("NGINX")
-[System.Diagnostics.Process]::Start($psi2) | Out-Null
-Start-Sleep 2
-OK "Nginx started on port 80."
+& cmd /c "$Base\scripts\start.bat"
 
 # ============================================================
 # DONE
