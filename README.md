@@ -10,10 +10,26 @@ This project sets up a local WordPress development stack on Windows with PHP, Ng
 
 ## Run
 
-Use either of these files from the project root:
+Run/Double click init.bat from the project root:
 
 - `init.bat`
-- `init.ps1`
+
+During setup, the initializer will automatically download the required packages if the corresponding directories are missing.
+
+## Optional Manual Downloads
+
+If you want to avoid download time during setup, download and extract these packages manually, then place them into the matching project directories before running the initializer:
+
+- `nginx`:
+  https://nginx.org/download/nginx-1.26.3.zip
+- `mysql`:
+  https://cdn.mysql.com/archives/mysql-8.0/mysql-8.0.36-winx64.zip
+- `php`:
+  https://downloads.php.net/~windows/releases/php-8.3.30-nts-Win32-vs16-x86.zip
+- `phpmyadmin`:
+  https://files.phpmyadmin.net/phpMyAdmin/5.2.2/phpMyAdmin-5.2.2-all-languages.zip
+
+If those extracted directories already exist in root dir as `nginx`, `php`, `mysql`, and `phpmyadmin`, the initializer will use them instead of downloading again.
 
 ## SSL Note
 
@@ -23,3 +39,7 @@ The setup generates:
 - `ssl/key.pem`
 
 If Git is not installed, SSL certificate generation may fail because `openssl.exe` cannot be found.
+
+## Quick Glimpse
+
+![Localhost Dashboard](./localhost-dashboard.png)

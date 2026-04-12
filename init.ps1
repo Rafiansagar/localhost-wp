@@ -71,7 +71,7 @@ if (!(Test-Path "$Base\mysql\bin\mysqld.exe")) {
 # PHP
 # ============================================================
 if (!(Test-Path "$Base\php\php-cgi.exe")) {
-    Download "https://windows.php.net/downloads/releases/php-8.5.5-nts-Win32-vs17-x64.zip" "$Base\_php.zip" "PHP 8.5.5 NTS"
+    Download "https://downloads.php.net/~windows/releases/php-8.3.30-nts-Win32-vs16-x86.zip" "$Base\_php.zip" "PHP 8.3.30 NTS"
     Step "Extracting PHP..."
     Extract "$Base\_php.zip" "$Base\php"
     Remove-Item "$Base\_php.zip" -Force
