@@ -16,6 +16,21 @@ Run/Double click init.bat from the project root:
 
 During setup, the initializer will automatically download the required packages if the corresponding directories are missing.
 
+## Root Directory Tree
+
+```text
+localhost-wp
+├─ config
+├─ logs
+├─ mysql
+├─ nginx
+├─ php
+├─ phpmyadmin
+├─ scripts
+├─ sites
+└─ ssl
+```
+
 ## Optional Manual Downloads
 
 If you want to avoid download time during setup, download and extract these packages manually, then place them into the matching project directories before running the initializer:
