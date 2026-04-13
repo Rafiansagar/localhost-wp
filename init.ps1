@@ -29,6 +29,13 @@ Write-Host "============================================" -ForegroundColor Blue
 Write-Host ""
 
 # ============================================================
+# LocalIP
+# ============================================================
+$LocalIP = (Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -ne $null -and $_.NetAdapter.Status -eq 'Up' } | Select-Object -First 1).IPv4Address.IPAddress
+if (-not $LocalIP) { $LocalIP = "127.0.0.1" }
+Write-Host "[*] Local IP: $LocalIP" -ForegroundColor Cyan
+
+# ============================================================
 # DIRECTORIES
 # ============================================================
 Step "Creating directory structure..."
@@ -172,6 +179,7 @@ extendedKeyUsage = serverAuth
 [alt_names]
 DNS.1 = localhost
 IP.1 = 127.0.0.1
+IP.2 = $LocalIP
 "@ | Set-Content "$Base\ssl\openssl.cnf"
     try {
         & $openSsl req -x509 -nodes -newkey rsa:2048 -keyout "$Base\ssl\key.pem" -out "$Base\ssl\cert.pem" -days 3650 -config "$Base\ssl\openssl.cnf" -extensions v3_req -subj "/CN=localhost" | Out-Null
@@ -492,6 +500,7 @@ extendedKeyUsage = serverAuth
 [alt_names]
 DNS.1 = localhost
 IP.1 = 127.0.0.1
+IP.2 = $LocalIP
 "@ | Set-Content $confPath
 
 try {
@@ -521,14 +530,14 @@ $Base = $Base.Replace('\', '/')
 $httpsPort = [int]$Port + 1000
 $out = "server {`n"
 $out += "    listen $Port;`n"
-$out += "    server_name localhost 192.168.1.222;`n`n"
+$out += "    server_name localhost $LocalIP;`n`n"
 $out += "    access_log `"$Base/logs/nginx/$SiteName-access.log`" main;`n"
 $out += "    error_log  `"$Base/logs/nginx/$SiteName-error.log`" warn;`n"
 $out += "    return 301 https://`$host:$httpsPort`$request_uri;`n"
 $out += "}`n`n"
 $out += "server {`n"
 $out += "    listen $httpsPort ssl;`n"
-$out += "    server_name localhost 192.168.1.222;`n`n"
+$out += "    server_name localhost $LocalIP;`n`n"
 $out += "    ssl_certificate     `"$Base/ssl/cert.pem`";`n"
 $out += "    ssl_certificate_key `"$Base/ssl/key.pem`";`n"
 $out += "    ssl_protocols       TLSv1.2 TLSv1.3;`n"
