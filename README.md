@@ -53,7 +53,7 @@ The setup generates:
 - `ssl/cert.pem`
 - `ssl/key.pem`
 
-If Git is not installed, SSL certificate generation may fail because `openssl.exe` cannot be found.
+If Git/Gitbash is not installed, SSL certificate generation may fail because `openssl.exe` cannot be found.
 
 ## Quick Glimpse  
 Dashboard: https:localhost
