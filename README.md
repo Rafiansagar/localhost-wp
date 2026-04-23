@@ -50,8 +50,14 @@ If those extracted directories already exist in root dir as `nginx`, `php`, `mys
 
 The setup generates:
 
+- `ssl/rootCA.pem`
+- `ssl/rootCA.key`
 - `ssl/cert.pem`
 - `ssl/key.pem`
+
+The installer creates a local root CA, trusts it for the current Windows user, then signs the server certificate for `localhost`, `127.0.0.1`, and the active machine IP.
+
+PHP is also configured to trust that local CA through `curl.cainfo` and `openssl.cafile`, so `wp_remote_get()` can verify HTTPS calls to the local sites.
 
 If Git/Gitbash is not installed, SSL certificate generation may fail because `openssl.exe` cannot be found.
 

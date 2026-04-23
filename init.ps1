@@ -103,6 +103,7 @@ if (!(Test-Path "$Base\phpmyadmin\index.php")) {
 Step "Configuring PHP..."
 Copy-Item "$Base\php\php.ini-production" "$Base\php\php.ini" -Force
 $BaseSlash = $Base.Replace('\','/')
+$caFile = "$BaseSlash/ssl/rootCA.pem"
 $ini = Get-Content "$Base\php\php.ini"
 $ini = $ini -replace ';extension_dir = "ext"',"extension_dir = `"$BaseSlash/php/ext`""
 foreach ($ext in @("curl","exif","fileinfo","gd","intl","mbstring","mysqli","openssl","pdo_mysql","zip")) {
@@ -112,6 +113,9 @@ $ini = $ini -replace "upload_max_filesize = 2M","upload_max_filesize = 64M"
 $ini = $ini -replace "post_max_size = 8M","post_max_size = 64M"
 $ini = $ini -replace "max_execution_time = 30","max_execution_time = 120"
 $ini = $ini -replace "memory_limit = 128M","memory_limit = 256M"
+$ini = $ini -replace ';curl.cainfo =',"curl.cainfo = `"$caFile`""
+$ini = $ini -replace ';openssl.cafile=',"openssl.cafile = `"$caFile`""
+$ini = $ini -replace ';openssl.capath=',"openssl.capath ="
 Set-Content "$Base\php\php.ini" $ini
 OK "php.ini configured."
 
@@ -145,8 +149,8 @@ if (!(Test-Path "$Base\mysql\data\mysql")) {
 # ============================================================
 # SSL CERTIFICATE
 # ============================================================
-if (!(Test-Path "$Base\ssl\cert.pem")) {
-    Step "Generating self-signed SSL certificate..."
+if (!(Test-Path "$Base\ssl\cert.pem") -or !(Test-Path "$Base\ssl\rootCA.pem") -or !(Test-Path "$Base\ssl\rootCA.key")) {
+    Step "Generating local CA and SSL certificate..."
     $openSsl = $null
     $cmd = Get-Command openssl -ErrorAction SilentlyContinue
     if ($cmd) { $openSsl = $cmd.Source }
@@ -165,7 +169,21 @@ if (!(Test-Path "$Base\ssl\cert.pem")) {
     @"
 [req]
 distinguished_name = req_distinguished_name
-x509_extensions = v3_req
+x509_extensions = v3_ca
+prompt = no
+
+[req_distinguished_name]
+CN = localhost-wp Root CA
+
+[v3_ca]
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer
+basicConstraints = critical, CA:true
+keyUsage = critical, keyCertSign, cRLSign
+"@ | Set-Content "$Base\ssl\rootCA.cnf"
+    @"
+[req]
+distinguished_name = req_distinguished_name
 prompt = no
 
 [req_distinguished_name]
@@ -182,11 +200,18 @@ IP.1 = 127.0.0.1
 IP.2 = $LocalIP
 "@ | Set-Content "$Base\ssl\openssl.cnf"
     try {
-        & $openSsl req -x509 -nodes -newkey rsa:2048 -keyout "$Base\ssl\key.pem" -out "$Base\ssl\cert.pem" -days 3650 -config "$Base\ssl\openssl.cnf" -extensions v3_req -subj "/CN=localhost" | Out-Null
+        if (!(Test-Path "$Base\ssl\rootCA.pem") -or !(Test-Path "$Base\ssl\rootCA.key")) {
+            & $openSsl req -x509 -nodes -newkey rsa:2048 -keyout "$Base\ssl\rootCA.key" -out "$Base\ssl\rootCA.pem" -days 3650 -config "$Base\ssl\rootCA.cnf" -extensions v3_ca -subj "/CN=localhost-wp Root CA" | Out-Null
+        }
+        & $openSsl req -nodes -newkey rsa:2048 -keyout "$Base\ssl\key.pem" -out "$Base\ssl\cert.csr" -config "$Base\ssl\openssl.cnf" -subj "/CN=localhost" | Out-Null
+        & $openSsl x509 -req -in "$Base\ssl\cert.csr" -CA "$Base\ssl\rootCA.pem" -CAkey "$Base\ssl\rootCA.key" -CAcreateserial -out "$Base\ssl\cert.pem" -days 825 -sha256 -extfile "$Base\ssl\openssl.cnf" -extensions v3_req | Out-Null
+        Import-Certificate -FilePath "$Base\ssl\rootCA.pem" -CertStoreLocation "Cert:\CurrentUser\Root" | Out-Null
     } finally {
         Remove-Item "$Base\ssl\openssl.cnf" -Force -ErrorAction SilentlyContinue
+        Remove-Item "$Base\ssl\rootCA.cnf" -Force -ErrorAction SilentlyContinue
+        Remove-Item "$Base\ssl\cert.csr" -Force -ErrorAction SilentlyContinue
     }
-    OK "SSL certificate ready."
+    OK "SSL certificate ready and local CA trusted for current user."
 } else { Skip "SSL certificate" }
 
 # ============================================================
@@ -453,14 +478,15 @@ $ErrorActionPreference = "Stop"
 $Base = if ([string]::IsNullOrWhiteSpace($Base)) { Split-Path -Parent $PSScriptRoot } else { $Base }
 $Base = $Base.TrimEnd('\').TrimEnd('/')
 $sslDir = Join-Path $Base "ssl"
+$localIp = (Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -ne $null -and $_.NetAdapter.Status -eq 'Up' } | Select-Object -First 1).IPv4Address.IPAddress
+if (-not $localIp) { $localIp = "127.0.0.1" }
 $certPath = Join-Path $sslDir "cert.pem"
 $keyPath = Join-Path $sslDir "key.pem"
+$csrPath = Join-Path $sslDir "cert.csr"
+$rootCAPath = Join-Path $sslDir "rootCA.pem"
+$rootCAKeyPath = Join-Path $sslDir "rootCA.key"
+$rootCAConfigPath = Join-Path $sslDir "rootCA.cnf"
 $confPath = Join-Path $sslDir "openssl.cnf"
-
-if ((Test-Path $certPath) -and (Test-Path $keyPath)) {
-    Write-Host "[=] SSL certificate already exists."
-    exit 0
-}
 
 $openSsl = $null
 $cmd = Get-Command openssl -ErrorAction SilentlyContinue
@@ -489,7 +515,22 @@ New-Item -ItemType Directory -Force -Path $sslDir | Out-Null
 @"
 [req]
 distinguished_name = req_distinguished_name
-x509_extensions = v3_req
+x509_extensions = v3_ca
+prompt = no
+
+[req_distinguished_name]
+CN = localhost-wp Root CA
+
+[v3_ca]
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer
+basicConstraints = critical, CA:true
+keyUsage = critical, keyCertSign, cRLSign
+"@ | Set-Content $rootCAConfigPath
+
+@"
+[req]
+distinguished_name = req_distinguished_name
 prompt = no
 
 [req_distinguished_name]
@@ -503,18 +544,30 @@ extendedKeyUsage = serverAuth
 [alt_names]
 DNS.1 = localhost
 IP.1 = 127.0.0.1
-IP.2 = $LocalIP
+IP.2 = $localIp
 "@ | Set-Content $confPath
 
 try {
-    & $openSsl req -x509 -nodes -newkey rsa:2048 -keyout $keyPath -out $certPath -days 3650 -config $confPath -extensions v3_req -subj "/CN=localhost"
-    if (!(Test-Path $certPath) -or !(Test-Path $keyPath)) {
-        throw "Certificate generation did not produce cert.pem and key.pem."
+    if (!(Test-Path $rootCAPath) -or !(Test-Path $rootCAKeyPath)) {
+        & $openSsl req -x509 -nodes -newkey rsa:2048 -keyout $rootCAKeyPath -out $rootCAPath -days 3650 -config $rootCAConfigPath -extensions v3_ca -subj "/CN=localhost-wp Root CA"
     }
-    Write-Host "[+] SSL certificate generated."
+    & $openSsl req -nodes -newkey rsa:2048 -keyout $keyPath -out $csrPath -config $confPath -subj "/CN=localhost"
+    & $openSsl x509 -req -in $csrPath -CA $rootCAPath -CAkey $rootCAKeyPath -CAcreateserial -out $certPath -days 825 -sha256 -extfile $confPath -extensions v3_req
+    if (!(Test-Path $certPath) -or !(Test-Path $keyPath) -or !(Test-Path $rootCAPath)) {
+        throw "Certificate generation did not produce the expected CA and server certificate files."
+    }
+    Import-Certificate -FilePath $rootCAPath -CertStoreLocation "Cert:\CurrentUser\Root" | Out-Null
+    Write-Host "[+] Local CA trusted for current user."
+    Write-Host "[+] SSL certificate generated for localhost, 127.0.0.1, and $localIp."
 } finally {
+    if (Test-Path $rootCAConfigPath) {
+        Remove-Item $rootCAConfigPath -Force
+    }
     if (Test-Path $confPath) {
         Remove-Item $confPath -Force
+    }
+    if (Test-Path $csrPath) {
+        Remove-Item $csrPath -Force
     }
 }
 '@
@@ -530,17 +583,19 @@ if ([string]::IsNullOrWhiteSpace($Port))     { throw "Port parameter is required
 
 $Base = if ([string]::IsNullOrWhiteSpace($Base)) { Split-Path -Parent $PSScriptRoot } else { $Base }
 $Base = $Base.Replace('\', '/')
+$localIp = (Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -ne $null -and $_.NetAdapter.Status -eq 'Up' } | Select-Object -First 1).IPv4Address.IPAddress
+if (-not $localIp) { $localIp = "127.0.0.1" }
 $httpsPort = [int]$Port + 1000
 $out = "server {`n"
 $out += "    listen $Port;`n"
-$out += "    server_name localhost $LocalIP;`n`n"
+$out += "    server_name localhost $localIp;`n`n"
 $out += "    access_log `"$Base/logs/nginx/$SiteName-access.log`" main;`n"
 $out += "    error_log  `"$Base/logs/nginx/$SiteName-error.log`" warn;`n"
 $out += "    return 301 https://`$host:$httpsPort`$request_uri;`n"
 $out += "}`n`n"
 $out += "server {`n"
 $out += "    listen $httpsPort ssl;`n"
-$out += "    server_name localhost $LocalIP;`n`n"
+$out += "    server_name localhost $localIp;`n`n"
 $out += "    ssl_certificate     `"$Base/ssl/cert.pem`";`n"
 $out += "    ssl_certificate_key `"$Base/ssl/key.pem`";`n"
 $out += "    ssl_protocols       TLSv1.2 TLSv1.3;`n"
@@ -555,6 +610,101 @@ if (!(Test-Path $confDir)) { throw "Nginx config directory not found: $confDir" 
 
 Set-Content "$confDir\$SiteName.conf" $out
 Write-Host "[+] Nginx config created (HTTP $Port / HTTPS $httpsPort)."
+'@
+
+# --- install-local-ca-mu-plugin.ps1 ---
+WriteScript "$Base\scripts\install-local-ca-mu-plugin.ps1" @'
+param([string]$Base = "", [string]$SiteName = "")
+
+$ErrorActionPreference = "Stop"
+
+$Base = if ([string]::IsNullOrWhiteSpace($Base)) { Split-Path -Parent $PSScriptRoot } else { $Base }
+$Base = $Base.TrimEnd('\').TrimEnd('/')
+
+$siteRoots = @()
+if ([string]::IsNullOrWhiteSpace($SiteName)) {
+    $sitesDir = Join-Path $Base "sites"
+    if (Test-Path $sitesDir) {
+        $siteRoots = Get-ChildItem $sitesDir -Directory | ForEach-Object { Join-Path $_.FullName "public\wp-content" }
+    }
+} else {
+    $siteRoots = @(Join-Path $Base "sites\$SiteName\public\wp-content")
+}
+
+$plugin = @"
+<?php
+/**
+ * Plugin Name: Localhost SSL Trust
+ * Description: Trust the local root CA for WordPress outbound HTTPS requests in the local stack.
+ */
+
+if (!defined('ABSPATH') || !defined('WP_CONTENT_DIR')) {
+    return;
+}
+
+function localhost_wp_root_ca_path() {
+    $base = realpath(WP_CONTENT_DIR . '/../../../..');
+    if (!$base) {
+        return false;
+    }
+    return $base . DIRECTORY_SEPARATOR . 'ssl' . DIRECTORY_SEPARATOR . 'rootCA.pem';
+}
+
+function localhost_wp_is_local_https_url($url) {
+    $parts = wp_parse_url($url);
+    if (empty($parts['scheme']) || strtolower($parts['scheme']) !== 'https' || empty($parts['host'])) {
+        return false;
+    }
+
+    $host = strtolower($parts['host']);
+    if ($host === 'localhost' || $host === '127.0.0.1') {
+        return true;
+    }
+
+    if (filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+        return false;
+    }
+
+    $localIp = gethostbyname(gethostname());
+    return $host === $localIp;
+}
+
+add_filter('http_request_args', function ($args, $url) {
+    if (!localhost_wp_is_local_https_url($url)) {
+        return $args;
+    }
+
+    $rootCa = localhost_wp_root_ca_path();
+    if (!$rootCa || !is_readable($rootCa)) {
+        return $args;
+    }
+
+    $args['sslcertificates'] = $rootCa;
+    return $args;
+}, 10, 2);
+
+add_action('http_api_curl', function ($handle, $parsed_args, $url) {
+    if (!localhost_wp_is_local_https_url($url)) {
+        return;
+    }
+
+    $rootCa = localhost_wp_root_ca_path();
+    if ($rootCa && is_readable($rootCa)) {
+        curl_setopt($handle, CURLOPT_CAINFO, $rootCa);
+    }
+}, 10, 3);
+?>
+"@
+
+foreach ($wpContentDir in $siteRoots) {
+    if (!(Test-Path $wpContentDir)) {
+        continue
+    }
+    $muPluginsDir = Join-Path $wpContentDir "mu-plugins"
+    New-Item -ItemType Directory -Force -Path $muPluginsDir | Out-Null
+    Set-Content -Path (Join-Path $muPluginsDir "localhost-ssl-trust.php") -Value $plugin -Encoding UTF8
+    Write-Host "[+] Local CA MU plugin installed: $muPluginsDir"
+}
 '@
 
 # --- start.bat ---
@@ -604,10 +754,8 @@ if %ERRORLEVEL% NEQ 0 (
     echo [=] PHP FastCGI already running.
 )
 
-if not exist "%BASE%\ssl\cert.pem" (
-    echo [*] Generating SSL certificate...
-    powershell -ExecutionPolicy Bypass -File "%BASE%\scripts\generate-ssl.ps1" -Base "%BASE%"
-)
+echo [*] Refreshing SSL certificate for the current machine IP...
+powershell -ExecutionPolicy Bypass -File "%BASE%\scripts\generate-ssl.ps1" -Base "%BASE%"
 
 if not exist "%BASE%\ssl\cert.pem" (
     echo [ERROR] SSL certificate is missing. Nginx cannot start.
@@ -618,6 +766,14 @@ if not exist "%BASE%\ssl\key.pem" (
     echo [ERROR] SSL private key is missing. Nginx cannot start.
     set STACK_STATUS=ERROR
 )
+
+if not exist "%BASE%\ssl\rootCA.pem" (
+    echo [ERROR] Local root CA is missing. Nginx cannot start.
+    set STACK_STATUS=ERROR
+)
+
+echo [*] Installing local CA trust MU plugin...
+powershell -ExecutionPolicy Bypass -File "%BASE%\scripts\install-local-ca-mu-plugin.ps1" -Base "%BASE%"
 
 tasklist /FI "IMAGENAME eq nginx.exe" 2>NUL | find /I "nginx.exe" >NUL
 if %ERRORLEVEL% NEQ 0 (
@@ -747,6 +903,10 @@ echo [+] wp-config.php created.
 echo [*] Creating Nginx config on port !PORT!...
 powershell -ExecutionPolicy Bypass -File "%BASE%\scripts\create-nginx-conf.ps1" -SiteName "%SITE_NAME%" -Port "!PORT!" -Base "%BASE%"
 if %ERRORLEVEL% NEQ 0 ( echo [!] Failed to create Nginx config. & goto :error )
+
+echo [*] Installing local CA trust MU plugin...
+powershell -ExecutionPolicy Bypass -File "%BASE%\scripts\install-local-ca-mu-plugin.ps1" -Base "%BASE%" -SiteName "%SITE_NAME%"
+if %ERRORLEVEL% NEQ 0 ( echo [!] Failed to install local CA MU plugin. & goto :error )
 
 echo !PORT! > "%PORTS_FILE%"
 

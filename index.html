@@ -452,28 +452,28 @@
     <div class="card" style="border-color:#1e3a2a">
       <div class="card-header" style="border-color:#1e3a2a">
         <div class="icon">🔒</div>
-        <h3>Trust the certificate on this PC</h3>
+        <h3>Certificate trust</h3>
         <span class="badge green">One-time setup</span>
       </div>
       <div class="card-body">
-        <div style="font-size:0.82rem;color:#94a3b8;margin-bottom:12px">Run once in terminal — no admin required. After running, fully restart your browser.</div>
+        <div style="font-size:0.82rem;color:#94a3b8;margin-bottom:12px">The installer now trusts the local CA for the current Windows user and configures PHP to use it for cURL/OpenSSL verification.</div>
         <div class="code-block">
           <div class="lang">PowerShell</div>
           <button class="copy-btn" onclick="copy(this)">Copy</button>
-          <pre>Import-Certificate -FilePath '<span style="color:#fde68a">E:\worpress-sites\ssl\cert.pem</span>' -CertStoreLocation '<span style="color:#c4b5fd">Cert:\CurrentUser\Root</span>'</pre>
+          <pre>Import-Certificate -FilePath '<span style="color:#fde68a">ssl\rootCA.pem</span>' -CertStoreLocation '<span style="color:#c4b5fd">Cert:\CurrentUser\Root</span>'</pre>
         </div>
         <div style="font-size:0.82rem;color:#94a3b8;margin-top:16px;margin-bottom:8px;font-weight:600">Or manually via File Explorer:</div>
         <ol style="font-size:0.82rem;color:#94a3b8;padding-left:20px;line-height:2">
-          <li>Open <code style="color:#fde68a;background:#1e2533;padding:2px 6px;border-radius:4px;font-family:monospace">E:\worpress-sites\ssl\</code> in File Explorer</li>
-          <li>Right-click <code style="color:#fde68a;background:#1e2533;padding:2px 6px;border-radius:4px;font-family:monospace">cert.crt</code> → <strong style="color:#e2e8f0">Install Certificate</strong></li>
-          <li>Select <strong style="color:#e2e8f0">Local Machine</strong> → Next</li>
-          <li>Choose <strong style="color:#e2e8f0">Place all certificates in the following store</strong> → Browse</li>
-          <li>Select <strong style="color:#e2e8f0">Trusted Root Certification Authorities</strong> → OK</li>
-          <li>Next → <strong style="color:#e2e8f0">Finish</strong></li>
+          <li>Open <code style="color:#fde68a;background:#1e2533;padding:2px 6px;border-radius:4px;font-family:monospace">ssl\</code> in File Explorer</li>
+          <li>Right-click <code style="color:#fde68a;background:#1e2533;padding:2px 6px;border-radius:4px;font-family:monospace">rootCA.pem</code> &rarr; <strong style="color:#e2e8f0">Install Certificate</strong></li>
+          <li>Select <strong style="color:#e2e8f0">Current User</strong> &rarr; Next</li>
+          <li>Choose <strong style="color:#e2e8f0">Place all certificates in the following store</strong> &rarr; Browse</li>
+          <li>Select <strong style="color:#e2e8f0">Trusted Root Certification Authorities</strong> &rarr; OK</li>
+          <li>Next &rarr; <strong style="color:#e2e8f0">Finish</strong></li>
           <li>Fully close and reopen your browser</li>
         </ol>
         <div style="font-size:0.8rem;color:#475569;margin-top:12px">
-          ⚠ Self-signed cert — only valid on this machine. Visitors from other IPs will still see "Not Secure".
+          The generated server certificate covers localhost, 127.0.0.1, and the active machine IP from setup time.
         </div>
       </div>
     </div>
