@@ -222,7 +222,7 @@ Step "Writing Nginx configs..."
 @"
 worker_processes  1;
 
-error_log  "$BaseSlash/logs/nginx/error.log" warn;
+error_log  off;
 pid        "$BaseSlash/nginx/logs/nginx.pid";
 
 events {
@@ -233,8 +233,7 @@ http {
     include       mime.types;
     default_type  application/octet-stream;
 
-    log_format  main  '`$remote_addr - `$remote_user [`$time_local] "`$request" '
-                      '`$status `$body_bytes_sent "`$http_referer" "`$http_user_agent"';
+    access_log  off;
 
     sendfile        on;
     keepalive_timeout  65;
@@ -322,8 +321,8 @@ server {
     server_name localhost;
     root "$BaseSlash/phpmyadmin";
     index index.php;
-    access_log "$BaseSlash/logs/nginx/pma-access.log" main;
-    error_log  "$BaseSlash/logs/nginx/pma-error.log" warn;
+    access_log  off;
+    error_log   off;
     location / { try_files `$uri `$uri/ =404; }
     location ~ \.php$ {
         try_files `$uri =404;
@@ -344,8 +343,8 @@ server {
     ssl_ciphers         HIGH:!aNULL:!MD5;
     root "$BaseSlash/phpmyadmin";
     index index.php;
-    access_log "$BaseSlash/logs/nginx/pma-access.log" main;
-    error_log  "$BaseSlash/logs/nginx/pma-error.log" warn;
+    access_log  off;
+    error_log   off;
     location / { try_files `$uri `$uri/ =404; }
     location ~ \.php$ {
         try_files `$uri =404;
@@ -589,8 +588,7 @@ $httpsPort = [int]$Port + 1000
 $out = "server {`n"
 $out += "    listen $Port;`n"
 $out += "    server_name localhost $localIp;`n`n"
-$out += "    access_log `"$Base/logs/nginx/$SiteName-access.log`" main;`n"
-$out += "    error_log  `"$Base/logs/nginx/$SiteName-error.log`" warn;`n"
+$out += "    access_log  off;`n"
 $out += "    return 301 https://`$host:$httpsPort`$request_uri;`n"
 $out += "}`n`n"
 $out += "server {`n"
@@ -601,8 +599,8 @@ $out += "    ssl_certificate_key `"$Base/ssl/key.pem`";`n"
 $out += "    ssl_protocols       TLSv1.2 TLSv1.3;`n"
 $out += "    ssl_ciphers         HIGH:!aNULL:!MD5;`n`n"
 $out += "    root `"$Base/sites/$SiteName/public`";`n"
-$out += "    access_log `"$Base/logs/nginx/$SiteName-access.log`" main;`n"
-$out += "    error_log  `"$Base/logs/nginx/$SiteName-error.log`" warn;`n`n"
+$out += "    access_log  off;`n"
+$out += "    error_log   `"$Base/logs/nginx/$SiteName-error.log`" warn;`n`n"
 $out += "    include `"$Base/config/nginx/snippets/wordpress-common.conf`";`n"
 $out += "}`n"
 $confDir = "$Base\config\nginx"
