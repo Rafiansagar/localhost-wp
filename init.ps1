@@ -330,6 +330,7 @@ server {
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME `$document_root`$fastcgi_script_name;
         include fastcgi_params;
+        fastcgi_read_timeout 600;
     }
     location ~ /\. { deny all; }
 }
@@ -352,6 +353,7 @@ server {
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME `$document_root`$fastcgi_script_name;
         include fastcgi_params;
+        fastcgi_read_timeout 600;
     }
     location ~ /\. { deny all; }
 }
