@@ -1,5 +1,7 @@
 # Local WordPress Stack
 
+Release: `v1.0.1`
+
 This project sets up a local WordPress development stack on Windows with PHP, Nginx, MySQL, phpMyAdmin, and SSL support.
 
 ## Requirement
@@ -28,6 +30,8 @@ localhost-wp
 Run/Double click init.bat from the project root:
 
 - `init.bat`
+
+The initializer prints the current setup release from the top-level `VERSION` file.
 
 During setup, the initializer will automatically download the required packages if the corresponding directories are missing.
 

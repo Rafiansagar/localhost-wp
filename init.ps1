@@ -513,6 +513,20 @@ if (-not $openSsl) {
 
 New-Item -ItemType Directory -Force -Path $sslDir | Out-Null
 
+$shouldGenerateServerCert = $true
+if ((Test-Path $certPath) -and (Test-Path $keyPath) -and (Test-Path $rootCAPath)) {
+    $certSanOutput = & $openSsl x509 -in $certPath -noout -ext subjectAltName 2>$null | Out-String
+    $certSanReadOk = ($LASTEXITCODE -eq 0)
+    & $openSsl x509 -in $certPath -noout -checkend 0 2>$null | Out-Null
+    $certStillValid = ($certSanReadOk -and ($LASTEXITCODE -eq 0))
+    $hasLocalhost = $certSanOutput -match 'DNS:localhost'
+    $hasLoopback = $certSanOutput -match 'IP Address:127\.0\.0\.1'
+    $hasCurrentIp = $certSanOutput -match ("IP Address:{0}" -f [regex]::Escape($localIp))
+    if ($certStillValid -and $hasLocalhost -and $hasLoopback -and $hasCurrentIp) {
+        $shouldGenerateServerCert = $false
+    }
+}
+
 @"
 [req]
 distinguished_name = req_distinguished_name
@@ -552,14 +566,20 @@ try {
     if (!(Test-Path $rootCAPath) -or !(Test-Path $rootCAKeyPath)) {
         & $openSsl req -x509 -nodes -newkey rsa:2048 -keyout $rootCAKeyPath -out $rootCAPath -days 3650 -config $rootCAConfigPath -extensions v3_ca -subj "/CN=localhost-wp Root CA"
     }
-    & $openSsl req -nodes -newkey rsa:2048 -keyout $keyPath -out $csrPath -config $confPath -subj "/CN=localhost"
-    & $openSsl x509 -req -in $csrPath -CA $rootCAPath -CAkey $rootCAKeyPath -CAcreateserial -out $certPath -days 825 -sha256 -extfile $confPath -extensions v3_req
+    if ($shouldGenerateServerCert) {
+        & $openSsl req -nodes -newkey rsa:2048 -keyout $keyPath -out $csrPath -config $confPath -subj "/CN=localhost"
+        & $openSsl x509 -req -in $csrPath -CA $rootCAPath -CAkey $rootCAKeyPath -CAcreateserial -out $certPath -days 825 -sha256 -extfile $confPath -extensions v3_req
+    }
     if (!(Test-Path $certPath) -or !(Test-Path $keyPath) -or !(Test-Path $rootCAPath)) {
         throw "Certificate generation did not produce the expected CA and server certificate files."
     }
     Import-Certificate -FilePath $rootCAPath -CertStoreLocation "Cert:\CurrentUser\Root" | Out-Null
     Write-Host "[+] Local CA trusted for current user."
-    Write-Host "[+] SSL certificate generated for localhost, 127.0.0.1, and $localIp."
+    if ($shouldGenerateServerCert) {
+        Write-Host "[+] SSL certificate generated for localhost, 127.0.0.1, and $localIp."
+    } else {
+        Write-Host "[=] Existing SSL certificate already covers localhost, 127.0.0.1, and $localIp."
+    }
 } finally {
     if (Test-Path $rootCAConfigPath) {
         Remove-Item $rootCAConfigPath -Force
@@ -701,9 +721,15 @@ foreach ($wpContentDir in $siteRoots) {
         continue
     }
     $muPluginsDir = Join-Path $wpContentDir "mu-plugins"
+    $pluginPath = Join-Path $muPluginsDir "localhost-ssl-trust.php"
     New-Item -ItemType Directory -Force -Path $muPluginsDir | Out-Null
-    Set-Content -Path (Join-Path $muPluginsDir "localhost-ssl-trust.php") -Value $plugin -Encoding UTF8
-    Write-Host "[+] Local CA MU plugin installed: $muPluginsDir"
+    $existingPlugin = if (Test-Path $pluginPath) { Get-Content -Path $pluginPath -Raw } else { $null }
+    if ($existingPlugin -ne $plugin) {
+        Set-Content -Path $pluginPath -Value $plugin -Encoding UTF8
+        Write-Host "[+] Local CA MU plugin installed: $muPluginsDir"
+    } else {
+        Write-Host "[=] Local CA MU plugin already up to date: $muPluginsDir"
+    }
 }
 '@
 
@@ -807,10 +833,42 @@ pause
 # --- stop.bat ---
 WriteScript "$Base\scripts\stop.bat" @'
 @echo off
+setlocal EnableDelayedExpansion
+set "BASE=%~dp0.."
+for %%I in ("%BASE%") do set "BASE=%%~fI"
+set "MYSQLADMIN=%BASE%\mysql\bin\mysqladmin.exe"
+
 echo [*] Stopping local WordPress stack...
 taskkill /F /IM nginx.exe >NUL 2>&1    && echo [+] Nginx stopped.   || echo [=] Nginx not running.
 taskkill /F /IM php-cgi.exe >NUL 2>&1  && echo [+] PHP-CGI stopped. || echo [=] PHP-CGI not running.
-taskkill /F /IM mysqld.exe >NUL 2>&1   && echo [+] MySQL stopped.   || echo [=] MySQL not running.
+
+tasklist /FI "IMAGENAME eq mysqld.exe" 2>NUL | find /I "mysqld.exe" >NUL
+if !ERRORLEVEL! EQU 0 (
+    if exist "%MYSQLADMIN%" (
+        echo [*] Stopping MySQL gracefully...
+        "%MYSQLADMIN%" --protocol=TCP --host=127.0.0.1 --port=3307 -u root shutdown >NUL 2>&1
+        set MYSQL_STOPPED=
+        for /L %%I in (1,1,10) do (
+            if not defined MYSQL_STOPPED (
+                tasklist /FI "IMAGENAME eq mysqld.exe" 2>NUL | find /I "mysqld.exe" >NUL
+                if !ERRORLEVEL! NEQ 0 set MYSQL_STOPPED=1
+                if not defined MYSQL_STOPPED timeout /t 1 /nobreak >NUL
+            )
+        )
+        if defined MYSQL_STOPPED (
+            echo [+] MySQL stopped gracefully.
+        ) else (
+            echo [!] MySQL did not stop gracefully. Forcing shutdown...
+            taskkill /F /IM mysqld.exe >NUL 2>&1 && echo [+] MySQL stopped forcefully. || echo [ERROR] MySQL stop failed.
+        )
+    ) else (
+        echo [!] mysqladmin.exe not found. Forcing MySQL shutdown...
+        taskkill /F /IM mysqld.exe >NUL 2>&1 && echo [+] MySQL stopped forcefully. || echo [ERROR] MySQL stop failed.
+    )
+) else (
+    echo [=] MySQL not running.
+)
+
 echo.
 echo [OK] Stack stopped.
 pause
