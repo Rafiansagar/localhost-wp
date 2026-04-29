@@ -1,5 +1,8 @@
 desktop.ini
 
+#backup db
+backup/
+
 # Binaries — downloaded by init.ps1
 nginx/
 mysql/
