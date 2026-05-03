@@ -377,51 +377,6 @@
     </div>
   </section>
 
-  <!-- Create new site -->
-  <section>
-    <h2>Create a New Site</h2>
-    <div class="card">
-      <div class="card-body">
-        <div class="info-row">
-          <span class="key">Command</span>
-          <span class="val">
-            <div class="code-block" style="margin:0;padding:8px 12px;">
-              <button class="copy-btn" style="top:6px;right:8px" onclick="copy(this)">Copy</button>
-              <pre><span style="color:#86efac">scripts\new-site.bat</span> <span class="flag">sitename</span></pre>
-            </div>
-          </span>
-        </div>
-        <div class="info-row">
-          <span class="key">Port</span>
-          <span class="val">Auto-assigned (increments from last used)</span>
-        </div>
-        <div class="info-row">
-          <span class="key">Hosts file</span>
-          <span class="val" style="color:#4ade80">Not required</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Scripts -->
-  <section>
-    <h2>Scripts</h2>
-    <div class="card">
-      <div class="card-body">
-        <table class="paths-table">
-          <thead><tr><th>Script</th><th>What it does</th></tr></thead>
-          <tbody>
-            <tr><td><code>scripts\start.bat</code></td><td>Start MySQL, PHP FastCGI, Nginx</td></tr>
-            <tr><td><code>scripts\stop.bat</code></td><td>Stop all three processes</td></tr>
-            <tr><td><code>scripts\reload-nginx.bat</code></td><td>Reload Nginx config without downtime</td></tr>
-            <tr><td><code>scripts\new-site.bat</code></td><td>Create a new WordPress site</td></tr>
-            <tr><td><code>scripts\delete-site.bat</code></td><td>Delete a site, its files and database</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
   <!-- MySQL -->
   <section>
     <h2>MySQL</h2>
@@ -488,6 +443,50 @@
         <div style="font-size:0.8rem;color:#475569;margin-top:12px">
           The generated server certificate covers localhost, 127.0.0.1, and the active machine IP from setup time.
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Host static site -->
+  <section>
+    <h2>Host Static Site</h2>
+    <div class="card">
+      <div class="card-body">
+        <div class="info-row">
+          <span class="key">Directory</span>
+          <span class="val">sites/your-site-dir</span>
+        </div>
+        <div class="info-row">
+          <span class="key">Host</span>
+          <span class="val">https://localhost/sites/your-site-dir</span>
+        </div>
+        <div class="info-row">
+          <span class="key">Usage</span>
+          <span class="val">Place your static HTML, CSS, JS, and assets in that folder</span>
+        </div>
+        <div class="info-row">
+          <span class="key">Access</span>
+          <span class="val">Served from your local stack once the site directory is configured</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Scripts -->
+  <section>
+    <h2>Scripts</h2>
+    <div class="card">
+      <div class="card-body">
+        <table class="paths-table">
+          <thead><tr><th>Script</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><code>scripts\start.bat</code></td><td>Start MySQL, PHP FastCGI, Nginx</td></tr>
+            <tr><td><code>scripts\stop.bat</code></td><td>Stop all three processes</td></tr>
+            <tr><td><code>scripts\reload-nginx.bat</code></td><td>Reload Nginx config without downtime</td></tr>
+            <tr><td><code>scripts\new-site.bat</code></td><td>Create a new WordPress site</td></tr>
+            <tr><td><code>scripts\delete-site.bat</code></td><td>Delete a site, its files and database</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </section>
