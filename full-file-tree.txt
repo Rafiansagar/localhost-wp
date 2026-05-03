@@ -1,4 +1,5 @@
 localhost-wp/
+├─ backup/
 ├─ config/
 │  └─ nginx/
 │     └─ snippets/

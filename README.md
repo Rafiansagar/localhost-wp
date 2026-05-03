@@ -14,6 +14,7 @@ This project sets up a local WordPress development stack on Windows with PHP, Ng
 
 ```text
 localhost-wp
+├─ backup
 ├─ config
 ├─ logs
 ├─ mysql
@@ -64,6 +65,17 @@ The installer creates a local root CA, trusts it for the current Windows user, t
 PHP is also configured to trust that local CA through `curl.cainfo` and `openssl.cafile`, so `wp_remote_get()` can verify HTTPS calls to the local sites.
 
 If Git/Gitbash is not installed, SSL certificate generation may fail because `openssl.exe` cannot be found.
+
+## Backup
+
+A database backup runs automatically each time the server is stopped via `stop.bat`.
+
+Backups are stored in `backup/<site-name>/` and a rolling rotation of two files is maintained:
+
+| File | Description |
+|------|-------------|
+| `db-date-time.sql` | Latest backup |
+| `db-date-time.sql` | Previous backup, replaced on the next stop |
 
 ## Quick Glimpse  
 Dashboard: https:localhost
