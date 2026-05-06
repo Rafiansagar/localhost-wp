@@ -1,6 +1,6 @@
 # Local WordPress Stack
 
-Release: `v1.0.1`
+Release: `v1.0.3`
 
 This project sets up a local WordPress development stack on Windows with PHP, Nginx, MySQL, phpMyAdmin, and SSL support.
 
@@ -14,7 +14,6 @@ This project sets up a local WordPress development stack on Windows with PHP, Ng
 
 ```text
 localhost-wp
-├─ backup
 ├─ config
 ├─ logs
 ├─ mysql
@@ -70,7 +69,7 @@ If Git/Gitbash is not installed, SSL certificate generation may fail because `op
 
 A database backup runs automatically each time the server is stopped via `stop.bat`.
 
-Backups are stored in `backup/<site-name>/` and a rolling rotation of two files is maintained:
+Backups are stored in `sites/<site-name>/sql/` and a rolling rotation of two files is maintained:
 
 | File | Description |
 |------|-------------|

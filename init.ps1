@@ -43,7 +43,7 @@ Step "Creating directory structure..."
     "$Base\nginx", "$Base\mysql\data", "$Base\mysql\logs",
     "$Base\php", "$Base\phpmyadmin", "$Base\sites",
     "$Base\config\nginx\snippets", "$Base\logs\nginx",
-    "$Base\logs\php", "$Base\scripts", "$Base\ssl", "$Base\backup"
+    "$Base\logs\php", "$Base\scripts", "$Base\ssl"
 ) | ForEach-Object { New-Item -ItemType Directory -Path $_ -Force | Out-Null }
 OK "Directories ready."
 
@@ -839,7 +839,6 @@ $Base = $Base.TrimEnd('\').TrimEnd('/')
 
 $mysqldump  = "$Base\mysql\bin\mysqldump.exe"
 $mysqladmin = "$Base\mysql\bin\mysqladmin.exe"
-$backupRoot = "$Base\backup"
 $sitesDir   = "$Base\sites"
 $logFile    = "$Base\logs\backup.log"
 $timestamp  = Get-Date -Format "yyyy-MM-dd-HH-mm"
@@ -876,12 +875,18 @@ $allOk = $true
 
 foreach ($site in $sites) {
     $siteName      = $site.Name
-    $siteBackupDir = "$backupRoot\$siteName"
+
+    if (!(Test-Path "$sitesDir\$siteName\public\wp-config.php")) {
+        Log "[=] Skipping '$siteName' (no WordPress database)."
+        continue
+    }
+
+    $siteBackupDir = "$sitesDir\$siteName\sql"
     $backupFile    = "$siteBackupDir\backup-$timestamp.sql"
 
     New-Item -ItemType Directory -Force -Path $siteBackupDir | Out-Null
 
-    Log "[*] Backing up: $siteName..."
+    Log "[>] Backing up: $siteName..."
 
     & $mysqldump --protocol=TCP --host=127.0.0.1 --port=3307 -u root --single-transaction --routines --triggers --result-file="$backupFile" --databases $siteName 2>$null
 
