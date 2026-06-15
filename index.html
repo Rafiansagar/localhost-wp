@@ -366,17 +366,6 @@
     </div>
   </div>
 
-  <!-- Live Sites -->
-  <section>
-    <h2>
-      Active Sites
-      <button class="refresh-btn" onclick="loadSites()">↺ Refresh</button>
-    </h2>
-    <div id="sites-grid">
-      <p class="loading">Loading sites...</p>
-    </div>
-  </section>
-
   <!-- MySQL -->
   <section>
     <h2>MySQL</h2>
@@ -472,25 +461,6 @@
     </div>
   </section>
 
-  <!-- Scripts -->
-  <section>
-    <h2>Scripts</h2>
-    <div class="card">
-      <div class="card-body">
-        <table class="paths-table">
-          <thead><tr><th>Script</th><th>What it does</th></tr></thead>
-          <tbody>
-            <tr><td><code>scripts\start.bat</code></td><td>Start MySQL, PHP FastCGI, Nginx</td></tr>
-            <tr><td><code>scripts\stop.bat</code></td><td>Stop all three processes</td></tr>
-            <tr><td><code>scripts\reload-nginx.bat</code></td><td>Reload Nginx config without downtime</td></tr>
-            <tr><td><code>scripts\new-site.bat</code></td><td>Create a new WordPress site</td></tr>
-            <tr><td><code>scripts\delete-site.bat</code></td><td>Delete a site, its files and database</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
   <!-- Paths -->
   <section>
     <h2>Directory Layout</h2>
@@ -518,45 +488,6 @@
 </div>
 
 <script>
-  async function loadSites() {
-    const grid = document.getElementById('sites-grid');
-    grid.innerHTML = '<p class="loading">Loading...</p>';
-    try {
-      const res = await fetch('/status.php');
-      const sites = await res.json();
-      if (!sites.length) {
-        grid.innerHTML = '<p class="loading">No sites yet. Run scripts\\new-site.bat to create one.</p>';
-        return;
-      }
-      grid.innerHTML = sites.map(s => `
-        <div class="site-card">
-          <div class="port-bar">
-            <div class="port-label">HTTP</div>
-            <div class="port-num">${s.port}</div>
-            <div class="port-label" style="margin-top:6px">HTTPS</div>
-            <div class="port-num" style="font-size:0.85rem">${s.port + 1000}</div>
-          </div>
-          <div class="site-info">
-            <div>
-              <div class="site-name">${s.name}</div>
-              <div class="site-meta">${s.root}</div>
-            </div>
-            <div class="site-actions">
-              ${s.installed
-                ? `<span class="installed-badge">Installed</span>`
-                : `<span class="pending-badge">Setup needed</span>`}
-              <a class="btn btn-primary" href="${s.url}" target="_blank">HTTP</a>
-              <a class="btn btn-primary" href="${s.url_https}" target="_blank">HTTPS</a>
-              <a class="btn btn-admin" href="${s.url}/wp-admin" target="_blank">WP Admin</a>
-            </div>
-          </div>
-        </div>
-      `).join('');
-    } catch(e) {
-      grid.innerHTML = '<p class="loading">Could not load site list.</p>';
-    }
-  }
-
   function copy(btn) {
     const pre = btn.closest('.code-block').querySelector('pre');
     navigator.clipboard.writeText(pre.innerText).then(() => {
@@ -564,8 +495,6 @@
       setTimeout(() => btn.textContent = 'Copy', 1500);
     });
   }
-
-  loadSites();
 </script>
 </body>
 </html>
