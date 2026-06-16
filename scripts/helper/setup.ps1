@@ -78,7 +78,7 @@ if (!(Test-Path "$Base\mysql\bin\mysqld.exe")) {
 # PHP
 # ============================================================
 if (!(Test-Path "$Base\php\php-cgi.exe")) {
-    Download "https://downloads.php.net/~windows/releases/php-8.3.30-nts-Win32-vs16-x86.zip" "$Base\_php.zip" "PHP 8.3.30 NTS"
+    Download "https://downloads.php.net/~windows/releases/archives/php-8.3.31-nts-Win32-vs16-x64.zip" "$Base\_php.zip" "PHP 8.3.30 NTS"
     Step "Extracting PHP..."
     Extract "$Base\_php.zip" "$Base\php"
     Remove-Item "$Base\_php.zip" -Force
@@ -199,19 +199,25 @@ DNS.1 = localhost
 IP.1 = 127.0.0.1
 IP.2 = $LocalIP
 "@ | Set-Content "$Base\ssl\openssl.cnf"
+    $ErrorActionPreference = "Continue"
     try {
         if (!(Test-Path "$Base\ssl\rootCA.pem") -or !(Test-Path "$Base\ssl\rootCA.key")) {
             & $openSsl req -x509 -nodes -newkey rsa:2048 -keyout "$Base\ssl\rootCA.key" -out "$Base\ssl\rootCA.pem" -days 3650 -config "$Base\ssl\rootCA.cnf" -extensions v3_ca -subj "/CN=localhost-wp Root CA" | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "OpenSSL root CA generation failed (exit $LASTEXITCODE)" }
         }
         & $openSsl req -nodes -newkey rsa:2048 -keyout "$Base\ssl\key.pem" -out "$Base\ssl\cert.csr" -config "$Base\ssl\openssl.cnf" -subj "/CN=localhost" | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "OpenSSL server CSR generation failed (exit $LASTEXITCODE)" }
         & $openSsl x509 -req -in "$Base\ssl\cert.csr" -CA "$Base\ssl\rootCA.pem" -CAkey "$Base\ssl\rootCA.key" -CAcreateserial -out "$Base\ssl\cert.pem" -days 825 -sha256 -extfile "$Base\ssl\openssl.cnf" -extensions v3_req | Out-Null
-        Import-Certificate -FilePath "$Base\ssl\rootCA.pem" -CertStoreLocation "Cert:\CurrentUser\Root" | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "OpenSSL server certificate signing failed (exit $LASTEXITCODE)" }
+    } catch {
+        Fail "SSL generation failed: $($_.Exception.Message)"
     } finally {
+        $ErrorActionPreference = "Stop"
         Remove-Item "$Base\ssl\openssl.cnf" -Force -ErrorAction SilentlyContinue
         Remove-Item "$Base\ssl\rootCA.cnf" -Force -ErrorAction SilentlyContinue
         Remove-Item "$Base\ssl\cert.csr" -Force -ErrorAction SilentlyContinue
     }
-    OK "SSL certificate ready and local CA trusted for current user."
+    OK "SSL certificate ready."
 } else { Skip "SSL certificate" }
 
 # ============================================================

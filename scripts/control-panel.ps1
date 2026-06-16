@@ -1,4 +1,4 @@
-# ============================================================================
+﻿# ============================================================================
 #  localhost-wp Control Panel  -  GUI ONLY
 #  ----------------------------------------------------------------------------
 #  Actions live in dot-sourced modules so they are easy to edit:
@@ -31,7 +31,12 @@ $script:sites       = @()
 . (Join-Path $PSScriptRoot 'cp-sites.ps1')
 
 function Test-IsSetup {
-    Test-Path (Join-Path $script:BASE 'mysql\bin\mysqld.exe')
+    (Test-Path (Join-Path $script:BASE 'nginx\nginx.exe')) -and
+    (Test-Path (Join-Path $script:BASE 'mysql\bin\mysqld.exe')) -and
+    (Test-Path (Join-Path $script:BASE 'php\php-cgi.exe')) -and
+    (Test-Path (Join-Path $script:BASE 'phpmyadmin\index.php')) -and
+    (Test-Path (Join-Path $script:BASE 'mysql\my.ini')) -and
+    (Test-Path (Join-Path $script:BASE 'ssl\cert.pem'))
 }
 
 # ---- status tag rendering --------------------------------------------------
@@ -275,13 +280,32 @@ $btnSetup.Add_Click({
     }
     $out = Receive-Job $job
     foreach ($line in $out) { $t = "$line".Trim(); if ($t) { Write-Log "  $t"; Flush-UI } }
-    $success = ($job.State -eq 'Completed')
     Remove-Job $job
-    if ($success) {
-        Write-Log 'Setup complete.' 'ok'
+    if (Test-IsSetup) {
+        Write-Log 'Setup complete — all binaries present.' 'ok'
+        $rootCa = Join-Path $script:BASE 'ssl\rootCA.pem'
+        if (Test-Path $rootCa) {
+            Write-Log 'Trusting local root CA — a Windows security dialog may appear...' 'warn'
+            Flush-UI
+            try {
+                Import-Certificate -FilePath $rootCa -CertStoreLocation 'Cert:\CurrentUser\Root' | Out-Null
+                Write-Log 'Local CA trusted for current user.' 'ok'
+            } catch {
+                Write-Log "CA trust failed: $($_.Exception.Message)" 'warn'
+            }
+            Flush-UI
+        }
+        $script:lastSetupState = $true
         Update-SetupState
     } else {
-        Write-Log 'Setup failed — check the log above.' 'err'
+        $missing = @()
+        if (-not (Test-Path (Join-Path $script:BASE 'nginx\nginx.exe')))      { $missing += 'Nginx' }
+        if (-not (Test-Path (Join-Path $script:BASE 'mysql\bin\mysqld.exe'))) { $missing += 'MySQL' }
+        if (-not (Test-Path (Join-Path $script:BASE 'php\php-cgi.exe')))      { $missing += 'PHP' }
+        if (-not (Test-Path (Join-Path $script:BASE 'phpmyadmin\index.php'))) { $missing += 'phpMyAdmin' }
+        if (-not (Test-Path (Join-Path $script:BASE 'mysql\my.ini')))         { $missing += 'MySQL config' }
+        if (-not (Test-Path (Join-Path $script:BASE 'ssl\cert.pem')))         { $missing += 'SSL cert' }
+        Write-Log "Setup incomplete — still missing: $($missing -join ', '). Fix the issue and click Run Setup again." 'err'
         $this.Enabled = $true
     }
 })
@@ -383,9 +407,18 @@ $grpLog.Anchor   = 'Bottom, Left, Right'
 $logBox.Anchor   = 'Top, Bottom, Left, Right'
 
 # --- auto-refresh live stack status every 5s (read-only) ---
+$script:lastSetupState = $null
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 5000
-$timer.Add_Tick({ if (Test-IsSetup) { Update-Status } })
+$timer.Add_Tick({
+    $now = Test-IsSetup
+    if ($now -ne $script:lastSetupState) {
+        $script:lastSetupState = $now
+        Update-SetupState
+    } elseif ($now) {
+        Update-Status
+    }
+})
 $timer.Start()
 
 function Update-SetupState {
