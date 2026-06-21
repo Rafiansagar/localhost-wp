@@ -94,7 +94,7 @@ function Build-SiteRows {
         $wpc = if (Test-Path $wpcPath) { 'yes' } else { 'no' }
 
         $row = New-Object System.Windows.Forms.Panel
-        $row.Size = New-Object System.Drawing.Size(830, 58)
+        $row.Size = New-Object System.Drawing.Size(900, 58)
         $row.BorderStyle = 'FixedSingle'
         $row.BackColor = [System.Drawing.Color]::White
         $row.Margin = New-Object System.Windows.Forms.Padding(0,0,0,6)
@@ -177,6 +177,15 @@ function Build-SiteRows {
         })
         $row.Controls.Add($bDel)
 
+        $bDir = New-Object System.Windows.Forms.Button
+        $bDir.Text = 'Open Dir'; $bDir.SetBounds(792, 14, 72, 30); $bDir.Tag = $s; $bDir.Anchor = 'Top, Right'
+        $bDir.Add_Click({
+            $siteDir = Join-Path $script:SitesDir $this.Tag.Name
+            if (Test-Path $siteDir) { Start-Process explorer.exe $siteDir }
+            else { Write-Log "Directory not found: $siteDir" 'err' }
+        })
+        $row.Controls.Add($bDir)
+
         $flow.Controls.Add($row)
     }
     $flow.ResumeLayout()
@@ -186,7 +195,7 @@ function Build-SiteRows {
 function Resize-Rows {
     if (-not $flow) { return }
     $w = $flow.ClientSize.Width - 6
-    if ($w -lt 800) { $w = 800 }
+    if ($w -lt 900) { $w = 900 }
     foreach ($r in $flow.Controls) { $r.Width = $w }
 }
 
@@ -228,11 +237,15 @@ $btnStop = New-Object System.Windows.Forms.Button
 $btnStop.Text = 'Stop Stack'; $btnStop.SetBounds(320, 62, 130, 32)
 $btnStop.Add_Click({
     $ans = [System.Windows.Forms.MessageBox]::Show(
-        "Stop the whole stack? All sites go offline.`r`n(Databases are backed up first.)",
-        'Stop Stack', 'YesNo', 'Warning')
-    if ($ans -ne 'Yes') { Write-Log 'Stop Stack cancelled.' 'warn'; return }
+        "Yes    — backup all databases, then stop stack`nNo     — stop stack without backup`nCancel — do nothing",
+        'Stop Stack', [System.Windows.Forms.MessageBoxButtons]::YesNoCancel,
+        [System.Windows.Forms.MessageBoxIcon]::Question)
+    if ($ans -eq 'Cancel') { Write-Log 'Stop Stack cancelled.' 'warn'; return }
     $this.Enabled = $false; $btnStart.Enabled = $false
-    try { Stop-Stack; Build-SiteRows } finally { $this.Enabled = $true; $btnStart.Enabled = $true }
+    try {
+        if ($ans -eq 'Yes') { Stop-Stack } else { Stop-Stack -NoBackup }
+        Build-SiteRows
+    } finally { $this.Enabled = $true; $btnStart.Enabled = $true }
 })
 $grpStack.Controls.Add($btnStop)
 
@@ -258,6 +271,7 @@ $btnReload = New-Object System.Windows.Forms.Button
 $btnReload.Text = 'Reload Nginx'; $btnReload.SetBounds(470, 24, 130, 32)
 $btnReload.Add_Click({ Invoke-NginxReload })
 $grpStack.Controls.Add($btnReload)
+
 
 $btnSetup = New-Object System.Windows.Forms.Button
 $btnSetup.Text = 'Run Setup'

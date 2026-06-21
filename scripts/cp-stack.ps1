@@ -126,7 +126,7 @@ function Start-Stack {
 
 # ---- REAL: Stop the whole stack (backs up DBs first) -----------------------
 #  (re-creates stop.bat; delegates the backup to your scripts/backup-databases.ps1)
-function Stop-Stack {
+function Stop-Stack([switch]$NoBackup) {
     $mysqladmin = Join-Path $script:BASE 'mysql\bin\mysqladmin.exe'
     Write-Log 'Stopping stack...' 'warn' ; Flush-UI
 
@@ -134,8 +134,10 @@ function Stop-Stack {
     if (Test-Proc 'php-cgi') { Stop-Process -Name 'php-cgi' -Force -ErrorAction SilentlyContinue; Write-Log '  PHP-CGI stopped.' } else { Write-Log '  PHP-CGI not running.' }
 
     if (Test-Proc 'mysqld') {
-        Write-Log '  Backing up databases before shutdown...' ; Flush-UI
-        Invoke-Helper 'backup-databases.ps1' @{ Base = $script:BASE } | Out-Null
+        if (-not $NoBackup) {
+            Write-Log '  Backing up databases before shutdown...' ; Flush-UI
+            Invoke-Helper 'backup-databases.ps1' @{ Base = $script:BASE } | Out-Null
+        }
         if (Test-Path $mysqladmin) {
             Write-Log '  Stopping MySQL gracefully...' ; Flush-UI
             & $mysqladmin --protocol=TCP --host=127.0.0.1 --port=3307 -u root shutdown 2>$null | Out-Null
