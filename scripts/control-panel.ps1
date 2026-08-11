@@ -380,7 +380,7 @@ $cmbHost.SetBounds(686, 23, 160, 24)
 [void]$cmbHost.Items.Add('localhost')
 $ipForHost = Get-LocalIp
 if ($ipForHost -and $ipForHost -ne 'localhost') { [void]$cmbHost.Items.Add($ipForHost) }
-$cmbHost.SelectedIndex = 0
+$cmbHost.SelectedIndex = 1
 $grpSites.Controls.Add($cmbHost)
 
 $tip = New-Object System.Windows.Forms.ToolTip
