@@ -56,7 +56,7 @@ To avoid download time during setup, extract these into their matching directori
 |-----------|---------|
 | `nginx\` | https://nginx.org/download/nginx-1.26.3.zip |
 | `mysql\` | https://cdn.mysql.com/archives/mysql-8.0/mysql-8.0.36-winx64.zip |
-| `php\` | https://downloads.php.net/~windows/releases/php-8.3.30-nts-Win32-vs16-x86.zip |
+| `php\` | https://downloads.php.net/~windows/releases/archives/php-8.3.31-nts-Win32-vs16-x64.zip |
 | `phpmyadmin\` | https://files.phpmyadmin.net/phpMyAdmin/5.2.2/phpMyAdmin-5.2.2-all-languages.zip |
 
 ---
