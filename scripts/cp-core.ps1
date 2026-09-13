@@ -88,10 +88,9 @@ function Get-Sites {
         $nm = $it.File.BaseName
         if ($nm -eq 'phpmyadmin') { continue }
         $txt = Get-Content -Raw -LiteralPath $it.File.FullName
-        $http = ''; $https = ''
-        $mS = [regex]::Match($txt, 'listen\s+(\d+)\s+ssl'); if ($mS.Success) { $https = $mS.Groups[1].Value }
+        $http = ''
         $mH = [regex]::Match($txt, 'listen\s+(\d+)\s*;'); if ($mH.Success) { $http = $mH.Groups[1].Value }
-        $list += [pscustomobject]@{ Name = $nm; Http = $http; Https = $https; Enabled = $it.Enabled }
+        $list += [pscustomobject]@{ Name = $nm; Http = $http; Enabled = $it.Enabled }
     }
     return @($list | Sort-Object Name)
 }

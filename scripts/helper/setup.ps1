@@ -43,8 +43,8 @@ Step "Creating directory structure..."
     "$Base\nginx", "$Base\mysql\data", "$Base\mysql\logs",
     "$Base\php", "$Base\phpmyadmin", "$Base\sites",
     "$Base\config\nginx\snippets", "$Base\logs\nginx",
-    "$Base\logs\php", "$Base\ssl"
-) | ForEach-Object { New-Item -ItemType Directory -Path $_ -Force | Out-Null }
+    "$Base\logs\php"
+)| ForEach-Object { New-Item -ItemType Directory -Path $_ -Force | Out-Null }
 OK "Directories ready."
 
 # ============================================================
@@ -103,7 +103,6 @@ if (!(Test-Path "$Base\phpmyadmin\index.php")) {
 Step "Configuring PHP..."
 Copy-Item "$Base\php\php.ini-production" "$Base\php\php.ini" -Force
 $BaseSlash = $Base.Replace('\','/')
-$caFile = "$BaseSlash/ssl/rootCA.pem"
 $ini = Get-Content "$Base\php\php.ini"
 $ini = $ini -replace ';extension_dir = "ext"',"extension_dir = `"$BaseSlash/php/ext`""
 foreach ($ext in @("curl","exif","fileinfo","gd","intl","mbstring","mysqli","openssl","pdo_mysql","zip")) {
@@ -113,9 +112,6 @@ $ini = $ini -replace "upload_max_filesize = 2M","upload_max_filesize = 64M"
 $ini = $ini -replace "post_max_size = 8M","post_max_size = 64M"
 $ini = $ini -replace "max_execution_time = 30","max_execution_time = 120"
 $ini = $ini -replace "memory_limit = 128M","memory_limit = 256M"
-$ini = $ini -replace ';curl.cainfo =',"curl.cainfo = `"$caFile`""
-$ini = $ini -replace ';openssl.cafile=',"openssl.cafile = `"$caFile`""
-$ini = $ini -replace ';openssl.capath=',"openssl.capath ="
 Set-Content "$Base\php\php.ini" $ini
 OK "php.ini configured."
 
@@ -145,80 +141,6 @@ if (!(Test-Path "$Base\mysql\data\mysql")) {
     & "$Base\mysql\bin\mysqld.exe" --defaults-file="$Base\mysql\my.ini" --initialize-insecure 2>&1 | Out-Null
     OK "MySQL initialized."
 } else { Skip "MySQL data directory" }
-
-# ============================================================
-# SSL CERTIFICATE
-# ============================================================
-if (!(Test-Path "$Base\ssl\cert.pem") -or !(Test-Path "$Base\ssl\rootCA.pem") -or !(Test-Path "$Base\ssl\rootCA.key")) {
-    Step "Generating local CA and SSL certificate..."
-    $openSsl = $null
-    $cmd = Get-Command openssl -ErrorAction SilentlyContinue
-    if ($cmd) { $openSsl = $cmd.Source }
-    if (-not $openSsl) {
-        foreach ($candidate in @(
-            "C:\Program Files\Git\mingw64\bin\openssl.exe",
-            "C:\Program Files\Git\usr\bin\openssl.exe"
-        )) {
-            if (Test-Path $candidate) {
-                $openSsl = $candidate
-                break
-            }
-        }
-    }
-    if (-not $openSsl) { Fail "OpenSSL executable not found." }
-    @"
-[req]
-distinguished_name = req_distinguished_name
-x509_extensions = v3_ca
-prompt = no
-
-[req_distinguished_name]
-CN = localhost-wp Root CA
-
-[v3_ca]
-subjectKeyIdentifier = hash
-authorityKeyIdentifier = keyid:always,issuer
-basicConstraints = critical, CA:true
-keyUsage = critical, keyCertSign, cRLSign
-"@ | Set-Content "$Base\ssl\rootCA.cnf"
-    @"
-[req]
-distinguished_name = req_distinguished_name
-prompt = no
-
-[req_distinguished_name]
-CN = localhost
-
-[v3_req]
-subjectAltName = @alt_names
-keyUsage = digitalSignature, keyEncipherment, dataEncipherment
-extendedKeyUsage = serverAuth
-
-[alt_names]
-DNS.1 = localhost
-IP.1 = 127.0.0.1
-IP.2 = $LocalIP
-"@ | Set-Content "$Base\ssl\openssl.cnf"
-    $ErrorActionPreference = "Continue"
-    try {
-        if (!(Test-Path "$Base\ssl\rootCA.pem") -or !(Test-Path "$Base\ssl\rootCA.key")) {
-            & $openSsl req -x509 -nodes -newkey rsa:2048 -keyout "$Base\ssl\rootCA.key" -out "$Base\ssl\rootCA.pem" -days 3650 -config "$Base\ssl\rootCA.cnf" -extensions v3_ca -subj "/CN=localhost-wp Root CA" | Out-Null
-            if ($LASTEXITCODE -ne 0) { throw "OpenSSL root CA generation failed (exit $LASTEXITCODE)" }
-        }
-        & $openSsl req -nodes -newkey rsa:2048 -keyout "$Base\ssl\key.pem" -out "$Base\ssl\cert.csr" -config "$Base\ssl\openssl.cnf" -subj "/CN=localhost" | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "OpenSSL server CSR generation failed (exit $LASTEXITCODE)" }
-        & $openSsl x509 -req -in "$Base\ssl\cert.csr" -CA "$Base\ssl\rootCA.pem" -CAkey "$Base\ssl\rootCA.key" -CAcreateserial -out "$Base\ssl\cert.pem" -days 825 -sha256 -extfile "$Base\ssl\openssl.cnf" -extensions v3_req | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "OpenSSL server certificate signing failed (exit $LASTEXITCODE)" }
-    } catch {
-        Fail "SSL generation failed: $($_.Exception.Message)"
-    } finally {
-        $ErrorActionPreference = "Stop"
-        Remove-Item "$Base\ssl\openssl.cnf" -Force -ErrorAction SilentlyContinue
-        Remove-Item "$Base\ssl\rootCA.cnf" -Force -ErrorAction SilentlyContinue
-        Remove-Item "$Base\ssl\cert.csr" -Force -ErrorAction SilentlyContinue
-    }
-    OK "SSL certificate ready."
-} else { Skip "SSL certificate" }
 
 # ============================================================
 # NGINX CONFIGS
@@ -265,25 +187,6 @@ http {
         }
     }
 
-    server {
-        listen 443 ssl default_server;
-        server_name _;
-        ssl_certificate     "$BaseSlash/ssl/cert.pem";
-        ssl_certificate_key "$BaseSlash/ssl/key.pem";
-        ssl_protocols       TLSv1.2 TLSv1.3;
-        ssl_ciphers         HIGH:!aNULL:!MD5;
-        root "$BaseSlash";
-        index index.html;
-        location / { try_files `$uri `$uri/ =404; }
-        location ~ \.php$ {
-            try_files `$uri =404;
-            fastcgi_pass php;
-            fastcgi_index index.php;
-            fastcgi_param SCRIPT_FILENAME `$document_root`$fastcgi_script_name;
-            include fastcgi_params;
-        }
-    }
-
     include "$BaseSlash/config/nginx/*.conf";
 }
 "@ | Set-Content "$Base\nginx\conf\nginx.conf"
@@ -309,7 +212,6 @@ location ~ \.php$ {
     fastcgi_pass php;
     fastcgi_index index.php;
     fastcgi_param SCRIPT_FILENAME `$document_root`$fastcgi_script_name;
-    fastcgi_param HTTPS `$https if_not_empty;
     fastcgi_param REQUEST_SCHEME `$scheme;
     fastcgi_param HTTP_X_FORWARDED_PROTO `$scheme;
     fastcgi_param HTTP_X_FORWARDED_PORT `$server_port;
@@ -325,29 +227,6 @@ location ~ \.php$ {
 server {
     listen 8080;
     server_name localhost;
-    root "$BaseSlash/phpmyadmin";
-    index index.php;
-    access_log  off;
-    error_log   off;
-    location / { try_files `$uri `$uri/ =404; }
-    location ~ \.php$ {
-        try_files `$uri =404;
-        fastcgi_pass php;
-        fastcgi_index index.php;
-        fastcgi_param SCRIPT_FILENAME `$document_root`$fastcgi_script_name;
-        include fastcgi_params;
-        fastcgi_read_timeout 600;
-    }
-    location ~ /\. { deny all; }
-}
-
-server {
-    listen 8443 ssl;
-    server_name localhost;
-    ssl_certificate     "$BaseSlash/ssl/cert.pem";
-    ssl_certificate_key "$BaseSlash/ssl/key.pem";
-    ssl_protocols       TLSv1.2 TLSv1.3;
-    ssl_ciphers         HIGH:!aNULL:!MD5;
     root "$BaseSlash/phpmyadmin";
     index index.php;
     access_log  off;
@@ -394,7 +273,7 @@ OK "phpMyAdmin configured."
 # PORTS TRACKER
 # ============================================================
 if (!(Test-Path "$Base\config\ports.txt")) {
-    Set-Content "$Base\config\ports.txt" "8000"
+    Set-Content "$Base\config\ports.txt" "9000"
 }
 
 # ============================================================

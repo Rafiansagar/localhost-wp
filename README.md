@@ -2,14 +2,13 @@
 
 Release: `v2.0.1`
 
-A self-contained local WordPress development stack for Windows — Nginx · MySQL 8.0 · PHP 8.3 · phpMyAdmin · SSL — managed through a GUI control panel.
+A self-contained local WordPress development stack for Windows — Nginx · MySQL 8.0 · PHP 8.3 · phpMyAdmin — managed through a GUI control panel.
 
 ---
 
 ## Requirements
 
 - **Windows 10 or later**
-- **Git for Windows** — required for `openssl.exe` to generate the local SSL certificate (if a system OpenSSL install is not available)
 - **PowerShell** (built into Windows, no extra install needed)
 
 ---
@@ -39,10 +38,8 @@ The control panel opens directly into the normal interface. No setup prompt.
 Setup runs once and handles everything automatically:
 
 - Downloads and installs **Nginx 1.26**, **MySQL 8.0.36**, **PHP 8.3.30 NTS**, **phpMyAdmin 5.2.2**
-- Configures `php.ini` (extensions, upload limits, CA trust)
+- Configures `php.ini` (extensions, upload limits)
 - Configures MySQL (`my.ini`, initializes data directory)
-- Generates a local root CA and SSL certificate for `localhost`, `127.0.0.1`, and the current machine IP
-- Trusts the local CA for the current Windows user
 - Writes Nginx configs (main, phpMyAdmin vhost, WordPress snippet)
 - Configures phpMyAdmin
 
@@ -77,12 +74,12 @@ All stack and site management is done through the GUI — no terminal needed.
 |--------|-------------|
 | + New site | Creates a WordPress site (database + files + Nginx vhost) |
 | phpMyAdmin | Opens phpMyAdmin at `http://localhost:8080` |
-| Dashboard | Opens the stack dashboard at `https://localhost` |
+| Dashboard | Opens the stack dashboard at `http://localhost` |
 | Refresh list | Reloads the site list |
 
-Each site card shows its HTTP/HTTPS ports, server status, database status, wp-config status, and buttons to open the site, WP Admin, back up the database, or delete the site.
+Each site card shows its port, server status, database status, wp-config status, and buttons to open the site, WP Admin, back up the database, or delete the site.
 
-The **Open links with** selector at the top right of the Sites section controls whether site buttons open over HTTP or HTTPS, and whether links use `localhost` or the machine IP (useful for testing from a phone on the same network).
+The **Open links on** selector at the top right of the Sites section controls whether links use `localhost` or the machine IP (useful for testing from a phone on the same network).
 
 ---
 
@@ -101,12 +98,10 @@ localhost-wp/
 │     ├─ setup.ps1            First-time setup (downloads + configures)
 │     ├─ ensure-php-runtime.ps1
 │     ├─ start-php.ps1
-│     ├─ generate-ssl.ps1
-│     ├─ install-local-ca-mu-plugin.ps1
 │     ├─ backup-databases.ps1
 │     └─ create-nginx-conf.ps1
 ├─ control-panel.bat          Entry point — launch this
-├─ index.html                 Stack dashboard (served at https://localhost)
+├─ index.html                 Stack dashboard (served at http://localhost)
 ├─ .gitignore
 ├─ README.md
 └─ VERSION
@@ -116,21 +111,14 @@ Created by setup (gitignored — not committed):
 
 ```
 nginx/       mysql/       php/       phpmyadmin/
-ssl/         config/      logs/      sites/
+config/      logs/        sites/
 ```
 
 ---
 
-## SSL
+## Sites and ports
 
-Setup generates:
-
-- `ssl/rootCA.pem` + `ssl/rootCA.key` — local root CA
-- `ssl/cert.pem` + `ssl/key.pem` — server certificate
-
-The root CA is trusted for the current Windows user automatically. PHP is also configured to trust it via `curl.cainfo` and `openssl.cafile`, so `wp_remote_get()` works correctly on local HTTPS URLs.
-
-The server certificate covers `localhost`, `127.0.0.1`, and the active machine IP at setup time. If you change networks and need a new IP in the cert, use **Start Stack** — it regenerates the SSL cert automatically.
+Sites are served over plain HTTP on the next free port from `9001` up (`9000` is PHP FastCGI). Any port already used by a vhost in `config/nginx/`, or currently listening, is skipped; the last assigned port is kept in `config/ports.txt`.
 
 ---
 

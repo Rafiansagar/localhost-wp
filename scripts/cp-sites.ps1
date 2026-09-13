@@ -1,7 +1,7 @@
 # ============================================================================
 #  cp-sites.ps1  -  per-site operations for the Control Panel
 #  Dot-sourced by control-panel.ps1.
-#  Reuses scripts/create-nginx-conf.ps1 and install-local-ca-mu-plugin.ps1.
+#  Reuses scripts/create-nginx-conf.ps1.
 # ============================================================================
 
 # ---- REAL: per-site DB backup (mysqldump; does not modify data) ------------
@@ -65,14 +65,30 @@ function Invoke-DeleteSite([string]$name) {
 }
 
 # ---- REAL: create a new WordPress site -------------------------------------
-#  (re-creates new-site.bat orchestration; delegates vhost + CA plugin to
-#   scripts/create-nginx-conf.ps1 and install-local-ca-mu-plugin.ps1)
+#  (re-creates new-site.bat orchestration; delegates vhost to
+#   scripts/create-nginx-conf.ps1)
+#  Sites run on 9001+ (9000 is PHP FastCGI). Every port already in a vhost is
+#  skipped, as is anything currently listening.
 function Get-NextPort {
-    $port = 8000
+    $used = @(80, 3307, 8080, 9000)
+    foreach ($dir in @($script:ConfDir, $script:DisabledDir)) {
+        if (-not (Test-Path $dir)) { continue }
+        Get-ChildItem -LiteralPath $dir -Filter *.conf -File -ErrorAction SilentlyContinue | ForEach-Object {
+            $txt = Get-Content -Raw -LiteralPath $_.FullName
+            foreach ($m in [regex]::Matches($txt, 'listen\s+(\d+)')) { $used += [int]$m.Groups[1].Value }
+        }
+    }
+
+    $port = 9000
     if (Test-Path $script:PortsFile) {
         $last = (Get-Content $script:PortsFile | Select-Object -Last 1).Trim()
-        if ($last -match '^\d+$') { $port = [int]$last + 1 }
+        if ($last -match '^\d+$' -and [int]$last -gt $port) { $port = [int]$last }
     }
+    $maxUsed = ($used | Measure-Object -Maximum).Maximum
+    if ($maxUsed -gt $port) { $port = $maxUsed }
+
+    $port++
+    while (($used -contains $port) -or (Test-Port $port)) { $port++ }
     return $port
 }
 
@@ -132,14 +148,11 @@ function Invoke-NewSite([string]$name) {
         Write-Log '  wp-config.php created.' ; Flush-UI
     } catch { Write-Log "New site - wp-config step failed: $($_.Exception.Message)" 'warn' }
 
-    # 4) nginx vhost + CA plugin (REUSE scripts/*.ps1) + ports + reload
+    # 4) nginx vhost (REUSE scripts/*.ps1) + ports + reload
     Write-Log '  Creating nginx config...' ; Flush-UI
     Invoke-Helper 'create-nginx-conf.ps1' @{ SiteName = $name; Port = "$port"; Base = $script:BASE } | Out-Null
-    Write-Log '  Installing local CA mu-plugin...' ; Flush-UI
-    Invoke-Helper 'install-local-ca-mu-plugin.ps1' @{ Base = $script:BASE; SiteName = $name } | Out-Null
     Set-Content -LiteralPath $script:PortsFile -Value $port
-    $httpsPort = $port + 1000
     if (Test-Proc 'nginx') { Invoke-NginxReload | Out-Null }
 
-    Write-Log "Site '$name' created -> http://localhost:$port  /  https://localhost:$httpsPort" 'ok'
+    Write-Log "Site '$name' created -> http://localhost:$port" 'ok'
 }

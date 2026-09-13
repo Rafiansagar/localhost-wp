@@ -35,8 +35,7 @@ function Test-IsSetup {
     (Test-Path (Join-Path $script:BASE 'mysql\bin\mysqld.exe')) -and
     (Test-Path (Join-Path $script:BASE 'php\php-cgi.exe')) -and
     (Test-Path (Join-Path $script:BASE 'phpmyadmin\index.php')) -and
-    (Test-Path (Join-Path $script:BASE 'mysql\my.ini')) -and
-    (Test-Path (Join-Path $script:BASE 'ssl\cert.pem'))
+    (Test-Path (Join-Path $script:BASE 'mysql\my.ini'))
 }
 
 # ---- status tag rendering --------------------------------------------------
@@ -80,7 +79,7 @@ function Build-SiteRows {
     foreach ($s in $script:sites) {
         if (-not $s.Enabled) {
             $srv = 'Disabled'
-        } elseif ($s.Https -and (Test-Port ([int]$s.Https))) {
+        } elseif ($s.Http -and (Test-Port ([int]$s.Http))) {
             $srv = 'Live'
         } else {
             $srv = 'Offline'
@@ -103,7 +102,7 @@ function Build-SiteRows {
         $port.SetBounds(8, 9, 90, 40)
         $port.Font = New-Object System.Drawing.Font('Consolas', 8)
         $port.ForeColor = [System.Drawing.Color]::FromArgb(70,90,160)
-        $port.Text = "HTTP  $($s.Http)`r`nHTTPS $($s.Https)"
+        $port.Text = "PORT  $($s.Http)"
         $row.Controls.Add($port)
 
         $name = New-Object System.Windows.Forms.Label
@@ -141,11 +140,8 @@ function Build-SiteRows {
         $bSite.Text = 'Site'; $bSite.SetBounds(478, 14, 60, 30); $bSite.Tag = $s; $bSite.Anchor = 'Top, Right'
         $bSite.Add_Click({
             $s2 = $this.Tag
-            $proto   = [string]$cmbProto.SelectedItem
-            $hostSel = [string]$cmbHost.SelectedItem
-            $port = if ($proto -eq 'HTTPS') { $s2.Https } else { $s2.Http }
-            if (-not $port) { Write-Log "No $proto port found for $($s2.Name)." 'err'; return }
-            Open-Url ("{0}://{1}:{2}" -f $proto.ToLower(), $hostSel, $port)
+            if (-not $s2.Http) { Write-Log "No port found for $($s2.Name)." 'err'; return }
+            Open-Url ("http://{0}:{1}" -f [string]$cmbHost.SelectedItem, $s2.Http)
         })
         $row.Controls.Add($bSite)
 
@@ -153,8 +149,8 @@ function Build-SiteRows {
         $bAdmin.Text = 'WP Admin'; $bAdmin.SetBounds(544, 14, 84, 30); $bAdmin.Tag = $s; $bAdmin.Anchor = 'Top, Right'
         $bAdmin.Add_Click({
             $s2 = $this.Tag
-            $hostSel = [string]$cmbHost.SelectedItem
-            Open-Url ("https://{0}:{1}/wp-admin" -f $hostSel, $s2.Https)
+            if (-not $s2.Http) { Write-Log "No port found for $($s2.Name)." 'err'; return }
+            Open-Url ("http://{0}:{1}/wp-admin" -f [string]$cmbHost.SelectedItem, $s2.Http)
         })
         $row.Controls.Add($bAdmin)
 
@@ -297,18 +293,6 @@ $btnSetup.Add_Click({
     Remove-Job $job
     if (Test-IsSetup) {
         Write-Log 'Setup complete — all binaries present.' 'ok'
-        $rootCa = Join-Path $script:BASE 'ssl\rootCA.pem'
-        if (Test-Path $rootCa) {
-            Write-Log 'Trusting local root CA — a Windows security dialog may appear...' 'warn'
-            Flush-UI
-            try {
-                Import-Certificate -FilePath $rootCa -CertStoreLocation 'Cert:\CurrentUser\Root' | Out-Null
-                Write-Log 'Local CA trusted for current user.' 'ok'
-            } catch {
-                Write-Log "CA trust failed: $($_.Exception.Message)" 'warn'
-            }
-            Flush-UI
-        }
         $script:lastSetupState = $true
         Update-SetupState
     } else {
@@ -318,7 +302,6 @@ $btnSetup.Add_Click({
         if (-not (Test-Path (Join-Path $script:BASE 'php\php-cgi.exe')))      { $missing += 'PHP' }
         if (-not (Test-Path (Join-Path $script:BASE 'phpmyadmin\index.php'))) { $missing += 'phpMyAdmin' }
         if (-not (Test-Path (Join-Path $script:BASE 'mysql\my.ini')))         { $missing += 'MySQL config' }
-        if (-not (Test-Path (Join-Path $script:BASE 'ssl\cert.pem')))         { $missing += 'SSL cert' }
         Write-Log "Setup incomplete — still missing: $($missing -join ', '). Fix the issue and click Run Setup again." 'err'
         $this.Enabled = $true
     }
@@ -348,7 +331,7 @@ $grpSites.Controls.Add($btnPma)
 
 $btnDash = New-Object System.Windows.Forms.Button
 $btnDash.Text = 'Dashboard'; $btnDash.SetBounds(248, 22, 110, 30)
-$btnDash.Add_Click({ Open-Url 'https://localhost' })
+$btnDash.Add_Click({ Open-Url 'http://localhost' })
 $grpSites.Controls.Add($btnDash)
 
 $btnRefreshSites = New-Object System.Windows.Forms.Button
@@ -358,21 +341,9 @@ $grpSites.Controls.Add($btnRefreshSites)
 
 # --- "Open links with" selectors (settings only - they open nothing) ---
 $lblOpenWith = New-Object System.Windows.Forms.Label
-$lblOpenWith.Text = 'Open links with:'
-$lblOpenWith.SetBounds(492, 27, 95, 20)
+$lblOpenWith.Text = 'Open links on:'
+$lblOpenWith.SetBounds(596, 27, 88, 20)
 $grpSites.Controls.Add($lblOpenWith)
-
-$cmbProto = New-Object System.Windows.Forms.ComboBox
-$cmbProto.DropDownStyle = 'DropDownList'
-$cmbProto.SetBounds(590, 23, 70, 24)
-[void]$cmbProto.Items.AddRange(@('HTTP','HTTPS'))
-$cmbProto.SelectedItem = 'HTTPS'
-$grpSites.Controls.Add($cmbProto)
-
-$lblOn = New-Object System.Windows.Forms.Label
-$lblOn.Text = 'on'
-$lblOn.SetBounds(666, 27, 18, 20)
-$grpSites.Controls.Add($lblOn)
 
 $cmbHost = New-Object System.Windows.Forms.ComboBox
 $cmbHost.DropDownStyle = 'DropDownList'
@@ -385,7 +356,6 @@ $grpSites.Controls.Add($cmbHost)
 
 $tip = New-Object System.Windows.Forms.ToolTip
 $tip.SetToolTip($lblOpenWith, 'Just a preference: which address the Site / WP Admin links open with. Nothing is changed.')
-$tip.SetToolTip($cmbProto, 'Open links over HTTP or HTTPS. Changes nothing on your sites.')
 $tip.SetToolTip($cmbHost,  'localhost = this PC.  The IP = reachable from your phone / another device on the same network.')
 
 $flow = New-Object System.Windows.Forms.FlowLayoutPanel

@@ -58,7 +58,7 @@ function Invoke-NginxReload {
 }
 
 # ---- REAL: Start the whole stack -------------------------------------------
-#  (re-creates start.bat; delegates PHP runtime/SSL/CA to your scripts/*.ps1)
+#  (re-creates start.bat; delegates PHP runtime to your scripts/*.ps1)
 function Start-Stack {
     $mysqld     = Join-Path $script:BASE 'mysql\bin\mysqld.exe'
     $mysqladmin = Join-Path $script:BASE 'mysql\bin\mysqladmin.exe'
@@ -93,12 +93,6 @@ function Start-Stack {
         Invoke-Helper 'start-php.ps1' @{ PhpCgi = $phpCgi } | Out-Null
         Start-Sleep -Milliseconds 800 ; Flush-UI
     }
-
-    # SSL certificate (refresh for current machine IP) + CA mu-plugin
-    Write-Log '  Refreshing SSL certificate...' ; Flush-UI
-    Invoke-Helper 'generate-ssl.ps1' @{ Base = $script:BASE } | Out-Null
-    Write-Log '  Installing local CA mu-plugin...' ; Flush-UI
-    Invoke-Helper 'install-local-ca-mu-plugin.ps1' @{ Base = $script:BASE } | Out-Null
 
     # Nginx
     if (Test-Proc 'nginx') {
