@@ -1,6 +1,6 @@
 # localhost-wp
 
-Release: `v2.0.1`
+Release: `v2.1.0`
 
 A self-contained local WordPress development stack for Windows — Nginx · MySQL 8.0 · PHP 8.3 · phpMyAdmin — managed through a GUI control panel.
 
