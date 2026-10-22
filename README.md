@@ -2,7 +2,7 @@
 
 Release: `v2.1.0`
 
-A self-contained local WordPress development stack for Windows — Nginx · MySQL 8.0 · PHP 8.3 · phpMyAdmin — managed through a GUI control panel.
+A self-contained local WordPress development stack for Windows — Nginx · MySQL 8.0 · PHP 8.5.12 · phpMyAdmin — managed through a GUI control panel.
 
 ---
 
@@ -37,7 +37,7 @@ The control panel opens directly into the normal interface. No setup prompt.
 
 Setup runs once and handles everything automatically:
 
-- Downloads and installs **Nginx 1.26**, **MySQL 8.0.36**, **PHP 8.3.30 NTS**, **phpMyAdmin 5.2.2**
+- Downloads and installs **Nginx 1.26**, **MySQL 8.0.36**, **PHP 8.5.12 NTS**, **phpMyAdmin 5.2.2**
 - Configures `php.ini` (extensions, upload limits)
 - Configures MySQL (`my.ini`, initializes data directory)
 - Writes Nginx configs (main, phpMyAdmin vhost, WordPress snippet)
@@ -53,7 +53,7 @@ To avoid download time during setup, extract these into their matching directori
 |-----------|---------|
 | `nginx\` | https://nginx.org/download/nginx-1.26.3.zip |
 | `mysql\` | https://cdn.mysql.com/archives/mysql-8.0/mysql-8.0.36-winx64.zip |
-| `php\` | https://downloads.php.net/~windows/releases/archives/php-8.3.31-nts-Win32-vs16-x64.zip |
+| `php\` | https://downloads.php.net/~windows/releases/archives/php-8.5.12-nts-Win32-vs17-x64.zip |
 | `phpmyadmin\` | https://files.phpmyadmin.net/phpMyAdmin/5.2.2/phpMyAdmin-5.2.2-all-languages.zip |
 
 ---
