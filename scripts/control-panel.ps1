@@ -278,19 +278,64 @@ $btnSetup.Font = New-Object System.Drawing.Font('Segoe UI', 11, [System.Drawing.
 $btnSetup.Add_Click({
     $this.Enabled = $false
     Write-Log 'Starting setup — downloading MySQL, PHP, Nginx, phpMyAdmin...' 'warn'
-    Flush-UI
     $setupPath = Join-Path $script:HelperDir 'setup.ps1'
     $basePath  = $script:BASE
-    $job = Start-Job -ScriptBlock { & $using:setupPath -Base $using:basePath *>&1 }
-    while ($job.State -eq 'Running') {
-        $out = Receive-Job $job
-        foreach ($line in $out) { $t = "$line".Trim(); if ($t) { Write-Log "  $t"; Flush-UI } }
-        [System.Windows.Forms.Application]::DoEvents()
-        Start-Sleep -Milliseconds 100
+    $prgSetup.Style = 'Continuous'; $prgSetup.Value = 0
+    $lblSetup.Text = 'Starting setup...'
+    $prgSetup.Visible = $true; $lblSetup.Visible = $true
+    $script:setupJob = Start-Job -ScriptBlock {
+        $ProgressPreference = 'SilentlyContinue'
+        & $using:setupPath -Base $using:basePath *>&1
     }
-    $out = Receive-Job $job
-    foreach ($line in $out) { $t = "$line".Trim(); if ($t) { Write-Log "  $t"; Flush-UI } }
-    Remove-Job $job
+    $setupTimer.Start()
+})
+$grpStack.Controls.Add($btnSetup)
+
+# --- setup progress (shown only while setup runs) ---
+$lblSetup = New-Object System.Windows.Forms.Label
+$lblSetup.SetBounds(540, 30, 330, 20)
+$lblSetup.AutoEllipsis = $true
+$lblSetup.Visible = $false
+$grpStack.Controls.Add($lblSetup)
+
+$prgSetup = New-Object System.Windows.Forms.ProgressBar
+$prgSetup.SetBounds(540, 54, 330, 22)
+$prgSetup.Visible = $false
+$grpStack.Controls.Add($prgSetup)
+
+# "[%] <pct> <text>" lines update the bar; everything else goes to the Activity log
+function Show-SetupOutput($lines) {
+    foreach ($line in $lines) {
+        $t = "$line".Trim()
+        if (-not $t) { continue }
+        $m = [regex]::Match($t, '^\[%\]\s+(-?\d+)\s+(.*)$')
+        if ($m.Success) {
+            $pct = [int]$m.Groups[1].Value
+            if ($pct -lt 0) { $prgSetup.Style = 'Marquee' }
+            else { $prgSetup.Style = 'Continuous'; $prgSetup.Value = [Math]::Min($pct, 100) }
+            $lblSetup.Text = $m.Groups[2].Value
+        } else {
+            Write-Log "  $t"
+            if ($t.StartsWith('[*]')) { $lblSetup.Text = $t.Substring(3).Trim(); $prgSetup.Style = 'Marquee' }
+        }
+    }
+}
+
+# Poll the setup job from a UI timer so the window never blocks
+$script:setupJob = $null
+$setupTimer = New-Object System.Windows.Forms.Timer
+$setupTimer.Interval = 250
+$setupTimer.Add_Tick({
+    $job = $script:setupJob
+    if (-not $job) { $setupTimer.Stop(); return }
+    Show-SetupOutput @(Receive-Job $job)
+    if ($job.State -eq 'Running' -or $job.State -eq 'NotStarted') { return }
+
+    $setupTimer.Stop()
+    Show-SetupOutput @(Receive-Job $job)
+    Remove-Job $job -Force
+    $script:setupJob = $null
+    $prgSetup.Visible = $false; $lblSetup.Visible = $false
     if (Test-IsSetup) {
         Write-Log 'Setup complete — all binaries present.' 'ok'
         $script:lastSetupState = $true
@@ -303,10 +348,9 @@ $btnSetup.Add_Click({
         if (-not (Test-Path (Join-Path $script:BASE 'phpmyadmin\index.php'))) { $missing += 'phpMyAdmin' }
         if (-not (Test-Path (Join-Path $script:BASE 'mysql\my.ini')))         { $missing += 'MySQL config' }
         Write-Log "Setup incomplete — still missing: $($missing -join ', '). Fix the issue and click Run Setup again." 'err'
-        $this.Enabled = $true
+        $btnSetup.Enabled = $true
     }
 })
-$grpStack.Controls.Add($btnSetup)
 
 # --- Sites group ---
 $grpSites = New-Object System.Windows.Forms.GroupBox
@@ -395,6 +439,7 @@ $script:lastSetupState = $null
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 5000
 $timer.Add_Tick({
+    if ($script:setupJob) { return }   # setup still writing files; its own timer finishes up
     $now = Test-IsSetup
     if ($now -ne $script:lastSetupState) {
         $script:lastSetupState = $now
