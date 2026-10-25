@@ -20,7 +20,8 @@ switch ($Action) {
         Write-Log 'Starting setup - downloading MySQL, PHP, Nginx, phpMyAdmin...' 'warn'
         $ProgressPreference = 'SilentlyContinue'
         # "[%] <pct> <text>" lines drive the progress bar; everything else goes to the log
-        & (Join-Path $script:HelperDir 'setup.ps1') -Base $script:BASE *>&1 | ForEach-Object {
+        # $Arg is the PHP version picked in the setup dialog; empty = versions.json default
+        & (Join-Path $script:HelperDir 'setup.ps1') -Base $script:BASE -PhpVersion $Arg *>&1 | ForEach-Object {
             $t = "$_".Trim()
             if (-not $t) { return }
             $m = [regex]::Match($t, '^\[%\]\s+(-?\d+)\s+(.*)$')

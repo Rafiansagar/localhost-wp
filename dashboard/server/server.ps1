@@ -66,6 +66,31 @@ $shared = [hashtable]::Synchronized(@{
 
 . (Join-Path $PSScriptRoot 'bridge.ps1')
 
+# Version lookup shared with setup.ps1 (absent in stacks older than versions.json).
+$versionsHelper = Join-Path $script:HelperDir 'versions.ps1'
+if (Test-Path $versionsHelper) { . $versionsHelper }
+$script:phpVersionList = @()
+
+# What the setup dialog offers: PHP builds from windows.php.net, the fixed parts from versions.json.
+function Get-SetupOptions {
+    if (-not (Get-Command Get-StackVersions -ErrorAction SilentlyContinue) -or -not (Test-Path (Join-Path $script:BASE 'versions.json'))) {
+        return @{ php = $null; fixed = $null }
+    }
+    $v = Get-StackVersions $script:BASE
+    # windows.php.net is fetched once per server run (an empty list, i.e. offline, is retried);
+    # the minimum is applied on every call so edits to versions.json show up straight away.
+    if (-not $script:phpVersionList.Count) { $script:phpVersionList = @(Get-PhpVersionList '0.0') }
+    $allowed = @($script:phpVersionList | Where-Object { [version]$_ -ge [version]$v.php.min })
+    $installed = $null
+    if (Test-Path (Join-Path $script:BASE 'php\php-cgi.exe')) {
+        $installed = Get-BinVersion 'php' 'php\php.exe' @('-v') 'PHP\s+([\d.]+)'
+    }
+    @{
+        php   = @{ default = $v.php.default; min = $v.php.min; versions = $allowed; installed = $installed }
+        fixed = [ordered]@{ nginx = $v.nginx.version; mysql = $v.mysql.version; phpmyadmin = $v.phpmyadmin.version }
+    }
+}
+
 $token      = [guid]::NewGuid().ToString('N')
 $indexPath  = Join-Path $Root 'index.html'
 $workerPath = Join-Path $PSScriptRoot 'worker.ps1'
@@ -324,6 +349,10 @@ function Handle-Request($ctx) {
             Send-Json $ctx @{ base = $script:BASE; hosts = $hosts; ports = Get-Ports }
             return
         }
+        '^GET /api/setup-options$' {
+            Send-Json $ctx (Get-SetupOptions)
+            return
+        }
         '^GET /api/stackinfo$' {
             Send-Json $ctx (Get-StackInfo)
             return
@@ -368,7 +397,12 @@ function Handle-Request($ctx) {
             Send-Json $ctx @{ entries = @(Get-LogAfter $after) }
             return
         }
-        '^POST /api/setup$'        { Send-Started $ctx 'setup'; return }
+        '^POST /api/setup$' {
+            $php = "$((Read-Body $req).php)".Trim()
+            if ($php -and $php -notmatch '^\d+\.\d+\.\d+$') { Send-Error $ctx 400 "Invalid PHP version '$php'."; return }
+            Send-Started $ctx 'setup' $php
+            return
+        }
         '^POST /api/stack/start$'  { Send-Started $ctx 'start'; return }
         '^POST /api/stack/reload$' { Send-Started $ctx 'reload'; return }
         '^POST /api/stack/stop$' {

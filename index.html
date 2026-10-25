@@ -1,469 +1,109 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Local WordPress Stack</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>localhost-wp</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%231c90ed'/%3E%3Cpath transform='translate(8 8) scale(2)' fill='%23fff' d='M4 3H20C20.5523 3 21 3.44772 21 4V11H3V4C3 3.44772 3.44772 3 4 3ZM3 13H21V20C21 20.5523 20.5523 21 20 21H4C3.44772 21 3 20.5523 3 20V13ZM7 16V18H10V16H7ZM7 6V8H10V6H7Z'/%3E%3C/svg%3E">
+<style>
+  /* Kept deliberately small: the stack's details live in the Control Panel, not on this public page. */
+  :root {
+    --paper: #E9EDF1; --panel: #FFFFFF; --ink: #1B2330; --muted: #677385; --line: #D3D9E1;
+    --accent: #1c90ed; --on: #1D8A57;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper: #161B22; --panel: #1E242D; --ink: #E3E8EE; --muted: #8F9AAA; --line: #2F3742; --on: #3DBB80; color-scheme: dark; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    display: grid; place-items: center; padding: 24px;
+    background: var(--paper); color: var(--ink);
+    background-image: radial-gradient(color-mix(in srgb, var(--muted) 22%, transparent) 1px, transparent 1.2px);
+    background-size: 22px 22px;
+    font: 400 15px/1.6 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  }
+  main {
+    width: min(460px, 100%); padding: 28px 30px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: 0 1px 0 rgba(27, 35, 48, .04), 0 12px 32px -18px rgba(27, 35, 48, .35);
+  }
+  .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .mark { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 11px; background: var(--accent); color: #fff; }
+  .mark svg { width: 22px; height: 22px; }
+  .brand b { font-size: 19px; letter-spacing: -.02em; }
+  h1 { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; font-size: 18px; font-weight: 600; }
+  h1 i { width: 9px; height: 9px; border-radius: 50%; background: var(--on); box-shadow: 0 0 0 4px color-mix(in srgb, var(--on) 20%, transparent); }
+  p { margin: 0 0 12px; color: var(--muted); }
 
-    body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: #0f1117;
-      color: #e2e8f0;
-      min-height: 100vh;
-      padding: 40px 20px;
-    }
+  /* ---- Motion ---- */
+  @property --r { syntax: "<length>"; inherits: false; initial-value: 0px; }
+  @property --a { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
 
-    .container { max-width: 900px; margin: 0 auto; }
+  /* Radar wave: a ring sweeps out from the centre and lights the dot grid as it passes */
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none;
+    background-image: radial-gradient(var(--accent) 1.3px, transparent 1.7px);
+    background-size: 22px 22px;
+    -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent calc(var(--r) - 90px), #000 var(--r), transparent calc(var(--r) + 3px));
+            mask-image: radial-gradient(circle at 50% 50%, transparent calc(var(--r) - 90px), #000 var(--r), transparent calc(var(--r) + 3px));
+    opacity: .6; animation: wave 5.5s cubic-bezier(.25, .6, .35, 1) infinite;
+  }
+  @keyframes wave { from { --r: 0px; } to { --r: 1400px; } }
 
-    header {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 40px;
-      padding-bottom: 24px;
-      border-bottom: 1px solid #1e2533;
-    }
+  /* A beam of light travelling around the card's edge */
+  main { position: relative; isolation: isolate; }
+  main::before {
+    content: ""; position: absolute; inset: -1px; border-radius: 17px; padding: 1.5px; pointer-events: none;
+    background: conic-gradient(from var(--a), transparent 0 72%, color-mix(in srgb, var(--accent) 35%, transparent) 84%, var(--accent) 92%, transparent 100%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    animation: orbit 4.5s linear infinite;
+  }
+  @keyframes orbit { to { --a: 360deg; } }
 
-    header .logo {
-      width: 48px; height: 48px;
-      background: #3b82f6;
-      border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 24px;
-    }
+  /* Live dot pings like the Control Panel's stack lights */
+  h1 i { position: relative; flex: none; }
+  h1 i::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--on); animation: ping 2.6s cubic-bezier(0, 0, .2, 1) infinite; }
+  @keyframes ping { 0% { transform: scale(1); opacity: .7; } 70%, 100% { transform: scale(2.8); opacity: 0; } }
 
-    header h1 { font-size: 1.6rem; font-weight: 700; color: #f1f5f9; }
-    header p  { font-size: 0.85rem; color: #64748b; margin-top: 2px; }
-    .release-tag {
-      display: inline-block;
-      margin-top: 8px;
-      padding: 4px 10px;
-      border-radius: 999px;
-      background: #1e2533;
-      border: 1px solid #334155;
-      color: #94a3b8;
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-    }
+  /* Typed heading with a terminal block cursor */
+  .cursor { display: inline-block; width: .55em; height: 1.05em; margin-left: 3px; vertical-align: -2px; background: var(--accent); }
 
-    .status-bar {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 36px;
-      flex-wrap: wrap;
-    }
-
-    .status-item {
-      flex: 1;
-      min-width: 160px;
-      background: #161b27;
-      border: 1px solid #1e2533;
-      border-radius: 12px;
-      padding: 14px 18px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .status-dot {
-      width: 10px; height: 10px;
-      border-radius: 50%;
-      background: #22c55e;
-      flex-shrink: 0;
-      box-shadow: 0 0 6px #22c55e88;
-    }
-
-    .status-item .label { font-size: 0.75rem; color: #64748b; }
-    .status-item .value { font-size: 0.9rem; font-weight: 600; color: #e2e8f0; }
-    .status-item .value a { color: #60a5fa; text-decoration: none; }
-    .status-item .value a:hover { text-decoration: underline; }
-
-    section { margin-bottom: 36px; }
-
-    section h2 {
-      font-size: 0.7rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: #475569;
-      margin-bottom: 12px;
-    }
-
-    .card {
-      background: #161b27;
-      border: 1px solid #1e2533;
-      border-radius: 12px;
-      overflow: hidden;
-      margin-bottom: 10px;
-    }
-
-    .card-header {
-      padding: 14px 18px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      border-bottom: 1px solid #1e2533;
-    }
-
-    .card-header .icon {
-      font-size: 1rem;
-      width: 28px; height: 28px;
-      background: #1e2533;
-      border-radius: 6px;
-      display: flex; align-items: center; justify-content: center;
-    }
-
-    .card-header h3 { font-size: 0.9rem; font-weight: 600; color: #f1f5f9; }
-
-    .card-header .badge {
-      margin-left: auto;
-      font-size: 0.7rem;
-      padding: 2px 8px;
-      border-radius: 20px;
-      background: #1e3a5f;
-      color: #60a5fa;
-      font-weight: 600;
-    }
-
-    .card-header .badge.green {
-      background: #14301f;
-      color: #4ade80;
-    }
-
-    .card-body { padding: 14px 18px; }
-
-    .info-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 6px 0;
-      border-bottom: 1px solid #1e253388;
-      font-size: 0.85rem;
-    }
-    .info-row:last-child { border-bottom: none; }
-    .info-row .key   { color: #64748b; }
-    .info-row .val   { color: #e2e8f0; font-weight: 500; }
-    .info-row .val a { color: #60a5fa; text-decoration: none; }
-    .info-row .val a:hover { text-decoration: underline; }
-
-    /* Sites grid */
-    #sites-grid { display: flex; flex-direction: column; gap: 10px; }
-
-    .site-card {
-      background: #161b27;
-      border: 1px solid #1e2533;
-      border-radius: 12px;
-      overflow: hidden;
-      display: flex;
-      align-items: stretch;
-    }
-
-    .site-card .port-bar {
-      width: 72px;
-      background: #1e2533;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 12px;
-      border-right: 1px solid #1e2533;
-      flex-shrink: 0;
-    }
-
-    .site-card .port-bar .port-label { font-size: 0.6rem; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; }
-    .site-card .port-bar .port-num   { font-size: 1.1rem; font-weight: 700; color: #60a5fa; }
-
-    .site-card .site-info {
-      padding: 14px 18px;
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .site-card .site-name {
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: #f1f5f9;
-    }
-
-    .site-card .site-meta {
-      font-size: 0.75rem;
-      color: #475569;
-      margin-top: 2px;
-    }
-
-    .site-card .site-actions {
-      display: flex;
-      gap: 8px;
-      flex-shrink: 0;
-    }
-
-    .btn {
-      font-size: 0.75rem;
-      padding: 5px 12px;
-      border-radius: 6px;
-      text-decoration: none;
-      font-weight: 600;
-      border: none;
-      cursor: pointer;
-      display: inline-block;
-    }
-
-    .btn-primary { background: #1e3a5f; color: #60a5fa; }
-    .btn-primary:hover { background: #1e4a7f; }
-    .btn-admin   { background: #1e2533; color: #94a3b8; }
-    .btn-admin:hover { background: #2d3748; color: #e2e8f0; }
-
-    .installed-badge {
-      font-size: 0.68rem;
-      padding: 2px 8px;
-      border-radius: 20px;
-      background: #14301f;
-      color: #4ade80;
-      font-weight: 600;
-    }
-
-    .pending-badge {
-      font-size: 0.68rem;
-      padding: 2px 8px;
-      border-radius: 20px;
-      background: #2d1e0e;
-      color: #fb923c;
-      font-weight: 600;
-    }
-
-    .loading { color: #475569; font-size: 0.85rem; padding: 16px 0; }
-
-    .code-block {
-      background: #0d1117;
-      border: 1px solid #1e2533;
-      border-radius: 10px;
-      padding: 14px 16px;
-      margin-bottom: 10px;
-      position: relative;
-    }
-
-    .code-block .lang {
-      font-size: 0.65rem;
-      color: #475569;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 8px;
-      font-weight: 700;
-    }
-
-    .code-block pre {
-      font-family: 'Cascadia Code', 'Consolas', monospace;
-      font-size: 0.82rem;
-      color: #a5f3fc;
-      white-space: pre-wrap;
-      word-break: break-all;
-      line-height: 1.7;
-    }
-
-    .code-block pre .flag { color: #c4b5fd; }
-
-    .copy-btn {
-      position: absolute;
-      top: 10px; right: 10px;
-      background: #1e2533;
-      border: 1px solid #334155;
-      color: #94a3b8;
-      font-size: 0.72rem;
-      padding: 4px 10px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: all .15s;
-    }
-    .copy-btn:hover { background: #2d3748; color: #e2e8f0; }
-
-    .paths-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
-    .paths-table th {
-      text-align: left;
-      color: #475569;
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      padding: 8px 12px;
-      border-bottom: 1px solid #1e2533;
-    }
-    .paths-table td {
-      padding: 9px 12px;
-      border-bottom: 1px solid #1e253344;
-      color: #e2e8f0;
-    }
-    .paths-table td:first-child { color: #94a3b8; }
-    .paths-table td code {
-      font-family: 'Cascadia Code', 'Consolas', monospace;
-      font-size: 0.8rem;
-      color: #fde68a;
-      background: #1e2533;
-      padding: 2px 6px;
-      border-radius: 4px;
-    }
-    .paths-table td a { color: #60a5fa; text-decoration: none; }
-    .paths-table td a:hover { text-decoration: underline; }
-    .paths-table tr:last-child td { border-bottom: none; }
-
-    .refresh-btn {
-      background: none;
-      border: 1px solid #1e2533;
-      color: #475569;
-      font-size: 0.72rem;
-      padding: 3px 10px;
-      border-radius: 6px;
-      cursor: pointer;
-      margin-left: 8px;
-      vertical-align: middle;
-    }
-    .refresh-btn:hover { color: #94a3b8; border-color: #334155; }
-
-    footer {
-      margin-top: 48px;
-      padding-top: 20px;
-      border-top: 1px solid #1e2533;
-      font-size: 0.75rem;
-      color: #334155;
-      text-align: center;
-    }
-  </style>
+  @media (prefers-reduced-motion: reduce) {
+    body::before, main::before, h1 i::after { display: none; }
+  }
+  p:last-child { margin-bottom: 0; }
+  code { font: 13px Consolas, "Cascadia Mono", monospace; color: var(--ink); background: color-mix(in srgb, var(--line) 55%, transparent); padding: 1px 6px; border-radius: 5px; }
+</style>
 </head>
 <body>
-<div class="container">
-
-  <header>
-    <div class="logo">⚡</div>
-    <div>
-      <h1>Local WordPress Stack</h1>
-      <div class="release-tag">Release v2.2.0</div>
-      <p>Nginx · MySQL 8.0 · PHP 8.5 · Windows 10+</p>
-    </div>
-  </header>
-
-  <!-- Status -->
-  <div class="status-bar">
-    <div class="status-item">
-      <div class="status-dot"></div>
-      <div><div class="label">Nginx</div><div class="value">Port 80</div></div>
-    </div>
-    <div class="status-item">
-      <div class="status-dot"></div>
-      <div><div class="label">MySQL 8.0</div><div class="value">Port 3307</div></div>
-    </div>
-    <div class="status-item">
-      <div class="status-dot"></div>
-      <div><div class="label">PHP FastCGI</div><div class="value">Port 9000</div></div>
-    </div>
-    <div class="status-item">
-      <div class="status-dot" style="background:#60a5fa;box-shadow:0 0 6px #60a5fa88"></div>
-      <div><div class="label">phpMyAdmin</div><div class="value"><a href="http://localhost:8080">localhost:8080</a></div></div>
-    </div>
+<main>
+  <div class="brand">
+    <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 3H20C20.5523 3 21 3.44772 21 4V11H3V4C3 3.44772 3.44772 3 4 3ZM3 13H21V20C21 20.5523 20.5523 21 20 21H4C3.44772 21 3 20.5523 3 20V13ZM7 16V18H10V16H7ZM7 6V8H10V6H7Z"/></svg></span>
+    <b>localhost-wp</b>
   </div>
-
-  <!-- MySQL -->
-  <section>
-    <h2>MySQL</h2>
-    <div class="card">
-      <div class="card-body">
-        <div class="info-row"><span class="key">Host</span><span class="val">127.0.0.1</span></div>
-        <div class="info-row"><span class="key">Port</span><span class="val">3307</span></div>
-        <div class="info-row"><span class="key">Username</span><span class="val">root</span></div>
-        <div class="info-row"><span class="key">Password</span><span class="val"><em style="color:#475569">none (empty)</em></span></div>
-        <div class="info-row"><span class="key">Config</span><span class="val">E:\worpress-sites\mysql\my.ini</span></div>
-        <div class="info-row"><span class="key">Data</span><span class="val">E:\worpress-sites\mysql\data\</span></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- phpMyAdmin -->
-  <section>
-    <h2>phpMyAdmin</h2>
-    <div class="card">
-      <div class="card-body">
-        <div class="info-row"><span class="key">URL</span><span class="val"><a href="http://localhost:8080" target="_blank">http://localhost:8080</a></span></div>
-        <div class="info-row"><span class="key">Username</span><span class="val">root</span></div>
-        <div class="info-row"><span class="key">Password</span><span class="val"><em style="color:#475569">none (empty)</em></span></div>
-        <div class="info-row"><span class="key">Version</span><span class="val">5.2.2</span></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Sites -->
-  <section>
-    <h2>Sites</h2>
-    <div class="card">
-      <div class="card-body">
-        <div class="info-row"><span class="key">Dashboard</span><span class="val"><a href="http://localhost" target="_blank">http://localhost</a></span></div>
-        <div class="info-row"><span class="key">Sites</span><span class="val">http://localhost:PORT (e.g. 9001, 9002…)</span></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Host static site -->
-  <section>
-    <h2>Host Static Site</h2>
-    <div class="card">
-      <div class="card-body">
-        <div class="info-row">
-          <span class="key">Directory</span>
-          <span class="val">sites/your-site-dir</span>
-        </div>
-        <div class="info-row">
-          <span class="key">Host</span>
-          <span class="val">http://localhost/sites/your-site-dir</span>
-        </div>
-        <div class="info-row">
-          <span class="key">Usage</span>
-          <span class="val">Place your static HTML, CSS, JS, and assets in that folder</span>
-        </div>
-        <div class="info-row">
-          <span class="key">Access</span>
-          <span class="val">Served from your local stack once the site directory is configured</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Paths -->
-  <section>
-    <h2>Directory Layout</h2>
-    <div class="card">
-      <div class="card-body">
-        <table class="paths-table">
-          <thead><tr><th>Path</th><th>Purpose</th></tr></thead>
-          <tbody>
-            <tr><td><code>nginx\</code></td><td>Nginx 1.26 binary and config</td></tr>
-            <tr><td><code>mysql\</code></td><td>MySQL 8.0 binaries, data, logs, my.ini</td></tr>
-            <tr><td><code>phpmyadmin\</code></td><td>phpMyAdmin 5.2 — <a href="http://localhost:8080">localhost:8080</a></td></tr>
-            <tr><td><code>sites\{name}\public\</code></td><td>WordPress files per site</td></tr>
-            <tr><td><code>config\nginx\</code></td><td>One .conf per site (auto-loaded)</td></tr>
-            <tr><td><code>config\ports.txt</code></td><td>Last assigned port number</td></tr>
-            <tr><td><code>logs\nginx\</code></td><td>Per-site access and error logs</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
-  <footer>
-    Release v2.2.0 · Nginx 1.26 · MySQL 8.0.36 · PHP 8.5.12 · phpMyAdmin 5.2.2
-  </footer>
-</div>
-
+  <h1><i aria-hidden="true"></i><span><span id="headline">The local web server is running</span><span class="cursor" aria-hidden="true"></span></span></h1>
+  <p>Each WordPress site runs on its own port. Sites, versions, database details and folders are all in the Control Panel: run <code>control-panel.bat</code> in the stack folder.</p>
+  <p>Static files placed in <code>sites\your-folder\</code> are served from this address at <code>/sites/your-folder/</code>.</p>
+</main>
 <script>
-  function copy(btn) {
-    const pre = btn.closest('.code-block').querySelector('pre');
-    navigator.clipboard.writeText(pre.innerText).then(() => {
-      btn.textContent = 'Copied!';
-      setTimeout(() => btn.textContent = 'Copy', 1500);
-    });
-  }
+  // Types the headline once on load; the full text is already in the page for readers and no-JS.
+  // The cursor is only there while typing and goes away once the line is complete.
+  (() => {
+    const el = document.getElementById('headline');
+    const cursor = document.querySelector('.cursor');
+    const text = el.textContent;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { cursor.remove(); return; }
+    el.setAttribute('aria-label', text);
+    el.textContent = '';
+    let i = 0;
+    const timer = setInterval(() => {
+      el.textContent = text.slice(0, ++i);
+      if (i >= text.length) { clearInterval(timer); cursor.remove(); }
+    }, 38);
+  })();
 </script>
 </body>
 </html>

@@ -8,12 +8,15 @@ if (!(Test-Path (Join-Path $phpDir "php.exe"))) {
     throw "PHP directory not found at $phpDir"
 }
 
-$sources = @(
-    "C:\Program Files (x86)\Microsoft\Edge\Application\146.0.3856.84",
-    "C:\Program Files (x86)\Microsoft\EdgeCore\146.0.3856.84",
-    "C:\Program Files (x86)\Microsoft\EdgeWebView\Application\146.0.3856.84",
-    "C:\Program Files (x86)\Microsoft\EdgeCore\Optimized"
-)
+# The Visual C++ runtime if it is installed, else the copy Edge ships. Edge keeps it
+# in a folder named after its own version, so look the folders up instead of naming one.
+$edgeRoot = Join-Path ${env:ProgramFiles(x86)} "Microsoft"
+$sources = @(Join-Path $env:WINDIR "System32")
+$sources += @(
+    "Edge\Application\*", "EdgeCore\*", "EdgeWebView\Application\*"
+) | ForEach-Object {
+    Get-ChildItem -Path (Join-Path $edgeRoot $_) -Directory -ErrorAction SilentlyContinue
+} | Sort-Object LastWriteTime -Descending | ForEach-Object { $_.FullName }
 
 $required = @("vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll")
 $copied = @()

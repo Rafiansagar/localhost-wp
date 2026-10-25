@@ -1,0 +1,20 @@
+{
+  "php": {
+    "default": "8.3.31",
+    "min": "8.3.0"
+  },
+  "nginx": {
+    "version": "1.26.3",
+    "url": "https://nginx.org/download/nginx-{v}.zip",
+    "folder": "nginx-{v}"
+  },
+  "mysql": {
+    "version": "8.0.36",
+    "url": "https://cdn.mysql.com/archives/mysql-{mm}/mysql-{v}-winx64.zip"
+  },
+  "phpmyadmin": {
+    "version": "5.2.2",
+    "url": "https://files.phpmyadmin.net/phpMyAdmin/{v}/phpMyAdmin-{v}-all-languages.zip",
+    "folder": "phpMyAdmin-{v}-all-languages"
+  }
+}

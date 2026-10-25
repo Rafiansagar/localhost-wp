@@ -1,4 +1,4 @@
-﻿param([string]$Base = "")
+﻿param([string]$Base = "", [string]$PhpVersion = "")
 
 $Base = if ([string]::IsNullOrWhiteSpace($Base)) { Split-Path -Parent (Split-Path -Parent $PSScriptRoot) } else { $Base }
 $Base = $Base.TrimEnd('\').TrimEnd('/')
@@ -65,6 +65,16 @@ function Extract($zip, $dest) {
     Expand-Archive -Path $zip -DestinationPath $dest -Force
 }
 
+# Versions and download addresses come from versions.json; PHP can be chosen per setup.
+. (Join-Path $PSScriptRoot 'versions.ps1')
+$V = Get-StackVersions $Base
+if ([string]::IsNullOrWhiteSpace($PhpVersion)) { $PhpVersion = $V.php.default }
+if ($PhpVersion -notmatch '^\d+\.\d+\.\d+$') { Fail "Invalid PHP version '$PhpVersion' (expected e.g. 8.3.31)." }
+if ([version]$PhpVersion -lt [version]$V.php.min) { Fail "PHP $PhpVersion is older than the supported minimum $($V.php.min)." }
+$NginxVer = $V.nginx.version
+$MysqlVer = $V.mysql.version
+$PmaVer   = $V.phpmyadmin.version
+
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Blue
 Write-Host "  Local WordPress Stack - Setup" -ForegroundColor Blue
@@ -95,10 +105,10 @@ OK "Directories ready."
 # NGINX
 # ============================================================
 if (!(Test-Path "$Base\nginx\nginx.exe")) {
-    Download "https://nginx.org/download/nginx-1.26.3.zip" "$Base\_nginx.zip" "Nginx 1.26.3"
+    Download (Expand-VersionUrl $V.nginx.url $NginxVer) "$Base\_nginx.zip" "Nginx $NginxVer"
     Step "Extracting Nginx..."
     Extract "$Base\_nginx.zip" "$Base\_nginx_tmp"
-    Copy-Item "$Base\_nginx_tmp\nginx-1.26.3\*" "$Base\nginx\" -Recurse -Force
+    Copy-Item "$Base\_nginx_tmp\$(Expand-VersionUrl $V.nginx.folder $NginxVer)\*" "$Base\nginx\" -Recurse -Force
     Remove-Item "$Base\_nginx_tmp","$Base\_nginx.zip" -Recurse -Force
     OK "Nginx installed."
 } else { Skip "Nginx" }
@@ -107,7 +117,7 @@ if (!(Test-Path "$Base\nginx\nginx.exe")) {
 # MYSQL
 # ============================================================
 if (!(Test-Path "$Base\mysql\bin\mysqld.exe")) {
-    Download "https://cdn.mysql.com/archives/mysql-8.0/mysql-8.0.36-winx64.zip" "$Base\_mysql.zip" "MySQL 8.0.36"
+    Download (Expand-VersionUrl $V.mysql.url $MysqlVer) "$Base\_mysql.zip" "MySQL $MysqlVer"
     Step "Extracting MySQL..."
     Extract "$Base\_mysql.zip" "$Base\_mysql_tmp"
     $mysqlDir = (Get-ChildItem "$Base\_mysql_tmp" -Directory | Select-Object -First 1).FullName
@@ -122,21 +132,24 @@ if (!(Test-Path "$Base\mysql\bin\mysqld.exe")) {
 # PHP
 # ============================================================
 if (!(Test-Path "$Base\php\php-cgi.exe")) {
-    Download "https://downloads.php.net/~windows/releases/archives/php-8.5.12-nts-Win32-vs17-x64.zip" "$Base\_php.zip" "PHP 8.5.12 NTS"
+    Step "Looking up PHP $PhpVersion..."
+    $phpUrl = Resolve-PhpZipUrl $PhpVersion
+    if (-not $phpUrl) { Fail "No Windows x64 NTS build found for PHP $PhpVersion on windows.php.net." }
+    Download $phpUrl "$Base\_php.zip" "PHP $PhpVersion NTS"
     Step "Extracting PHP..."
     Extract "$Base\_php.zip" "$Base\php"
     Remove-Item "$Base\_php.zip" -Force
     OK "PHP installed."
-} else { Skip "PHP" }
+} else { Skip "PHP (keeping the installed version; delete php\ to install $PhpVersion)" }
 
 # ============================================================
 # PHPMYADMIN
 # ============================================================
 if (!(Test-Path "$Base\phpmyadmin\index.php")) {
-    Download "https://files.phpmyadmin.net/phpMyAdmin/5.2.2/phpMyAdmin-5.2.2-all-languages.zip" "$Base\_pma.zip" "phpMyAdmin 5.2.2"
+    Download (Expand-VersionUrl $V.phpmyadmin.url $PmaVer) "$Base\_pma.zip" "phpMyAdmin $PmaVer"
     Step "Extracting phpMyAdmin..."
     Extract "$Base\_pma.zip" "$Base\_pma_tmp"
-    Copy-Item "$Base\_pma_tmp\phpMyAdmin-5.2.2-all-languages\*" "$Base\phpmyadmin\" -Recurse -Force
+    Copy-Item "$Base\_pma_tmp\$(Expand-VersionUrl $V.phpmyadmin.folder $PmaVer)\*" "$Base\phpmyadmin\" -Recurse -Force
     Remove-Item "$Base\_pma_tmp","$Base\_pma.zip" -Recurse -Force
     OK "phpMyAdmin installed."
 } else { Skip "phpMyAdmin" }
@@ -149,7 +162,8 @@ Copy-Item "$Base\php\php.ini-production" "$Base\php\php.ini" -Force
 $BaseSlash = $Base.Replace('\','/')
 $ini = Get-Content "$Base\php\php.ini"
 $ini = $ini -replace ';extension_dir = "ext"',"extension_dir = `"$BaseSlash/php/ext`""
-foreach ($ext in @("curl","exif","fileinfo","gd","intl","mbstring","mysqli","openssl","pdo_mysql","zip")) {
+# "gd2" is the PHP 7.x name of gd; only lines present in this version's php.ini change.
+foreach ($ext in @("curl","exif","fileinfo","gd","gd2","intl","mbstring","mysqli","openssl","pdo_mysql","zip")) {
     $ini = $ini -replace ";extension=$ext","extension=$ext"
 }
 $ini = $ini -replace "upload_max_filesize = 2M","upload_max_filesize = 64M"

@@ -216,6 +216,19 @@
   }
   @keyframes flow { from { background-position: -60% 0; } to { background-position: 160% 0; } }
 
+  /* Background wave: a ring sweeps from the top-right corner to the bottom-left, lighting the dot grid.
+     z-index -1 keeps it behind every panel; 2800px reaches the far corner of a 4K window. */
+  @property --wave { syntax: "<length>"; inherits: false; initial-value: 0px; }
+  body::before {
+    content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background-image: radial-gradient(var(--action) 1.3px, transparent 1.7px);
+    background-size: 22px 22px;
+    -webkit-mask-image: radial-gradient(circle at 100% 0%, transparent calc(var(--wave) - 110px), #000 var(--wave), transparent calc(var(--wave) + 3px));
+            mask-image: radial-gradient(circle at 100% 0%, transparent calc(var(--wave) - 110px), #000 var(--wave), transparent calc(var(--wave) + 3px));
+    opacity: .5; animation: wave 8s cubic-bezier(.3, .5, .4, 1) infinite;
+  }
+  @keyframes wave { from { --wave: 0px; } to { --wave: 2800px; } }
+
   /* Radar ping around running lamps, staggered along the chain */
   .slot .lamp { position: relative; }
   .slot[data-state="running"] .lamp::after {
@@ -359,21 +372,49 @@
 
   .empty { padding: 40px 20px; text-align: center; color: var(--muted); }
 
-  /* Activity */
-  .log {
-    background: var(--log-bg); border: 1px solid var(--line); border-radius: 14px;
-    font: 400 12.5px/1.7 var(--mono); padding: 14px 18px; flex: 1; min-height: 0; overflow: auto;
+  /* Activity: a terminal, dark in both themes */
+  .term {
+    --t-bg: #0F141B; --t-bar: #161D27; --t-line: #232C38; --t-fg: #C5CEDA; --t-dim: #66748A;
+    --t-green: #3DCB8B; --t-amber: #E8B44A; --t-red: #F07167; --t-cyan: #5CC8F0;
+    flex: 1; min-height: 0; display: flex; flex-direction: column;
+    background: var(--t-bg); border: 1px solid var(--t-line); border-radius: 12px; overflow: hidden;
+    box-shadow: var(--shadow);
   }
-  .log p { margin: 0; white-space: pre-wrap; word-break: break-word; }
-  .log p.new { animation: logIn .32s ease-out; }
-  @keyframes logIn { from { opacity: 0; transform: translateX(-6px); } }
-  /* Blinking cursor after the last line while an operation runs */
-  .log[data-busy]::after { content: "▍"; color: var(--action); animation: caret 1s steps(1) infinite; }
+  .term-bar {
+    display: flex; align-items: center; gap: 10px; padding: 9px 14px;
+    background: var(--t-bar); border-bottom: 1px solid var(--t-line);
+    font: 500 12px/1.4 var(--mono); color: var(--t-dim);
+  }
+  .term-bar .title { margin-right: auto; }
+  .term-state { display: inline-flex; align-items: center; gap: 6px; }
+  .term-state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--t-dim); }
+  .term[data-busy] .term-state { color: var(--t-amber); }
+  .term[data-busy] .term-state::before { background: var(--t-amber); }
+  .log {
+    flex: 1; min-height: 0; overflow: auto; padding: 12px 14px 14px;
+    font: 400 12.5px/1.65 var(--mono); color: var(--t-fg);
+    scrollbar-width: thin; scrollbar-color: var(--t-line) transparent;
+  }
+  /* Time in its own column, so wrapped text stays under the message */
+  .log .ln { display: grid; grid-template-columns: 8ch minmax(0, 1fr); column-gap: 12px; margin: 0; }
+  .log .ln time { color: var(--t-dim); }
+  .log .ln .msg { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .log .ln .msg.sub { padding-left: 2ch; }   /* sub-steps: wrapped text stays under their own first word */
+  .log .ok { color: var(--t-green); }
+  .log .err { color: var(--t-red); }
+  .log .warn { color: var(--t-amber); }
+  .log .tag-ok { color: var(--t-green); }
+  .log .tag-step { color: var(--t-cyan); }
+  .log .tag-skip { color: var(--t-dim); }
+  .log .tag-err { color: var(--t-red); }
+  .log hr { border: 0; border-top: 1px dashed var(--t-line); margin: 8px 0; }
+  .log .prompt { display: flex; gap: 8px; margin-top: 2px; color: var(--t-green); }
+  .log .prompt .who { color: var(--t-cyan); }
+  .log .prompt .task { color: var(--t-amber); }
+  .cursor { display: inline-block; width: .6em; height: 1.15em; vertical-align: text-bottom; background: var(--t-fg); animation: caret 1.05s steps(1) infinite; }
+  .log .ln.typing .msg::after { content: ""; display: inline-block; width: .6em; height: 1.15em; vertical-align: text-bottom; background: var(--t-fg); margin-left: 1px; }
+  .log:has(.ln.typing) .prompt .cursor { visibility: hidden; }
   @keyframes caret { 50% { opacity: 0; } }
-  .log time { color: var(--muted); margin-right: 12px; }
-  .log .ok { color: var(--on); }
-  .log .err { color: var(--off); }
-  .log .warn { color: var(--wait); }
 
   /* Dialog */
   dialog {
@@ -388,7 +429,16 @@
   dialog h3 { margin: 0 0 6px; font-size: 18px; }
   dialog p { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
   dialog label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 14px; }
-  dialog input { display: block; width: 100%; margin-top: 6px; height: 36px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
+  dialog input, dialog select { display: block; width: 100%; margin-top: 6px; height: 36px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
+  dialog select:disabled { opacity: .6; }
+  dialog .note { margin: -6px 0 14px; font-size: 13px; }
+  .parts { display: grid; grid-template-columns: 1fr auto auto; margin: 0 0 8px; padding: 4px 12px; border: 1px solid var(--line); border-radius: 8px; font-size: 13.5px; }
+  .parts > * { padding: 6px 0; }
+  .parts > :not(:nth-child(3n+1)) { padding-left: 14px; }
+  .parts > :nth-child(n+4) { border-top: 1px solid var(--line); }
+  .parts .ver { font: 400 13px/1.5 var(--mono); }
+  .parts .state { font-size: 12.5px; color: var(--muted); text-align: right; }
+  .parts .state.get { color: var(--action); }
   dialog .foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
   dialog .foot .cancel { margin-right: auto; }
   @media (max-width: 480px) {
@@ -420,8 +470,8 @@
   }
   @media (prefers-reduced-motion: reduce) {
     .slot .lamp, .progress .bar i, .skel::after { animation: none !important; transition: none; }
-    .rack::after, .slot .lamp::after, .power .btn.primary::after, .log p.new, .log::after { animation: none !important; }
-    .slot[data-state="running"] .lamp::after, .power .btn.primary[data-busy]::after { display: none; }
+    .rack::after, .slot .lamp::after, .power .btn.primary::after, .cursor { animation: none !important; }
+    .slot[data-state="running"] .lamp::after, .power .btn.primary[data-busy]::after, body::before { display: none; }
   }
 </style>
 </head>
@@ -514,7 +564,6 @@
       </button>
     </div>
     <button class="btn quiet" id="pma">phpMyAdmin</button>
-    <button class="btn quiet" id="dash">Dashboard</button>
     <button class="btn quiet" id="reloadList">Refresh list</button>
     <button class="btn primary" id="newSite">New site</button>
   </div>
@@ -547,7 +596,15 @@
       <h2>Activity</h2>
       <button class="btn quiet" id="clearLog">Clear</button>
     </div>
-    <div class="log" id="log" role="log" aria-live="polite"></div>
+    <div class="term" id="term">
+      <div class="term-bar" aria-hidden="true">
+        <span class="title">localhost-wp — activity</span>
+        <span class="term-state" id="termState">idle</span>
+      </div>
+      <div class="log" id="log" role="log" aria-live="polite">
+        <div class="prompt" id="prompt"><span class="who">localhost-wp</span><span>❯</span><span class="task" id="promptTask"></span><span class="cursor" id="promptCursor"></span></div>
+      </div>
+    </div>
   </aside>
   </div>
 </div>
@@ -562,6 +619,20 @@
     <div class="foot">
       <button class="btn quiet cancel" value="cancel" formnovalidate>Cancel</button>
       <button class="btn primary" value="ok">Create site</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="setupDlg">
+  <form method="dialog">
+    <h3>Set up the stack</h3>
+    <p>Downloads the missing parts into the stack folder. Parts already installed are kept.</p>
+    <label>PHP version<select name="php" id="setupPhp"></select></label>
+    <p class="note" id="setupPhpNote"></p>
+    <div class="parts" id="setupParts"></div>
+    <div class="foot">
+      <button class="btn quiet cancel" value="cancel">Cancel</button>
+      <button class="btn primary" value="ok" id="setupOk">Download and set up</button>
     </div>
   </form>
 </dialog>
@@ -611,18 +682,97 @@
     return data;
   }
 
-  function addLog({ t, msg, level }) {
-    const p = document.createElement('p');
-    if (state.logReady) p.className = 'new';   // history loaded at startup appears without animation
+  // ---- terminal log ----
+  const promptEl = $('#prompt');
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const typeQueue = [];
+  let typing = false;
+  // Markers setup prints: [+] done, [*] step, [=] skipped, [!] failed
+  const TAGS = { '[+]': 'tag-ok', '[*]': 'tag-step', '[=]': 'tag-skip', '[!]': 'tag-err' };
+
+  const nearBottom = () => logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight < 40;
+  const nextFrame = () => new Promise(r => requestAnimationFrame(r));
+
+  function makeLine({ t, msg, level }) {
+    if (/^=+$/.test(msg.trim())) return document.createElement('hr');   // setup's banner rules
+    const line = document.createElement('div');
+    line.className = 'ln';
     const time = document.createElement('time');
     time.textContent = t;
-    const span = document.createElement('span');
-    span.className = level === 'info' ? '' : level;
-    span.textContent = msg;
-    p.append(time, span);
-    const atBottom = logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight < 40;
-    logEl.append(p);
-    if (atBottom) logEl.scrollTop = logEl.scrollHeight;
+    const m = document.createElement('span');
+    m.className = level === 'info' ? 'msg' : `msg ${level}`;
+    if (/^\s/.test(msg)) m.classList.add('sub');   // indented sub-step: indent with padding, not spaces
+    line.append(time, m);
+    return line;
+  }
+
+  // Shows the first n characters, colouring a leading [+]/[*]/[=]/[!] once it is complete.
+  function render(line, msg, n) {
+    msg = msg.trimStart();
+    const shown = msg.slice(0, n);
+    const m = line.querySelector('.msg');
+    const parts = shown.match(/^(\s*)(\[[+*=!]\])([\s\S]*)$/);
+    if (!parts) { m.textContent = shown; return; }
+    const tag = document.createElement('span');
+    tag.className = TAGS[parts[2]];
+    tag.textContent = parts[2];
+    m.replaceChildren(parts[1], tag, parts[3]);
+  }
+
+  async function pump() {
+    typing = true;
+    while (typeQueue.length) {
+      const e = typeQueue.shift();
+      const stick = nearBottom();
+      const line = makeLine(e);
+      logEl.insertBefore(line, promptEl);
+      if (line.tagName === 'HR') { if (stick) logEl.scrollTop = logEl.scrollHeight; continue; }
+      line.classList.add('typing');
+      // Types each line in about 14 frames; a backlog (setup prints dozens) prints whole lines to keep up.
+      const step = typeQueue.length > 5 ? e.msg.length : Math.max(2, Math.ceil(e.msg.length / 14));
+      for (let n = 0; n < e.msg.length; n += step) {
+        render(line, e.msg, n);
+        if (stick) logEl.scrollTop = logEl.scrollHeight;
+        await nextFrame();
+      }
+      render(line, e.msg, e.msg.length);
+      line.classList.remove('typing');
+      if (stick) logEl.scrollTop = logEl.scrollHeight;
+    }
+    typing = false;
+  }
+
+  function addLog(e) {
+    // History loaded at startup, and reduced motion, print instantly.
+    if (!state.logReady || reduceMotion.matches) {
+      const stick = nearBottom();
+      const line = makeLine(e);
+      logEl.insertBefore(line, promptEl);
+      if (line.tagName !== 'HR') render(line, e.msg, e.msg.length);
+      if (stick) logEl.scrollTop = logEl.scrollHeight;
+      return;
+    }
+    typeQueue.push(e);
+    if (!typing) pump();
+  }
+
+  // Prompt: blinking cursor when idle, braille spinner and task name while something runs.
+  const SPIN = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏';
+  const TASK_LABEL = {
+    start: () => 'starting stack', stop: () => 'stopping stack', 'stop-nobackup': () => 'stopping stack',
+    setup: () => 'running setup', reload: () => 'reloading nginx',
+    'new-site': n => `creating ${n}`, backup: n => `backing up ${n}`, delete: n => `deleting ${n}`,
+  };
+  let spinTimer = null, spinI = 0;
+  function setTermBusy(busy, task) {
+    $('#term').toggleAttribute('data-busy', !!busy);
+    $('#termState').textContent = busy ? 'running' : 'idle';
+    $('#promptCursor').hidden = !!busy;
+    const label = busy ? (TASK_LABEL[busy]?.(task) ?? busy) : '';
+    const show = () => { $('#promptTask').textContent = busy ? `${reduceMotion.matches ? '…' : SPIN[spinI++ % SPIN.length]} ${label}` : ''; };
+    clearInterval(spinTimer); spinTimer = null;
+    show();
+    if (busy && !reduceMotion.matches) spinTimer = setInterval(show, 90);
   }
   const localLog = (msg, level = 'err') => addLog({ t: new Date().toTimeString().slice(0, 8), msg, level });
 
@@ -670,7 +820,7 @@
     const switching = busy === 'start' || busy === 'stop' || busy === 'stop-nobackup';
     $('.rack').dataset.flow = switching ? 'busy' : st.setup && all ? 'live' : '';
     power.toggleAttribute('data-busy', !!busy);
-    logEl.toggleAttribute('data-busy', !!busy);
+    setTermBusy(busy, st.task);
 
     $('#powerRow').hidden = !st.setup;
     $('#reload').disabled = !!busy || !svc.nginx;
@@ -685,7 +835,6 @@
     $('#newSite').disabled = !!busy || !svc.mysql;
     $('#newSite').title = svc.mysql ? '' : 'Start the stack first';
     $('#pma').disabled = !svc.nginx;
-    $('#dash').disabled = !svc.nginx;
   }
 
   function showProgress(el, p, withText) {
@@ -952,10 +1101,77 @@
     }, { once: true });
   }
 
+  // ---- setup dialog: choose the PHP version before anything downloads ----
+  async function openSetup() {
+    const d = $('#setupDlg'), sel = $('#setupPhp'), note = $('#setupPhpNote'), ok = $('#setupOk');
+    sel.innerHTML = '<option>Loading versions from windows.php.net…</option>';
+    sel.disabled = true; ok.disabled = true;
+    note.textContent = '';
+    $('#setupParts').innerHTML = '';
+    d.returnValue = '';
+    d.showModal();
+    d.addEventListener('close', () => {
+      if (d.returnValue === 'ok') act('POST', '/api/setup', { php: sel.disabled ? '' : sel.value });
+    }, { once: true });
+
+    let opt;
+    try { opt = await call('GET', '/api/setup-options'); }
+    catch (e) { note.textContent = e.message; ok.disabled = false; return; }
+    if (!opt.php) {
+      sel.innerHTML = '<option>Default</option>';
+      note.textContent = 'This stack has no versions.json, so setup uses its built-in versions.';
+      ok.disabled = false;
+      return;
+    }
+
+    const missing = state.status?.missing || [];
+    const p = opt.php;
+    sel.innerHTML = '';
+    if (p.installed && !missing.includes('PHP')) {
+      sel.add(new Option(`PHP ${p.installed} (installed)`, p.installed));
+      note.textContent = 'PHP is already installed and will be kept. To set up a different version, delete the php folder first.';
+    } else {
+      // Newest first, grouped by branch; the versions.json default is preselected.
+      const list = p.versions.length ? p.versions : [p.default];
+      if (!list.includes(p.default)) list.push(p.default);
+      const groups = {};
+      for (const v of list) (groups[v.split('.').slice(0, 2).join('.')] ??= []).push(v);
+      for (const [branch, vs] of Object.entries(groups)) {
+        const g = document.createElement('optgroup');
+        g.label = `PHP ${branch}`;
+        vs.forEach((v, i) => {
+          const tags = [v === p.default && 'default', i === 0 && p.versions.length && 'latest'].filter(Boolean);
+          g.append(new Option(tags.length ? `${v}  (${tags.join(', ')})` : v, v));
+        });
+        sel.append(g);
+      }
+      sel.value = p.default;
+      sel.disabled = false;
+      note.textContent = p.versions.length
+        ? `${p.versions.length} builds available, ${p.min} and newer.`
+        : 'Couldn\'t reach windows.php.net, so only the default is listed.';
+    }
+
+    const parts = $('#setupParts');
+    const names = { nginx: 'Nginx', mysql: 'MySQL', phpmyadmin: 'phpMyAdmin' };
+    for (const [k, label] of Object.entries(names)) {
+      const getting = missing.some(m => m === label || (k === 'mysql' && m.startsWith('MySQL')));
+      const row = [label, opt.fixed[k], getting ? 'Will download' : 'Installed'];
+      row.forEach((text, i) => {
+        const s = document.createElement('span');
+        s.textContent = text;
+        if (i === 1) s.className = 'ver';
+        if (i === 2) s.className = getting ? 'state get' : 'state';
+        parts.append(s);
+      });
+    }
+    ok.disabled = false;
+  }
+
   $('#power').addEventListener('click', () => {
     const st = state.status;
     if (!st || st.busy) return;
-    if (!st.setup) return act('POST', '/api/setup');
+    if (!st.setup) return openSetup();
     if (Object.values(st.services).every(Boolean)) return askStop();
     act('POST', '/api/stack/start');
   });
@@ -971,8 +1187,10 @@
   });
   const localUrl = port => port === 80 ? 'http://localhost' : `http://localhost:${port}`;
   $('#pma').addEventListener('click', () => openUrl(localUrl(state.ports.pma)));
-  $('#dash').addEventListener('click', () => openUrl(localUrl(state.ports.home)));
-  $('#clearLog').addEventListener('click', () => { logEl.innerHTML = ''; });
+  $('#clearLog').addEventListener('click', () => {
+    typeQueue.length = 0;
+    logEl.querySelectorAll('.ln, hr').forEach(n => n.remove());
+  });
 
   $('#newSite').addEventListener('click', () => {
     const d = $('#newDlg'), f = d.querySelector('form');

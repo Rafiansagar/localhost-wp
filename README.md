@@ -26,7 +26,7 @@ git clone <repo-url> localhost-wp
 Double-click **`control-panel.bat`** in the project root.
 
 **First run (no binaries yet):**
-The control panel detects that the stack has not been set up and shows a **Run Setup** button. Click it — setup will automatically download and configure everything directly inside the GUI activity log.
+The control panel detects that the stack has not been set up and shows a **Run setup** button. Click it, pick the PHP version (any Windows build from 8.3.0 up, 8.3.31 preselected), and setup downloads and configures everything, with progress in the activity log.
 
 **Every run after that:**
 The control panel opens directly into the normal interface. No setup prompt.
@@ -37,24 +37,29 @@ The control panel opens directly into the normal interface. No setup prompt.
 
 Setup runs once and handles everything automatically:
 
-- Downloads and installs **Nginx 1.26**, **MySQL 8.0.36**, **PHP 8.5.12 NTS**, **phpMyAdmin 5.2.2**
+- Downloads and installs Nginx, MySQL, PHP (NTS, the version you picked) and phpMyAdmin
 - Configures `php.ini` (extensions, upload limits)
 - Configures MySQL (`my.ini`, initializes data directory)
 - Writes Nginx configs (main, phpMyAdmin vhost, WordPress snippet)
 - Configures phpMyAdmin
 
-If the binaries already exist, setup skips re-downloading them.
+If the binaries already exist, setup skips re-downloading them. To install a different PHP version later, delete `php\` and run setup again.
+
+### Versions
+
+All versions and download addresses live in **`versions.json`** at the project root; the scripts hold none.
+
+| Key | Meaning |
+|-----|---------|
+| `php.default` | PHP version preselected in the setup dialog (`8.3.31`) |
+| `php.min` | Oldest PHP the dialog offers and setup accepts (`8.3.0`) |
+| `nginx` / `mysql` / `phpmyadmin` | Fixed version plus a download URL template (`{v}` = version, `{mm}` = major.minor) |
+
+PHP builds come from windows.php.net: the newest patch of each branch from `releases/`, older ones from `releases/archives/`.
 
 ### Optional: manual pre-download
 
-To avoid download time during setup, extract these into their matching directories before running:
-
-| Directory | Package |
-|-----------|---------|
-| `nginx\` | https://nginx.org/download/nginx-1.26.3.zip |
-| `mysql\` | https://cdn.mysql.com/archives/mysql-8.0/mysql-8.0.36-winx64.zip |
-| `php\` | https://downloads.php.net/~windows/releases/archives/php-8.5.12-nts-Win32-vs17-x64.zip |
-| `phpmyadmin\` | https://files.phpmyadmin.net/phpMyAdmin/5.2.2/phpMyAdmin-5.2.2-all-languages.zip |
+To avoid download time during setup, extract the packages from the URLs in `versions.json` into `nginx\`, `mysql\`, `php\` and `phpmyadmin\` before running.
 
 ---
 
@@ -74,8 +79,9 @@ All stack and site management is done through the GUI — no terminal needed.
 |--------|-------------|
 | + New site | Creates a WordPress site (database + files + Nginx vhost) |
 | phpMyAdmin | Opens phpMyAdmin at `http://localhost:8080` |
-| Dashboard | Opens the stack dashboard at `http://localhost` |
 | Refresh list | Reloads the site list |
+
+Versions, database login, site addresses and folders are on the **Stack info** tab.
 
 Each site card shows its port, server status, database status, wp-config status, and buttons to open the site, WP Admin, back up the database, or delete the site.
 
@@ -102,12 +108,14 @@ localhost-wp/
 │  ├─ cp-sites.ps1            New site, backup, delete logic
 │  └─ helper/
 │     ├─ setup.ps1            First-time setup (downloads + configures)
+│     ├─ versions.ps1         Reads versions.json, finds PHP builds
 │     ├─ ensure-php-runtime.ps1
 │     ├─ start-php.ps1
 │     ├─ backup-databases.ps1
 │     └─ create-nginx-conf.ps1
 ├─ control-panel.bat          Entry point — launch this
-├─ index.html                 Stack dashboard (served at http://localhost)
+├─ index.html                 Short "server is running" page at http://localhost
+├─ versions.json              Binary versions and download URLs
 ├─ .gitignore
 ├─ README.md
 └─ VERSION
