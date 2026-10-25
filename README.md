@@ -89,8 +89,14 @@ What is tracked in git:
 
 ```
 localhost-wp/
+├─ dashboard/
+│  ├─ index.html              Control Panel UI (opens in an Edge app window)
+│  └─ server/
+│     ├─ server.ps1           Local web server + JSON API on http://localhost:7070
+│     ├─ bridge.ps1           Loads cp-*.ps1 without the WinForms GUI
+│     └─ worker.ps1           Runs long stack/site operations in the background
 ├─ scripts/
-│  ├─ control-panel.ps1       GUI only
+│  ├─ control-panel.ps1       Old WinForms GUI (no longer launched)
 │  ├─ cp-core.ps1             Utilities, status checks, helpers
 │  ├─ cp-stack.ps1            Start/Stop/Reload stack logic
 │  ├─ cp-sites.ps1            New site, backup, delete logic
