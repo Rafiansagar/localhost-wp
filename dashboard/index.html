@@ -221,6 +221,14 @@
   .section-head h2 { margin: 0 auto 0 0; font-size: 17px; font-weight: 600; }
   .section-head:has(.search) h2 { margin-right: 8px; }
 
+  .notice {
+    display: flex; align-items: center; gap: 10px; margin-top: 16px; padding: 10px 14px;
+    border: 1px solid color-mix(in srgb, var(--wait) 40%, var(--line)); border-radius: 10px;
+    background: color-mix(in srgb, var(--wait) 9%, var(--panel)); font-size: 13.5px;
+  }
+  .notice svg { flex: none; width: 16px; height: 16px; color: var(--wait); }
+  .notice:not([hidden]) + .section-head { margin-top: 20px; }
+
   .search { position: relative; margin-right: auto; }
   .search > svg { position: absolute; left: 10px; top: 50%; width: 15px; height: 15px; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
   .search input {
@@ -434,6 +442,11 @@
     </div>
   </section>
 
+  <div class="notice" id="setupNotice" role="status" hidden>
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2l6.5 11.5h-13z"/><path d="M8 6.5v3M8 11.5h.01"/></svg>
+    <span></span>
+  </div>
+
   <div class="section-head">
     <h2>Sites <span id="count"></span></h2>
     <div class="search" role="search">
@@ -563,10 +576,26 @@
     const all = Object.values(svc).every(Boolean);
     const any = Object.values(svc).some(Boolean);
     const busy = st.busy;
+    const missing = st.missing || [];
+    const absent = {
+      mysql: missing.some(m => m.startsWith('MySQL')),
+      php: missing.includes('PHP'),
+      nginx: missing.includes('Nginx'),
+    };
+
+    // Name exactly what is missing; everything else on the page keeps working.
+    const notice = $('#setupNotice');
+    notice.hidden = !missing.length || busy === 'setup';
+    if (!notice.hidden) {
+      const list = new Intl.ListFormat('en', { type: 'conjunction' }).format(missing);
+      const one = missing.length === 1;
+      notice.querySelector('span').textContent =
+        `${list} ${one ? 'is' : 'are'} missing from the stack folder. Run setup to download ${one ? 'it' : 'them'}. Your sites and the parts already installed are kept.`;
+    }
 
     for (const el of document.querySelectorAll('.slot')) {
       const on = svc[el.dataset.svc];
-      let s = !st.setup ? 'missing' : on ? 'running' : 'stopped';
+      let s = absent[el.dataset.svc] ? 'missing' : on ? 'running' : 'stopped';
       if (busy === 'start' && !on) s = 'starting';
       if ((busy === 'stop' || busy === 'stop-nobackup') && on) s = 'stopping';
       el.dataset.state = s;
@@ -633,7 +662,6 @@
   }
 
   async function loadSites() {
-    if (!state.status?.setup) { state.sites = []; renderSites(); return; }
     const { sites } = await call('GET', '/api/sites');
     state.sites = sites;
     renderSites();
@@ -652,7 +680,7 @@
       setOnline(true);
       applyStatus(st);
       await pullLog();
-      const sig = JSON.stringify([st.setup, st.services]);
+      const sig = JSON.stringify([st.missing, st.services]);
       // Re-check sites whenever an operation ends or a service changes underneath us.
       if ((prev?.busy && !st.busy) || sig !== state.siteSig) {
         state.siteSig = sig;
@@ -682,10 +710,6 @@
     const q = $('#siteSearch').value.trim().toLowerCase();
     const shown = q ? state.sites.filter(s => s.name.toLowerCase().includes(q) || String(s.port ?? '').includes(q)) : state.sites;
     $('#count').textContent = !state.sites.length ? '' : q ? `(${shown.length} of ${state.sites.length})` : `(${state.sites.length})`;
-    if (!state.status?.setup) {
-      wrap.innerHTML = '<div class="empty">The stack isn\'t installed yet. Run setup to download MySQL, PHP, Nginx and phpMyAdmin.</div>';
-      return;
-    }
     if (!state.sites.length) {
       wrap.innerHTML = '<div class="empty">No sites yet. New site installs WordPress on the next free port.</div>';
       if (state.status) renderPending(state.status);

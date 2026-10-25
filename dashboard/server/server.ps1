@@ -341,6 +341,7 @@ function Handle-Request($ctx) {
             }
             Send-Json $ctx @{
                 setup    = [bool](Test-IsSetup)
+                missing  = @(Get-MissingParts)
                 services = $svc
                 busy     = $shared.Busy
                 task     = $script:opArg
