@@ -118,11 +118,64 @@
   .kv .skel { width: 60%; }
   .info { overflow-y: auto; gap: 16px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
   .info-head {
-    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
-    padding: 18px 22px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow);
+    display: grid; grid-template-columns: 230px minmax(0, 1fr) auto; align-items: center; gap: 8px 24px;
+    padding: 6px 22px 6px 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow);
   }
   .info-head h2 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
   .info-head p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+  .info-head .live { margin-top: 10px; display: inline-flex; align-items: center; gap: 8px; color: var(--ink); font-size: 13.5px; font-weight: 500; }
+  .info-head .live i { width: 8px; height: 8px; border-radius: 50%; background: var(--live, var(--muted)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--live, var(--muted)) 20%, transparent); }
+
+  /* ---- 3D server stack: one slab per service, mirrors live state, leans toward the cursor ---- */
+  .stack3d {
+    --s-front: color-mix(in srgb, var(--panel) 88%, var(--ink));
+    --s-top: color-mix(in srgb, var(--panel) 94%, var(--ink));
+    --s-side: color-mix(in srgb, var(--panel) 72%, #000);
+    --s-edge: color-mix(in srgb, var(--line) 80%, var(--ink) 20%);
+    position: relative; height: 210px; perspective: 900px; display: grid; place-items: center; user-select: none;
+  }
+  .s3-rig {
+    position: relative; width: 160px; height: 28px; transform-style: preserve-3d;
+    transform: rotateX(calc(-24deg + var(--tx, 0deg))) rotateY(calc(-34deg + var(--ty, 0deg)));
+    transition: transform .7s cubic-bezier(.2, .7, .3, 1);
+  }
+  .s3-spin { position: absolute; inset: 0; transform-style: preserve-3d; }
+  .stack3d[data-spin] .s3-spin { animation: s3spin 7s linear infinite; }
+  @keyframes s3spin { to { transform: rotateY(360deg); } }
+  .slab { position: absolute; inset: 0; transform-style: preserve-3d; transform: translateY(var(--y)); --led: var(--muted); }
+  .slab[data-svc="nginx"] { --y: -44px; --d: 0s; }
+  .slab[data-svc="php"]   { --y: 0px;   --d: -1.6s; }
+  .slab[data-svc="mysql"] { --y: 44px;  --d: -3.2s; }
+  .slab[data-state="running"] { --led: var(--on); }
+  .slab[data-state="stopped"] { --led: var(--off); }
+  .slab[data-state="starting"], .slab[data-state="stopping"] { --led: var(--wait); }
+  .s3-float { position: absolute; inset: 0; transform-style: preserve-3d; animation: s3float 4.8s ease-in-out infinite; animation-delay: var(--d); }
+  @keyframes s3float { 50% { transform: translateY(-5px); } }
+  .s3f { position: absolute; box-sizing: border-box; border: 1px solid var(--s-edge); }
+  .s3f.front, .s3f.back { left: 0; top: 0; width: 160px; height: 28px; }
+  .s3f.front { transform: translateZ(55px); background: var(--s-front); display: flex; align-items: center; gap: 7px; padding: 0 9px; font: 500 10px/1 var(--mono); color: var(--muted); }
+  .s3f.back { transform: rotateY(180deg) translateZ(55px); background: var(--s-side); }
+  .s3f.right, .s3f.left { left: 25px; top: 0; width: 110px; height: 28px; background: var(--s-side); }
+  .s3f.right { transform: rotateY(90deg) translateZ(80px); }
+  .s3f.left { transform: rotateY(-90deg) translateZ(80px); }
+  .s3f.top, .s3f.bottom { left: 0; top: -41px; width: 160px; height: 110px; }
+  .s3f.top {
+    transform: rotateX(90deg) translateZ(14px); background: var(--s-top);
+    box-shadow: inset 0 0 26px color-mix(in srgb, var(--led) 22%, transparent);
+    transition: box-shadow .5s;
+  }
+  .s3f.bottom { transform: rotateX(-90deg) translateZ(14px); background: var(--s-side); }
+  .s3f .led { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--led); box-shadow: 0 0 8px var(--led); transition: background .4s, box-shadow .4s; }
+  .s3f .vents { margin-left: auto; width: 46px; height: 10px; background: repeating-linear-gradient(90deg, var(--s-edge) 0 2px, transparent 2px 5px); }
+  .slab[data-state="starting"] .led, .slab[data-state="stopping"] .led { animation: blink 1s ease-in-out infinite; }
+  .slab.fault { --led: var(--off); }
+  .slab.fault .led { animation: fault .12s steps(2) 8; }
+  @keyframes fault { 50% { opacity: .15; } }
+  .s3-shadow {
+    position: absolute; bottom: 26px; left: 50%; width: 190px; height: 34px; transform: translateX(-50%);
+    background: radial-gradient(closest-side, color-mix(in srgb, #000 30%, transparent), transparent);
+    filter: blur(3px); pointer-events: none;
+  }
   .versions { display: flex; flex-wrap: wrap; margin: 0; padding: 0; list-style: none; border: 1px solid var(--line); border-radius: 10px; }
   .versions li { display: grid; padding: 7px 14px; }
   .versions li + li { border-left: 1px solid var(--line); }
@@ -460,6 +513,7 @@
     .site { grid-template-columns: auto minmax(0, 1fr) auto; }
     .site .actions { grid-column: 3; grid-row: 1; }
     .info-grid { grid-template-columns: 1fr; }
+    .info-head { grid-template-columns: 1fr; padding: 6px 18px 18px; }
     .folders td:first-child { width: auto; }
     .folders td:nth-child(2) { display: none; }
     .health { grid-column: 2 / 4; grid-row: 2; justify-self: start; }
@@ -472,6 +526,8 @@
     .slot .lamp, .progress .bar i, .skel::after { animation: none !important; transition: none; }
     .rack::after, .slot .lamp::after, .power .btn.primary::after, .cursor { animation: none !important; }
     .slot[data-state="running"] .lamp::after, .power .btn.primary[data-busy]::after, body::before { display: none; }
+    .s3-float, .stack3d[data-spin] .s3-spin, .slab .led { animation: none !important; }
+    .s3-rig { transition: none; }
   }
 </style>
 </head>
@@ -572,9 +628,14 @@
 
   <div class="view info" id="viewInfo" role="tabpanel">
     <div class="info-head">
+      <div class="stack3d" id="stack3d" aria-hidden="true">
+        <div class="s3-shadow"></div>
+        <div class="s3-rig"><div class="s3-spin" id="s3spin"></div></div>
+      </div>
       <div>
         <h2 id="infoRelease">localhost-wp</h2>
         <p id="infoBase"></p>
+        <span class="live" id="infoLive"><i></i><span></span></span>
       </div>
       <ul class="versions" id="infoVersions"></ul>
     </div>
@@ -743,6 +804,7 @@
   }
 
   function addLog(e) {
+    if (state.logReady && (e.level === 'err' || e.msg.includes('[!]'))) flickerFault(e.msg);
     // History loaded at startup, and reduced motion, print instantly.
     if (!state.logReady || reduceMotion.matches) {
       const stick = nearBottom();
@@ -806,6 +868,7 @@
       if (busy === 'start' && !on) s = 'starting';
       if ((busy === 'stop' || busy === 'stop-nobackup') && on) s = 'stopping';
       el.dataset.state = s;
+      document.querySelector(`.slab[data-svc="${el.dataset.svc}"]`)?.setAttribute('data-state', s);
       el.querySelector('.st').textContent = { missing: 'Not installed', running: 'Running', stopped: 'Stopped', starting: 'Starting', stopping: 'Stopping' }[s];
     }
 
@@ -819,6 +882,18 @@
     // Motion states: strip pulse, button sheen, log cursor.
     const switching = busy === 'start' || busy === 'stop' || busy === 'stop-nobackup';
     $('.rack').dataset.flow = switching ? 'busy' : st.setup && all ? 'live' : '';
+
+    // 3D stack: slabs follow the lamps (above); it turns slowly during long jobs.
+    $('#stack3d').toggleAttribute('data-spin', !!busy && !switching);
+    const up = Object.values(svc).filter(Boolean).length;
+    const live = $('#infoLive');
+    const [liveText, liveColor] =
+      busy ? [`${TASK_LABEL[busy]?.(st.task) ?? 'working'}…`, 'var(--wait)'] :
+      missing.length ? [`${missing.join(', ')} not installed`, 'var(--muted)'] :
+      all ? ['All services running', 'var(--on)'] :
+      up ? [`${up} of 3 services running`, 'var(--wait)'] : ['Stack stopped', 'var(--off)'];
+    live.querySelector('span').textContent = liveText[0].toUpperCase() + liveText.slice(1);
+    live.style.setProperty('--live', liveColor);
     power.toggleAttribute('data-busy', !!busy);
     setTermBusy(busy, st.task);
 
@@ -1353,6 +1428,51 @@
     navigator.sendBeacon(`/api/bye?t=${TOKEN}`);
   });
 
+  // ---- 3D stack (Stack info tab) ----
+  // Three boxes of six faces each, top to bottom Nginx, PHP, MySQL, matching the request path.
+  function buildStack3d() {
+    const spin = $('#s3spin');
+    for (const svc of ['nginx', 'php', 'mysql']) {
+      const slab = document.createElement('div');
+      slab.className = 'slab';
+      slab.dataset.svc = svc;
+      slab.innerHTML = `<div class="s3-float">
+        <div class="s3f top"></div><div class="s3f bottom"></div><div class="s3f back"></div>
+        <div class="s3f left"></div><div class="s3f right"></div>
+        <div class="s3f front"><i class="led"></i><span>${svc}</span><b class="vents"></b></div>
+      </div>`;
+      spin.append(slab);
+    }
+
+    // Leans toward the cursor while it is over the Stack info tab, eases back when it leaves.
+    const view = $('#viewInfo'), stack = $('#stack3d'), rig = stack.querySelector('.s3-rig');
+    const clamp = (v, m) => Math.max(-m, Math.min(m, v));
+    view.addEventListener('pointermove', e => {
+      if (reduceMotion.matches) return;
+      const r = stack.getBoundingClientRect();
+      const dx = (e.clientX - (r.left + r.width / 2)) / 500;
+      const dy = (e.clientY - (r.top + r.height / 2)) / 500;
+      rig.style.setProperty('--ty', `${clamp(dx * 18, 16)}deg`);
+      rig.style.setProperty('--tx', `${clamp(-dy * 12, 10)}deg`);
+    });
+    view.addEventListener('pointerleave', () => {
+      rig.style.setProperty('--ty', '0deg');
+      rig.style.setProperty('--tx', '0deg');
+    });
+  }
+
+  // An error line makes the slab it mentions flicker red (all three if it names none).
+  function flickerFault(msg) {
+    const hit = ['mysql', 'php', 'nginx'].filter(s => msg.toLowerCase().includes(s));
+    const slabs = [...document.querySelectorAll('.slab')].filter(el => !hit.length || hit.includes(el.dataset.svc));
+    for (const el of slabs) {
+      el.classList.remove('fault');
+      void el.offsetWidth;   // restart the animation if it is already flickering
+      el.classList.add('fault');
+      setTimeout(() => el.classList.remove('fault'), 1400);
+    }
+  }
+
   // ---- boot ----
   // Keeps the drive and the last two folders, which are the parts that tell stacks apart.
   function shortPath(p) {
@@ -1406,6 +1526,7 @@
     let saved = null;
     try { saved = localStorage.getItem('cp-host'); } catch { }
     sel.value = boot.hosts.includes(saved) ? saved : boot.hosts[boot.hosts.length - 1];
+    buildStack3d();
     skeletonSites(3);
     skeletonInfo();
     showView(document.documentElement.dataset.view);
