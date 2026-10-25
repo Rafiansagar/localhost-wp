@@ -24,9 +24,9 @@
     --ink: #1B2330;
     --muted: #677385;
     --line: #D3D9E1;
-    --action: #2A44C4;
+    --action: #1c90ed;
     --action-ink: #FFFFFF;
-    --action-soft: #E6EAFA;
+    --action-soft: #E3F1FD;
     --on: #1D8A57;
     --off: #B8352B;
     --wait: #B07A08;
@@ -73,14 +73,21 @@
 
   /* Header */
   .top { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
-  .brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
-  .tabs { display: flex; gap: 4px; margin-right: auto; }
+  .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .brand .mark {
+    flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px;
+    background: var(--action); color: var(--action-ink);
+  }
+  .brand .mark svg { width: 20px; height: 20px; }
+  .brand-text { display: grid; min-width: 0; max-width: 280px; }
+  .top .divider { width: 1px; height: 28px; background: var(--line); margin: 0 4px; }
+  .tabs { display: inline-flex; padding: 2px; gap: 2px; margin-right: auto; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); }
   .tabs button {
-    height: 32px; padding: 0 12px; border: 0; border-radius: 8px; background: none;
+    height: 30px; padding: 0 14px; border: 0; border-radius: 7px; background: none;
     color: var(--muted); font-size: 14px; font-weight: 500; cursor: pointer;
   }
   .tabs button:hover { color: var(--ink); }
-  .tabs button[aria-selected="true"] { color: var(--ink); background: var(--panel); box-shadow: 0 0 0 1px var(--line); }
+  .tabs button[aria-selected="true"] { color: var(--action); background: var(--action-soft); }
 
   /* Views */
   .view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -133,8 +140,8 @@
   .folders td:last-child { text-align: right; white-space: nowrap; }
   .folders .btn { height: 28px; font-size: 13px; }
   .folders .none { color: var(--muted); font-size: 12.5px; }
-  .brand h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
-  .brand .base { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .brand h1 { margin: 0; font-size: 18px; line-height: 1.2; font-weight: 700; letter-spacing: -.02em; }
+  .brand .base { color: var(--muted); font-size: 12.5px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .host { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
   .host select {
     background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
@@ -212,6 +219,32 @@
   /* Sites */
   .section-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 32px 0 12px; }
   .section-head h2 { margin: 0 auto 0 0; font-size: 17px; font-weight: 600; }
+  .section-head:has(.search) h2 { margin-right: 8px; }
+
+  .search { position: relative; margin-right: auto; }
+  .search > svg { position: absolute; left: 10px; top: 50%; width: 15px; height: 15px; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+  .search input {
+    width: 240px; height: 34px; padding: 0 30px 0 32px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--panel); font-size: 14px;
+  }
+  .search input::placeholder { color: var(--muted); }
+  .search input:focus-visible { outline: 2px solid var(--action); outline-offset: -1px; }
+  .search input::-webkit-search-cancel-button { display: none; }
+  .search kbd {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    min-width: 18px; padding: 0 5px; border: 1px solid var(--line); border-radius: 4px;
+    font: 500 11px/16px var(--mono); color: var(--muted); text-align: center; pointer-events: none;
+  }
+  .search input:focus ~ kbd, .search input:not(:placeholder-shown) ~ kbd { display: none; }
+  .search .clear {
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    display: grid; place-items: center; width: 26px; height: 26px; padding: 0;
+    border: 0; border-radius: 6px; background: none; color: var(--muted); cursor: pointer;
+  }
+  .search .clear:hover { color: var(--ink); background: var(--panel-2); }
+  .search .clear svg { width: 14px; height: 14px; }
+  .search input:placeholder-shown ~ .clear { display: none; }
+  .empty .link { margin-left: 4px; }
   .section-head h2 span { color: var(--muted); font-weight: 400; }
 
   .sites { flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line) transparent; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
@@ -321,7 +354,7 @@
   }
   @media (max-width: 520px) {
     .shell { padding: 16px; }
-    .brand { flex-direction: column; gap: 2px; }
+    .top .divider { display: none; }
   }
   @media (prefers-reduced-motion: reduce) {
     .slot .lamp, .progress .bar i, .skel::after { animation: none !important; transition: none; }
@@ -333,9 +366,15 @@
 
   <header class="top">
     <div class="brand">
-      <h1>localhost-wp</h1>
-      <span class="base" id="base"></span>
+      <span class="mark" aria-hidden="true">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="14" height="5" rx="1.5"/><rect x="3" y="11.5" width="14" height="5" rx="1.5"/><path d="M6 6h.01M6 14h.01"/></svg>
+      </span>
+      <div class="brand-text">
+        <h1>localhost-wp</h1>
+        <span class="base" id="base"></span>
+      </div>
     </div>
+    <span class="divider" aria-hidden="true"></span>
     <nav class="tabs" role="tablist" aria-label="Views">
       <button role="tab" data-view="control" aria-selected="true" aria-controls="viewControl">Control panel</button>
       <button role="tab" data-view="info" aria-selected="false" aria-controls="viewInfo">Stack info</button>
@@ -397,6 +436,14 @@
 
   <div class="section-head">
     <h2>Sites <span id="count"></span></h2>
+    <div class="search" role="search">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+      <input type="search" id="siteSearch" placeholder="Search sites" aria-label="Search sites by name or port" autocomplete="off" spellcheck="false">
+      <kbd aria-hidden="true">/</kbd>
+      <button class="clear" id="searchClear" title="Clear search" aria-label="Clear search">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+      </button>
+    </div>
     <button class="btn quiet" id="pma">phpMyAdmin</button>
     <button class="btn quiet" id="dash">Dashboard</button>
     <button class="btn quiet" id="reloadList">Refresh list</button>
@@ -632,7 +679,9 @@
 
   function renderSites() {
     const wrap = $('#sites');
-    $('#count').textContent = state.sites.length ? `(${state.sites.length})` : '';
+    const q = $('#siteSearch').value.trim().toLowerCase();
+    const shown = q ? state.sites.filter(s => s.name.toLowerCase().includes(q) || String(s.port ?? '').includes(q)) : state.sites;
+    $('#count').textContent = !state.sites.length ? '' : q ? `(${shown.length} of ${state.sites.length})` : `(${state.sites.length})`;
     if (!state.status?.setup) {
       wrap.innerHTML = '<div class="empty">The stack isn\'t installed yet. Run setup to download MySQL, PHP, Nginx and phpMyAdmin.</div>';
       return;
@@ -643,10 +692,17 @@
       return;
     }
     closeMenu();
+    if (!shown.length) {
+      wrap.innerHTML = '<div class="empty">No site name or port matches <b></b>.<button class="link">Clear search</button></div>';
+      wrap.querySelector('b').textContent = `“${q}”`;
+      wrap.querySelector('.link').addEventListener('click', clearSearch);
+      if (state.status) renderPending(state.status);
+      return;
+    }
     const srvText = { live: ['yes', 'Live'], offline: ['warn', 'Offline'], disabled: ['unknown', 'Disabled'] };
     const dbText = { yes: ['yes', 'Database'], no: ['no', 'No database'], unknown: ['unknown', 'Database ?'] };
     wrap.innerHTML = '';
-    for (const s of state.sites) {
+    for (const s of shown) {
       const [srvOk, srvLabel] = srvText[s.server] || ['unknown', 'Server ?'];
       const [dbOk, dbLabel] = dbText[s.db] || dbText.unknown;
       const row = document.createElement('div');
@@ -684,6 +740,33 @@
     }
     if (state.status) renderPending(state.status);
   }
+
+  // ---- search ----
+  const search = $('#siteSearch');
+  function clearSearch() {
+    search.value = '';
+    renderSites();
+    search.focus();
+  }
+  search.addEventListener('input', () => { $('#sites').scrollTop = 0; renderSites(); });
+  search.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && search.value) { e.preventDefault(); clearSearch(); }
+    // Enter opens the only match, the way a launcher would.
+    if (e.key === 'Enter') {
+      const urls = document.querySelectorAll('#sites .site:not(.pending):not(.skeleton) .url');
+      if (urls.length === 1 && !urls[0].disabled) urls[0].click();
+    }
+  });
+  $('#searchClear').addEventListener('click', clearSearch);
+  // "/" jumps to search from anywhere that isn't a text field.
+  document.addEventListener('keydown', e => {
+    if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target.closest('input, textarea, select, [contenteditable]') || document.querySelector('dialog[open]')) return;
+    if (document.documentElement.dataset.view !== 'control') return;
+    e.preventDefault();
+    search.focus();
+    search.select();
+  });
 
   // ---- row menu ----
   const menu = $('#siteMenu');
@@ -965,6 +1048,13 @@
   });
 
   // ---- boot ----
+  // Keeps the drive and the last two folders, which are the parts that tell stacks apart.
+  function shortPath(p) {
+    const parts = p.split('\\').filter(Boolean);
+    if (p.length <= 36 || parts.length <= 3) return p;
+    return `${parts[0]}\\…\\${parts.slice(-2).join('\\')}`;
+  }
+
   // Grey rows the size of real ones, so data slots in without the page jumping.
   function skeletonSites(n) {
     const wrap = $('#sites');
@@ -998,7 +1088,8 @@
     let boot = null;
     try { boot = JSON.parse($('#cp-boot').textContent); } catch { }
     if (TOKEN.startsWith('__') || !boot) { setOnline(false); return; }
-    $('#base').textContent = boot.base;
+    $('#base').textContent = shortPath(boot.base);
+    $('#base').title = boot.base;
     $('#infoBase').textContent = boot.base;
     Object.assign(state.ports, boot.ports);
     $('#addrMysql').textContent = `127.0.0.1:${state.ports.mysql}`;
