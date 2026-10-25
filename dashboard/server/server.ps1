@@ -303,6 +303,15 @@ function Handle-Request($ctx) {
         Send-Bytes $ctx ([System.Text.Encoding]::UTF8.GetBytes($html)) 'text/html; charset=utf-8'
         return
     }
+    # App icons (window and taskbar). The name pattern keeps requests inside dashboard\icons.
+    if ($method -eq 'GET' -and $path -match '^/icons/(icon(-\d+)?\.(png|svg))$') {
+        $file = Join-Path (Join-Path $Root 'icons') $Matches[1]
+        if (Test-Path -LiteralPath $file) {
+            $type = if ($Matches[3] -eq 'svg') { 'image/svg+xml' } else { 'image/png' }
+            Send-Bytes $ctx ([System.IO.File]::ReadAllBytes($file)) $type
+        } else { Send-Error $ctx 404 'Not found.' }
+        return
+    }
     if (-not $path.StartsWith('/api/')) { Send-Error $ctx 404 'Not found.'; return }
 
     $tok = $req.Headers['X-Token']
