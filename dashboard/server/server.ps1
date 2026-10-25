@@ -9,7 +9,9 @@
 #  call must carry the per-run token embedded in the served page.
 #  Exits by itself a few seconds after the dashboard window closes.
 # ============================================================================
-param([string]$Base, [int]$Port = 7070, [switch]$NoWindow)
+param([string]$Base, [int]$Port = 7070, [switch]$NoWindow, [switch]$Restarted)
+
+$baseArg = $Base
 
 Add-Type -AssemblyName System.Windows.Forms
 
@@ -87,6 +89,61 @@ function Get-Ports {
         php   = Get-ConfPort 'nginx\conf\nginx.conf' 'upstream\s+php\s*\{[^}]*?server\s+[\d.]+:(\d+)' 9000
         pma   = Get-ConfPort 'config\nginx\phpmyadmin.conf' 'listen\s+(\d+)' 8080
         home  = Get-ConfPort 'nginx\conf\nginx.conf' 'listen\s+(\d+)\s+default_server' 80
+    }
+}
+
+# ---- stack info (what the stack's own index.html lists, read live) ---------
+# Folders the dashboard may open in Explorer; nothing outside this list.
+$script:Folders = [ordered]@{
+    nginx      = @('nginx',        'Nginx binary and main config')
+    mysql      = @('mysql',        'MySQL binaries, data, logs and my.ini')
+    phpmyadmin = @('phpmyadmin',   'phpMyAdmin')
+    sites      = @('sites',        'One folder per site; WordPress lives in sites\{name}\public')
+    vhosts     = @('config\nginx', 'One .conf per site, loaded automatically')
+    config     = @('config',       'ports.txt keeps the last assigned site port')
+    logs       = @('logs',         'Per-site Nginx error logs and backup.log')
+    dashboard  = @('dashboard',    'This Control Panel')
+}
+
+$script:verCache = @{}
+
+# First match of $pattern in a binary's version output; cached once found.
+function Get-BinVersion([string]$key, [string]$relExe, [string[]]$exeArgs, [string]$pattern) {
+    if ($script:verCache[$key]) { return $script:verCache[$key] }
+    $exe = Join-Path $script:BASE $relExe
+    if (-not (Test-Path $exe)) { return $null }
+    try {
+        $out = (& $exe @exeArgs 2>&1 | ForEach-Object { "$_" }) -join "`n"
+        $m = [regex]::Match($out, $pattern)
+        if ($m.Success) { $script:verCache[$key] = $m.Groups[1].Value; return $m.Groups[1].Value }
+    } catch { }
+    return $null
+}
+
+function Get-StackInfo {
+    $verFile = Join-Path $script:BASE 'VERSION'
+    $pmaRel  = Get-ChildItem -LiteralPath (Join-Path $script:BASE 'phpmyadmin') -Filter 'RELEASE-DATE-*' -File -ErrorAction SilentlyContinue | Select-Object -First 1
+    $myIni   = Join-Path $script:BASE 'mysql\my.ini'
+    $dataDir = Join-Path $script:BASE 'mysql\data'
+    if (Test-Path $myIni) {
+        $m = [regex]::Match((Get-Content -Raw -LiteralPath $myIni), '(?m)^\s*datadir\s*=\s*(.+?)\s*$')
+        if ($m.Success) { $dataDir = $m.Groups[1].Value.Replace('/', '\') }
+    }
+    [ordered]@{
+        release  = if (Test-Path $verFile) { "$(Get-Content -LiteralPath $verFile -TotalCount 1)".Trim() } else { $null }
+        base     = $script:BASE
+        ports    = Get-Ports
+        versions = [ordered]@{
+            nginx      = Get-BinVersion 'nginx' 'nginx\nginx.exe' @('-v') 'nginx/([\d.]+)'
+            mysql      = Get-BinVersion 'mysql' 'mysql\bin\mysqld.exe' @('--version') 'Ver\s+([\d.]+)'
+            php        = Get-BinVersion 'php' 'php\php.exe' @('-v') 'PHP\s+([\d.]+)'
+            phpmyadmin = if ($pmaRel) { $pmaRel.Name.Substring(13) } else { $null }
+        }
+        mysql    = [ordered]@{ host = '127.0.0.1'; user = 'root'; config = $myIni; data = $dataDir }
+        folders  = @($script:Folders.Keys | ForEach-Object {
+            $p = Join-Path $script:BASE $script:Folders[$_][0]
+            [ordered]@{ key = $_; path = $script:Folders[$_][0]; purpose = $script:Folders[$_][1]; exists = Test-Path $p }
+        })
     }
 }
 
@@ -240,7 +297,9 @@ function Handle-Request($ctx) {
     if ($req.Headers['Host'] -ne "localhost:$Port") { Send-Error $ctx 403 'Wrong host.'; return }
 
     if ($path -eq '/' -and $method -eq 'GET') {
-        $html = [System.IO.File]::ReadAllText($indexPath).Replace('__CP_TOKEN__', $token)
+        # Base, hosts and ports go into the page itself so the first paint is complete.
+        $boot = (ConvertTo-Json -InputObject @{ base = $script:BASE; hosts = $hosts; ports = Get-Ports } -Compress).Replace('</', '<\/')
+        $html = [System.IO.File]::ReadAllText($indexPath).Replace('__CP_TOKEN__', $token).Replace('__CP_BOOT__', $boot)
         Send-Bytes $ctx ([System.Text.Encoding]::UTF8.GetBytes($html)) 'text/html; charset=utf-8'
         return
     }
@@ -254,6 +313,19 @@ function Handle-Request($ctx) {
     switch -Regex ($route) {
         '^GET /api/info$' {
             Send-Json $ctx @{ base = $script:BASE; hosts = $hosts; ports = Get-Ports }
+            return
+        }
+        '^GET /api/stackinfo$' {
+            Send-Json $ctx (Get-StackInfo)
+            return
+        }
+        '^POST /api/open-path$' {
+            $key = "$((Read-Body $req).key)"
+            if (-not $script:Folders.Contains($key)) { Send-Error $ctx 404 'Unknown folder.'; return }
+            $dir = Join-Path $script:BASE $script:Folders[$key][0]
+            if (Test-Path $dir) { Start-Process explorer.exe $dir; Write-Log "Opened folder $($script:Folders[$key][0])" }
+            else { Write-Log "Folder not created yet: $dir" 'warn' }
+            Send-Json $ctx @{ ok = $true }
             return
         }
         '^GET /api/status$' {
@@ -340,7 +412,17 @@ function Handle-Request($ctx) {
 
 # ---- main loop -------------------------------------------------------------
 Write-Log "Base: $script:BASE"
-Open-Window
+if ($Restarted) { Write-Log 'Dashboard updated - server restarted with the new code.' 'ok' }
+else { Open-Window }
+
+# Newest change to this folder's scripts; when it moves, the server restarts
+# itself so edits take effect without closing the window.
+function Get-CodeStamp {
+    (Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.ps1' -File | Sort-Object LastWriteTimeUtc | Select-Object -Last 1).LastWriteTimeUtc
+}
+$codeStamp = Get-CodeStamp
+$seenStamp = $codeStamp
+$restart = $false
 
 $script:exitAt = $null
 $lastHit = Get-Date
@@ -361,6 +443,17 @@ while ($listener.IsListening) {
         if ($script:exitAt -and (Get-Date) -gt $script:exitAt) { break }
         # No window has polled for 3 minutes (minimised windows still poll about once a minute).
         if (((Get-Date) - $lastHit).TotalSeconds -gt 180) { break }
+        # Restart only once the files have stopped changing (no half-saved script).
+        $now = Get-CodeStamp
+        if ($now -ne $codeStamp -and $now -eq $seenStamp) { $restart = $true; break }
+        $seenStamp = $now
     }
 }
 $listener.Stop()
+
+if ($restart) {
+    $argList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', "`"$PSCommandPath`"", '-Port', $Port, '-Restarted')
+    if ($baseArg) { $argList += @('-Base', "`"$baseArg`"") }
+    if ($NoWindow) { $argList += '-NoWindow' }
+    Start-Process powershell -ArgumentList $argList
+}

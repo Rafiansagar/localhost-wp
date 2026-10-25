@@ -4,10 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="cp-token" content="__CP_TOKEN__">
+<script id="cp-boot" type="application/json">__CP_BOOT__</script>
 <title>localhost-wp</title>
 <script>
-  // Apply the saved theme before first paint so the page doesn't flash.
+  // Apply the saved theme and tab before first paint so the page doesn't flash or jump.
   try { const t = localStorage.getItem('cp-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch { }
+  document.documentElement.dataset.view = 'control';
+  try { if (localStorage.getItem('cp-view') === 'info') document.documentElement.dataset.view = 'info'; } catch { }
+  if (location.hash === '#info') document.documentElement.dataset.view = 'info';
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -35,7 +39,7 @@
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --paper: #161B22; --panel: #1E242D; --panel-2: #232A34; --ink: #E3E8EE; --muted: #8F9AAA;
-      --line: #2F3742; --action: #6F86F0; --action-ink: #0F1424; --action-soft: #252E4A;
+      --line: #2F3742; --action: #1c90ed; --action-ink: #0F1424; --action-soft: #15324A;
       --on: #3DBB80; --off: #E06A5F; --wait: #E3AA3A; --log-bg: #191E25;
       --shadow: 0 1px 0 rgba(0,0,0,.2), 0 10px 28px -18px rgba(0,0,0,.7);
       color-scheme: dark;
@@ -43,7 +47,7 @@
   }
   :root[data-theme="dark"] {
     --paper: #161B22; --panel: #1E242D; --panel-2: #232A34; --ink: #E3E8EE; --muted: #8F9AAA;
-    --line: #2F3742; --action: #6F86F0; --action-ink: #0F1424; --action-soft: #252E4A;
+    --line: #2F3742; --action: #1c90ed; --action-ink: #0F1424; --action-soft: #15324A;
     --on: #3DBB80; --off: #E06A5F; --wait: #E3AA3A; --log-bg: #191E25;
     --shadow: 0 1px 0 rgba(0,0,0,.2), 0 10px 28px -18px rgba(0,0,0,.7);
     color-scheme: dark;
@@ -69,7 +73,66 @@
 
   /* Header */
   .top { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
-  .brand { display: flex; align-items: baseline; gap: 12px; margin-right: auto; min-width: 0; }
+  .brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+  .tabs { display: flex; gap: 4px; margin-right: auto; }
+  .tabs button {
+    height: 32px; padding: 0 12px; border: 0; border-radius: 8px; background: none;
+    color: var(--muted); font-size: 14px; font-weight: 500; cursor: pointer;
+  }
+  .tabs button:hover { color: var(--ink); }
+  .tabs button[aria-selected="true"] { color: var(--ink); background: var(--panel); box-shadow: 0 0 0 1px var(--line); }
+
+  /* Views */
+  .view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  :root[data-view="info"] #viewControl,
+  :root:not([data-view="info"]) #viewInfo { display: none; }
+
+  /* Placeholders shown until the first data arrives; same size as the real rows */
+  .skel { display: inline-block; height: 12px; border-radius: 6px; background: var(--panel-2); position: relative; overflow: hidden; vertical-align: middle; }
+  .skel::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--line) 70%, transparent), transparent);
+    transform: translateX(-100%); animation: shimmer 1.4s ease-in-out infinite;
+  }
+  @keyframes shimmer { to { transform: translateX(100%); } }
+  .site.skeleton { pointer-events: none; }
+  .site.skeleton .dot { background: var(--line); opacity: 1; }
+  .site.skeleton .id { gap: 8px; height: 44px; align-content: center; }
+  .kv .skel { width: 60%; }
+  .info { overflow-y: auto; gap: 16px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+  .info-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    padding: 18px 22px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow);
+  }
+  .info-head h2 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+  .info-head p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+  .versions { display: flex; flex-wrap: wrap; margin: 0; padding: 0; list-style: none; border: 1px solid var(--line); border-radius: 10px; }
+  .versions li { display: grid; padding: 7px 14px; }
+  .versions li + li { border-left: 1px solid var(--line); }
+  .versions b { font-size: 12px; font-weight: 500; color: var(--muted); }
+  .versions span { font: 500 14px/1.4 var(--mono); }
+  .info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 14px 20px 10px; }
+  .panel h3 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+  .kv { display: grid; grid-template-columns: 120px minmax(0, 1fr) auto; align-items: center; column-gap: 12px; min-height: 38px; }
+  .kv + .kv { border-top: 1px solid var(--line); }
+  .kv .k { font-size: 13px; color: var(--muted); }
+  .kv .v { font: 400 13px/1.5 var(--mono); overflow-wrap: anywhere; padding: 6px 0; }
+  .kv .v.plain { font-family: var(--sans); font-size: 13.5px; color: var(--muted); }
+  .link { padding: 0; border: 0; background: none; color: var(--action); font: inherit; cursor: pointer; text-align: left; }
+  .link:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .btn.copy { width: 28px; height: 28px; padding: 0; justify-content: center; border-color: transparent; background: none; color: var(--muted); }
+  .btn.copy:hover { color: var(--ink); background: var(--panel-2); }
+  .btn.copy[data-done] { color: var(--on); }
+  .copy svg { width: 15px; height: 15px; }
+  .folders { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .folders td { padding: 8px 0; border-top: 1px solid var(--line); vertical-align: middle; }
+  .folders tr:first-child td { border-top: 0; }
+  .folders td:first-child { width: 150px; font: 400 13px var(--mono); }
+  .folders td:nth-child(2) { color: var(--muted); padding-right: 12px; }
+  .folders td:last-child { text-align: right; white-space: nowrap; }
+  .folders .btn { height: 28px; font-size: 13px; }
+  .folders .none { color: var(--muted); font-size: 12.5px; }
   .brand h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
   .brand .base { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .host { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
@@ -128,7 +191,7 @@
   .slot[data-state="stopping"] .lamp { background: var(--wait); box-shadow: 0 0 0 4px color-mix(in srgb, var(--wait) 18%, transparent); animation: blink 1s ease-in-out infinite; }
   @keyframes blink { 50% { opacity: .35; } }
   .slot .name { font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
-  .slot .meta { font-size: 13px; color: var(--muted); }
+  .slot .meta { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .slot .meta b { font-weight: 500; color: var(--ink); }
   .slot .addr { font-family: var(--mono); font-size: 12px; }
 
@@ -251,6 +314,9 @@
     .power { min-width: 0; }
     .site { grid-template-columns: auto minmax(0, 1fr) auto; }
     .site .actions { grid-column: 3; grid-row: 1; }
+    .info-grid { grid-template-columns: 1fr; }
+    .folders td:first-child { width: auto; }
+    .folders td:nth-child(2) { display: none; }
     .health { grid-column: 2 / 4; grid-row: 2; justify-self: start; }
   }
   @media (max-width: 520px) {
@@ -258,7 +324,7 @@
     .brand { flex-direction: column; gap: 2px; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .slot .lamp, .progress .bar i { animation: none !important; transition: none; }
+    .slot .lamp, .progress .bar i, .skel::after { animation: none !important; transition: none; }
   }
 </style>
 </head>
@@ -270,6 +336,10 @@
       <h1>localhost-wp</h1>
       <span class="base" id="base"></span>
     </div>
+    <nav class="tabs" role="tablist" aria-label="Views">
+      <button role="tab" data-view="control" aria-selected="true" aria-controls="viewControl">Control panel</button>
+      <button role="tab" data-view="info" aria-selected="false" aria-controls="viewInfo">Stack info</button>
+    </nav>
     <label class="host">Open links on
       <select id="host" title="localhost = this PC. The IP = reachable from your phone or another device on the same network."></select>
     </label>
@@ -292,24 +362,25 @@
 
   <div class="layout">
   <main>
+  <div class="view" id="viewControl" role="tabpanel">
   <section class="rack" aria-label="Stack services">
     <div class="slot" data-svc="mysql">
       <span class="lamp" aria-hidden="true"></span>
       <span class="name">MySQL</span>
-      <span class="meta"><b class="st">…</b> · <span class="addr" id="addrMysql"></span></span>
+      <span class="meta"><b class="st">Checking</b> · <span class="addr" id="addrMysql"></span></span>
     </div>
     <div class="slot" data-svc="php">
       <span class="lamp" aria-hidden="true"></span>
       <span class="name">PHP</span>
-      <span class="meta"><b class="st">…</b> · <span class="addr" id="addrPhp"></span></span>
+      <span class="meta"><b class="st">Checking</b> · <span class="addr" id="addrPhp"></span></span>
     </div>
     <div class="slot" data-svc="nginx">
       <span class="lamp" aria-hidden="true"></span>
       <span class="name">Nginx</span>
-      <span class="meta"><b class="st">…</b> · <span class="addr" id="addrNginx"></span></span>
+      <span class="meta"><b class="st">Checking</b> · <span class="addr" id="addrNginx"></span></span>
     </div>
     <div class="power">
-      <button class="btn primary" id="power" data-mode="start" disabled>Start stack</button>
+      <button class="btn primary" id="power" data-mode="start" disabled>Checking…</button>
       <div class="progress" id="progress" hidden>
         <div class="bar"><i></i></div>
         <span></span>
@@ -332,6 +403,27 @@
     <button class="btn primary" id="newSite">New site</button>
   </div>
   <section class="sites" id="sites" aria-live="polite"></section>
+  </div>
+
+  <div class="view info" id="viewInfo" role="tabpanel">
+    <div class="info-head">
+      <div>
+        <h2 id="infoRelease">localhost-wp</h2>
+        <p id="infoBase"></p>
+      </div>
+      <ul class="versions" id="infoVersions"></ul>
+    </div>
+    <div class="info-grid">
+      <section class="panel"><h3>Database connection</h3><div id="infoDb"></div></section>
+      <section class="panel"><h3>phpMyAdmin</h3><div id="infoPma"></div></section>
+      <section class="panel"><h3>Site addresses</h3><div id="infoSites"></div></section>
+      <section class="panel"><h3>Static sites</h3><div id="infoStatic"></div></section>
+    </div>
+    <section class="panel">
+      <h3>Folders</h3>
+      <table class="folders"><tbody id="infoFolders"></tbody></table>
+    </section>
+  </div>
   </main>
 
   <aside class="side">
@@ -520,6 +612,8 @@
         await loadSites();
       }
     } catch (e) {
+      // 403 = the server restarted with a new token (e.g. after an update): pick it up.
+      if (e.status === 403) return location.reload();
       setOnline(false);
     }
     timer = setTimeout(tick, state.status?.busy ? 700 : 2500);
@@ -527,7 +621,7 @@
 
   async function act(method, path, body) {
     try { await call(method, path, body); }
-    catch (e) { if (e.status !== 403) localLog(e.message); else setOnline(false); }
+    catch (e) { if (e.status === 403) return location.reload(); localLog(e.message); }
     tick();
   }
 
@@ -722,7 +816,135 @@
   $('#host').addEventListener('change', () => {
     try { localStorage.setItem('cp-host', $('#host').value); } catch { }
     renderSites();
+    if (document.documentElement.dataset.view === 'info') loadInfo();
   });
+
+  // ---- views ----
+  function showView(v) {
+    for (const t of document.querySelectorAll('.tabs button')) t.setAttribute('aria-selected', String(t.dataset.view === v));
+    document.documentElement.dataset.view = v;
+    closeMenu();
+    if (v === 'info') loadInfo();
+    try { localStorage.setItem('cp-view', v); } catch { }
+  }
+  for (const t of document.querySelectorAll('.tabs button')) t.addEventListener('click', () => showView(t.dataset.view));
+
+  // ---- stack info ----
+  const COPY_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5V3.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg>';
+  const DONE_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg>';
+
+  // One key/value row. opts: copy (text to copy), url (opens it), plain (prose, not code).
+  function kv(key, value, opts = {}) {
+    const row = document.createElement('div');
+    row.className = 'kv';
+    const k = document.createElement('span');
+    k.className = 'k';
+    k.textContent = key;
+    const v = document.createElement('span');
+    v.className = opts.plain ? 'v plain' : 'v';
+    if (opts.url) {
+      const a = document.createElement('button');
+      a.className = 'link';
+      a.textContent = value;
+      a.addEventListener('click', () => openUrl(opts.url));
+      v.append(a);
+    } else {
+      v.textContent = value;
+    }
+    row.append(k, v);
+    if (opts.copy != null) {
+      const b = document.createElement('button');
+      b.className = 'btn copy';
+      b.title = `Copy ${key.toLowerCase()}`;
+      b.setAttribute('aria-label', b.title);
+      b.innerHTML = COPY_ICON;
+      b.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(opts.copy); } catch { return; }
+        b.innerHTML = DONE_ICON; b.dataset.done = '';
+        setTimeout(() => { b.innerHTML = COPY_ICON; delete b.dataset.done; }, 1400);
+      });
+      row.append(b);
+    } else {
+      row.append(document.createElement('span'));
+    }
+    return row;
+  }
+
+  async function loadInfo() {
+    let info;
+    try { info = await call('GET', '/api/stackinfo'); }
+    catch (e) {
+      if (e.status === 404) localLog('Stack info needs the updated server. Close this window and run control-panel.bat again.');
+      else localLog(e.message);
+      return;
+    }
+    const p = info.ports;
+    const home = localUrl(p.home);
+    const pma = localUrl(p.pma);
+
+    $('#infoRelease').textContent = info.release ? `Release ${info.release}` : 'localhost-wp';
+    $('#infoBase').textContent = info.base;
+
+    const names = { nginx: 'Nginx', mysql: 'MySQL', php: 'PHP', phpmyadmin: 'phpMyAdmin' };
+    const vers = $('#infoVersions');
+    vers.innerHTML = '';
+    for (const [k, label] of Object.entries(names)) {
+      const li = document.createElement('li');
+      li.innerHTML = '<b></b><span></span>';
+      li.querySelector('b').textContent = label;
+      li.querySelector('span').textContent = info.versions[k] || 'Not installed';
+      vers.append(li);
+    }
+
+    const db = info.mysql;
+    $('#infoDb').replaceChildren(
+      kv('Host', db.host, { copy: db.host }),
+      kv('Port', String(p.mysql), { copy: String(p.mysql) }),
+      kv('Username', db.user, { copy: db.user }),
+      kv('Password', 'None (empty)', { plain: true }),
+      kv('DB_HOST', `${db.host}:${p.mysql}`, { copy: `${db.host}:${p.mysql}` }),
+      kv('Config', db.config, { copy: db.config }),
+      kv('Data', db.data, { copy: db.data }),
+    );
+    $('#infoPma').replaceChildren(
+      kv('URL', pma, { url: pma, copy: pma }),
+      kv('Username', db.user, { copy: db.user }),
+      kv('Password', 'None (empty)', { plain: true }),
+      kv('Version', info.versions.phpmyadmin || 'Not installed'),
+    );
+    const sitePattern = `http://${host()}:PORT`;
+    $('#infoSites').replaceChildren(
+      kv('Home page', home, { url: home, copy: home }),
+      kv('Each site', sitePattern),
+      kv('Ports', 'From 9001 up, one per site. Shown on each row in the Control panel.', { plain: true }),
+    );
+    const staticUrl = `${home}/sites/your-folder/`;
+    $('#infoStatic').replaceChildren(
+      kv('Put files in', 'sites\\your-folder', { copy: `${info.base}\\sites\\your-folder` }),
+      kv('Open at', staticUrl, { copy: staticUrl }),
+      kv('Works for', 'Plain HTML, CSS, JS and assets, served by the home page on port ' + p.home + '.', { plain: true }),
+    );
+
+    const body = $('#infoFolders');
+    body.innerHTML = '';
+    for (const f of info.folders) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td></td><td></td><td></td>';
+      tr.children[0].textContent = `${f.path}\\`;
+      tr.children[1].textContent = f.purpose;
+      if (f.exists) {
+        const b = document.createElement('button');
+        b.className = 'btn quiet';
+        b.textContent = 'Open';
+        b.setAttribute('aria-label', `Open ${f.path} folder`);
+        b.addEventListener('click', () => act('POST', '/api/open-path', { key: f.key }));
+        tr.children[2].append(b);
+      } else {
+        tr.children[2].innerHTML = '<span class="none">Not created yet</span>';
+      }
+      body.append(tr);
+    }
+  }
 
   // ---- theme ----
   function setTheme(t) {
@@ -743,21 +965,53 @@
   });
 
   // ---- boot ----
-  (async () => {
-    if (TOKEN.startsWith('__')) { setOnline(false); return; }
-    try {
-      const info = await call('GET', '/api/info');
-      $('#base').textContent = info.base;
-      Object.assign(state.ports, info.ports);
-      $('#addrMysql').textContent = `127.0.0.1:${state.ports.mysql}`;
-      $('#addrPhp').textContent = `127.0.0.1:${state.ports.php}`;
-      $('#addrNginx').textContent = `phpMyAdmin :${state.ports.pma}`;
-      const sel = $('#host');
-      for (const h of info.hosts) sel.add(new Option(h, h));
-      let saved = null;
-      try { saved = localStorage.getItem('cp-host'); } catch { }
-      sel.value = info.hosts.includes(saved) ? saved : info.hosts[info.hosts.length - 1];
-    } catch { setOnline(false); }
+  // Grey rows the size of real ones, so data slots in without the page jumping.
+  function skeletonSites(n) {
+    const wrap = $('#sites');
+    wrap.innerHTML = '';
+    for (let i = 0; i < n; i++) {
+      const row = document.createElement('div');
+      row.className = 'site skeleton';
+      row.setAttribute('aria-hidden', 'true');
+      row.innerHTML = `
+        <span class="dot"></span>
+        <div class="id"><span class="skel" style="width:${110 + (i % 2) * 40}px;height:14px"></span><span class="skel" style="width:150px;height:11px"></span></div>
+        <span class="skel" style="width:230px;height:24px;border-radius:999px"></span>
+        <div class="actions"><span class="skel" style="width:96px;height:34px;border-radius:8px"></span><span class="skel" style="width:34px;height:34px;border-radius:8px"></span></div>`;
+      wrap.append(row);
+    }
+  }
+
+  function skeletonInfo() {
+    $('#infoVersions').innerHTML = ['Nginx', 'MySQL', 'PHP', 'phpMyAdmin']
+      .map(n => `<li><b>${n}</b><span><span class="skel" style="width:46px"></span></span></li>`).join('');
+    const rows = n => Array.from({ length: n }, () => '<div class="kv"><span class="k"><span class="skel" style="width:60px"></span></span><span class="v"><span class="skel"></span></span><span></span></div>').join('');
+    $('#infoDb').innerHTML = rows(7);
+    $('#infoPma').innerHTML = rows(4);
+    $('#infoSites').innerHTML = rows(3);
+    $('#infoStatic').innerHTML = rows(3);
+    $('#infoFolders').innerHTML = Array.from({ length: 8 }, () => '<tr><td><span class="skel" style="width:90px"></span></td><td><span class="skel" style="width:60%"></span></td><td></td></tr>').join('');
+  }
+
+  // Runs before first paint: everything the server put in the page is drawn now.
+  (() => {
+    let boot = null;
+    try { boot = JSON.parse($('#cp-boot').textContent); } catch { }
+    if (TOKEN.startsWith('__') || !boot) { setOnline(false); return; }
+    $('#base').textContent = boot.base;
+    $('#infoBase').textContent = boot.base;
+    Object.assign(state.ports, boot.ports);
+    $('#addrMysql').textContent = `127.0.0.1:${state.ports.mysql}`;
+    $('#addrPhp').textContent = `127.0.0.1:${state.ports.php}`;
+    $('#addrNginx').textContent = `phpMyAdmin :${state.ports.pma}`;
+    const sel = $('#host');
+    for (const h of boot.hosts) sel.add(new Option(h, h));
+    let saved = null;
+    try { saved = localStorage.getItem('cp-host'); } catch { }
+    sel.value = boot.hosts.includes(saved) ? saved : boot.hosts[boot.hosts.length - 1];
+    skeletonSites(3);
+    skeletonInfo();
+    showView(document.documentElement.dataset.view);
     tick();
   })();
 </script>
