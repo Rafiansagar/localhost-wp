@@ -181,6 +181,9 @@
   .btn svg { width: 16px; height: 16px; flex: none; }
 
   /* Rack */
+  /* Only the site list may give up height when it is long; everything above it keeps its size. */
+  #viewControl > :not(.sites) { flex-shrink: 0; }
+
   .rack {
     display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
     background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
