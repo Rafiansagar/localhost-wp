@@ -150,6 +150,9 @@ sites/mysite/sql/
 
 ---
 
-## Dashboard
+## Glimpse
 
-![Localhost Dashboard](./localhost-dashboard.png)
+![Dashboard](./scripts/dashboard1.png)  
+![Stack info](./scripts/dashboard2.png)  
+![Server Running](./scripts/server-running.png)  
+
