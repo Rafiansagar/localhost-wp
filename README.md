@@ -152,7 +152,7 @@ sites/mysite/sql/
 
 ## Glimpse
 
-![Dashboard](./scripts/dashboard1.png)  
-![Stack info](./scripts/dashboard2.png)  
-![Server Running](./scripts/server-running.png)  
+![Dashboard](./dashboard/dashboard1.png)  
+![Stack info](./dashboard/dashboard2.png)  
+![Server Running](./dashboard/server-running.png)  
 
