@@ -27,3 +27,4 @@ mysql/
 
 # Ports tracker
 config/ports.txt
+back/
