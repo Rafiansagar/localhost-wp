@@ -452,6 +452,7 @@
   .log .ln { display: grid; grid-template-columns: 8ch minmax(0, 1fr); column-gap: 12px; margin: 0; }
   .log .ln time { color: var(--t-dim); }
   .log .ln .msg { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .log .ln .msg a { color: inherit; text-decoration: underline; }
   .log .ln .msg.sub { padding-left: 2ch; }   /* sub-steps: wrapped text stays under their own first word */
   .log .ok { color: var(--t-green); }
   .log .err { color: var(--t-red); }
@@ -767,17 +768,27 @@
     return line;
   }
 
+  // Text with any http(s) URL turned into a link that opens in a new tab.
+  function withLinks(text) {
+    return text.split(/(https?:\/\/\S+)/).map((s, i) => {
+      if (i % 2 === 0) return s;
+      const a = document.createElement('a');
+      a.href = s; a.textContent = s; a.target = '_blank'; a.rel = 'noopener';
+      return a;
+    });
+  }
+
   // Shows the first n characters, colouring a leading [+]/[*]/[=]/[!] once it is complete.
   function render(line, msg, n) {
     msg = msg.trimStart();
     const shown = msg.slice(0, n);
     const m = line.querySelector('.msg');
     const parts = shown.match(/^(\s*)(\[[+*=!]\])([\s\S]*)$/);
-    if (!parts) { m.textContent = shown; return; }
+    if (!parts) { m.replaceChildren(...withLinks(shown)); return; }
     const tag = document.createElement('span');
     tag.className = TAGS[parts[2]];
     tag.textContent = parts[2];
-    m.replaceChildren(parts[1], tag, parts[3]);
+    m.replaceChildren(parts[1], tag, ...withLinks(parts[3]));
   }
 
   async function pump() {

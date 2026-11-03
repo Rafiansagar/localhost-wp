@@ -424,6 +424,8 @@ $logBox.ReadOnly = $true
 $logBox.ScrollBars = 'Vertical'
 $logBox.BackColor = [System.Drawing.Color]::White
 $logBox.Font = New-Object System.Drawing.Font('Consolas', 9)
+$logBox.DetectUrls = $true
+$logBox.Add_LinkClicked({ param($s, $e) Start-Process $e.LinkText })
 $grpLog.Controls.Add($logBox)
 
 # --- resize anchors ---

@@ -69,10 +69,25 @@ function Start-Stack {
 
     Write-Log 'Starting stack...' ; Flush-UI
 
-    # MySQL
+    # MySQL (Windows' VC++ runtime installed on demand; skipped, not fatal, if declined)
+    $mysqlSkipped = $false
+    $vcMissing = $false
+    if (-not (Test-Proc 'mysqld') -and @(Get-MissingVcRuntime).Count) {
+        Write-Log '  This PC is missing the Microsoft Visual C++ Runtime (x64), a Windows component MySQL needs.' 'warn'
+        $vcMissing = -not (Install-VcRuntime)
+    }
     if (Test-Proc 'mysqld') {
         Write-Log '  MySQL already running.'
+    } elseif ($vcMissing) {
+        $mysqlSkipped = $true
+        Write-Log '  MySQL skipped - the Microsoft Visual C++ Runtime (x64) is not installed on this PC.' 'err'
+        Write-Log "  Install it from Microsoft: $script:VcRedistUrl - then start the stack again." 'warn'
     } else {
+        # Setup could not initialize the data dir if the runtime was missing back then.
+        if (-not (Test-Path (Join-Path $script:BASE 'mysql\data\mysql'))) {
+            Write-Log '  Initializing MySQL data directory (first run, ~30s)...' ; Flush-UI
+            & $mysqld --defaults-file="$myIni" --initialize-insecure 2>&1 | Out-Null
+        }
         Write-Log '  Starting MySQL...' ; Flush-UI
         Start-Process -FilePath $mysqld -ArgumentList "--defaults-file=`"$myIni`"", '--console' -WorkingDirectory (Split-Path $mysqld) -WindowStyle Hidden
         $ready = $false
@@ -111,7 +126,9 @@ function Start-Stack {
     }
 
     Update-Status
-    if ((Test-Proc 'mysqld') -and (Test-Proc 'php-cgi') -and (Test-Proc 'nginx')) {
+    if ($mysqlSkipped -and (Test-Proc 'php-cgi') -and (Test-Proc 'nginx')) {
+        Write-Log 'Stack started without MySQL - Windows needs the Visual C++ Runtime (see above).' 'warn'
+    } elseif ((Test-Proc 'mysqld') -and (Test-Proc 'php-cgi') -and (Test-Proc 'nginx')) {
         Write-Log 'Stack started.' 'ok'
     } else {
         Write-Log 'Stack started with errors - check the status above.' 'warn'

@@ -194,7 +194,14 @@ default-character-set=utf8mb4
 "@ | Set-Content "$Base\mysql\my.ini"
 OK "MySQL config written."
 
-if (!(Test-Path "$Base\mysql\data\mysql")) {
+$vcMissing = @('msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll') | Where-Object {
+    -not (Test-Path "$env:SystemRoot\Sysnative\$_") -and -not (Test-Path "$env:SystemRoot\System32\$_") -and -not (Test-Path "$Base\mysql\bin\$_")
+}
+if ($vcMissing) {
+    # Running mysqld now only pops a "DLL not found" box; Start Stack initializes it later.
+    Write-Host "[!] MySQL init skipped - this PC is missing the Microsoft Visual C++ Runtime (x64), a Windows component."
+    Write-Host "    Start Stack will offer to install it from Microsoft."
+} elseif (!(Test-Path "$Base\mysql\data\mysql")) {
     Step "Initializing MySQL data directory (this takes ~30s)..."
     & "$Base\mysql\bin\mysqld.exe" --defaults-file="$Base\mysql\my.ini" --initialize-insecure 2>&1 | Out-Null
     OK "MySQL initialized."

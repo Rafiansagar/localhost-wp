@@ -61,6 +61,53 @@ function Test-Port([int]$port) {
     } catch { return $false }
 }
 
+# MySQL's Windows build needs the Visual C++ 2015-2022 runtime (x64), which its
+# zip does not ship. Returns the missing DLL names; empty = runtime present.
+$script:VcRedistUrl = 'https://aka.ms/vs/17/release/vc_redist.x64.exe'
+function Get-MissingVcRuntime {
+    # A 32-bit host sees SysWOW64 as System32; Sysnative reaches the real one.
+    $sys = Join-Path $env:SystemRoot 'Sysnative'
+    if (-not (Test-Path $sys)) { $sys = Join-Path $env:SystemRoot 'System32' }
+    $bin = Join-Path $script:BASE 'mysql\bin'
+    @('msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll') | Where-Object {
+        -not (Test-Path (Join-Path $sys $_)) -and -not (Test-Path (Join-Path $bin $_))
+    }
+}
+
+# Downloads Microsoft's VC++ runtime installer and runs it silently. Windows
+# shows one admin prompt (system-wide install). Returns $true once the DLLs exist.
+function Install-VcRuntime {
+    $exe = Join-Path $env:TEMP 'vc_redist.x64.exe'
+    try {
+        Write-Log '  Downloading it from Microsoft...' ; Flush-UI
+        [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+        $old = $ProgressPreference; $ProgressPreference = 'SilentlyContinue'
+        try { Invoke-WebRequest -Uri $script:VcRedistUrl -OutFile $exe -UseBasicParsing } finally { $ProgressPreference = $old }
+        # Process.Start (not Start-Process) so a declined prompt surfaces as Win32Exception 1223.
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName        = $exe
+        $psi.Arguments       = '/install /quiet /norestart'
+        $psi.Verb            = 'runas'
+        $psi.UseShellExecute = $true
+        $p = [System.Diagnostics.Process]::Start($psi)
+        while (-not $p.HasExited) { Start-Sleep -Milliseconds 300; Flush-UI }
+        # 0 = installed, 1638 = newer already present, 3010 = installed, reboot pending
+        if (@(Get-MissingVcRuntime).Count -eq 0) {
+            Write-Log '  Microsoft Visual C++ Runtime installed.' 'ok'
+            return $true
+        }
+        Write-Log "  Installation did not complete (exit $($p.ExitCode))." 'warn'
+    } catch {
+        # Declining the admin prompt = ERROR_CANCELLED (1223): no log, the caller's message covers it.
+        $w = $_.Exception
+        while ($w -and $w -isnot [System.ComponentModel.Win32Exception]) { $w = $w.InnerException }
+        if (-not ($w -and $w.NativeErrorCode -eq 1223)) { Write-Log "  Installation did not complete - $($_.Exception.Message)" 'warn' }
+    } finally {
+        Remove-Item $exe -Force -ErrorAction SilentlyContinue
+    }
+    return $false
+}
+
 # Returns array of database names, or $null if MySQL can't be queried.
 function Get-DbList {
     if (-not (Test-Proc 'mysqld')) { return $null }
