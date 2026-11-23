@@ -172,6 +172,7 @@ function buildMenu() {
     { label: 'Open Control Panel', click: showWindow },
     { label: 'Start stack', enabled: !busy && !!st.setup && !all && !blocked, click: () => act('/api/stack/start') },
     { label: 'Stop stack (backs up databases)', enabled: !busy && any, click: () => act('/api/stack/stop', { backup: true }) },
+    { label: 'Stop stack (no backup)', enabled: !busy && any, click: () => act('/api/stack/stop', { backup: false }) },
     { label: 'Open stack folder', click: () => shell.openPath(BASE) },
     { type: 'separator' },
     { label: 'Stop stack and quit', enabled: !busy && any, click: stopAndQuit },
