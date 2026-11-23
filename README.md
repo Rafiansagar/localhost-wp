@@ -31,6 +31,38 @@ The control panel detects that the stack has not been set up and shows a **Run s
 **Every run after that:**
 The control panel opens directly into the normal interface. No setup prompt.
 
+### Control Panel window (Electron, portable)
+
+The Control Panel opens in its own window with a tray icon, run by a portable Electron in `electron\` (nothing is installed). The first `control-panel.bat` run downloads it (setup does too); if that fails the bat falls back to an Edge app window.
+
+After that you don't need the bat. Any of these opens the Control Panel directly:
+
+- `localhost-wp.lnk`, the shortcut in the stack folder (with the app icon)
+- `electron\localhost-wp.exe` (Electron, renamed; its `resources\app` loads `dashboard\electron\main.js`)
+- a taskbar pin: right-click the open window's taskbar button, **Pin to taskbar**. Each stack pins separately, named after its folder.
+
+The shortcut holds absolute paths. After moving a stack folder, run `get-electron.ps1` (below) to recreate it, and re-pin.
+
+- Closing the window hides it to the tray. The tray menu starts or stops the stack, and **Quit** leaves the stack running.
+- Each stack folder is its own app: its Electron profile lives in `electron\userdata`, so two stacks (say `F:\localhost-wp-8.5` and `E:\localhost-wp`) never share a window. Launching the same stack again brings its window back.
+- The window title shows the stack folder.
+
+To add Electron to a stack that is already set up:
+
+```
+powershell -ExecutionPolicy Bypass -File scripts\helper\get-electron.ps1
+```
+
+The download is checked against the release's SHA-256 list. Change `electron.version` in `versions.json` and run it again to upgrade.
+
+### Several stacks on one PC
+
+Stacks share the same ports (80, 3307, 8080, 9000, 9001+), so one runs at a time.
+
+- Each dashboard takes its own port: `7070`, or the next free one if another stack's dashboard is open.
+- Services count as this stack's only when their `.exe` lives in this folder. Another stack's MySQL or Nginx is never shown as running here, and **Stop** never touches it.
+- While another stack is running, the dashboard names its folder and **Start** refuses until it is stopped from its own Control Panel.
+
 ---
 
 ## What Setup Does
@@ -96,7 +128,8 @@ What is tracked in git:
 ```
 localhost-wp/
 ├─ dashboard/
-│  ├─ index.html              Control Panel UI (opens in an Edge app window)
+│  ├─ index.html              Control Panel UI
+│  ├─ electron/               Electron shell: main.js (window, tray, taskbar pin)
 │  └─ server/
 │     ├─ server.ps1           Local web server + JSON API on http://localhost:7070
 │     ├─ bridge.ps1           Loads cp-*.ps1 without the WinForms GUI
@@ -108,6 +141,8 @@ localhost-wp/
 │  ├─ cp-sites.ps1            New site, backup, delete logic
 │  └─ helper/
 │     ├─ setup.ps1            First-time setup (downloads + configures)
+│     ├─ download.ps1         Download/extract helpers shared by setup
+│     ├─ get-electron.ps1     Portable Electron into electron\ (checksum verified)
 │     ├─ versions.ps1         Reads versions.json, finds PHP builds
 │     ├─ ensure-php-runtime.ps1
 │     ├─ start-php.ps1
@@ -124,7 +159,7 @@ localhost-wp/
 Created by setup (gitignored — not committed):
 
 ```
-nginx/       mysql/       php/       phpmyadmin/
+nginx/       mysql/       php/       phpmyadmin/       electron/
 config/      logs/        sites/
 ```
 

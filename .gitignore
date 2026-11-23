@@ -28,3 +28,10 @@ mysql/
 # Ports tracker
 config/ports.txt
 back/
+
+# Portable Electron (downloaded by setup) and its leftovers
+/electron/
+/_electron.zip
+/_electron.zip.part
+/_electron_tmp/
+/localhost-wp.lnk

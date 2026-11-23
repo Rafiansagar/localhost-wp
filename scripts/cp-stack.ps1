@@ -69,6 +69,16 @@ function Start-Stack {
 
     Write-Log 'Starting stack...' ; Flush-UI
 
+    # Another stack folder holds the same ports; starting now would half-fail.
+    $foreign = @(Get-ForeignStacks)
+    if ($foreign.Count) {
+        foreach ($f in $foreign) {
+            Write-Log ("  Another stack is running from {0} ({1})." -f $f.root, ($f.parts -join ', ')) 'err'
+        }
+        Write-Log 'Start cancelled - stacks share the same ports. Stop the other stack from its own Control Panel first.' 'err'
+        return
+    }
+
     # MySQL (Windows' VC++ runtime installed on demand; skipped, not fatal, if declined)
     $mysqlSkipped = $false
     $vcMissing = $false
@@ -141,8 +151,8 @@ function Stop-Stack([switch]$NoBackup) {
     $mysqladmin = Join-Path $script:BASE 'mysql\bin\mysqladmin.exe'
     Write-Log 'Stopping stack...' 'warn' ; Flush-UI
 
-    if (Test-Proc 'nginx')   { Stop-Process -Name 'nginx'   -Force -ErrorAction SilentlyContinue; Write-Log '  Nginx stopped.' }   else { Write-Log '  Nginx not running.' }
-    if (Test-Proc 'php-cgi') { Stop-Process -Name 'php-cgi' -Force -ErrorAction SilentlyContinue; Write-Log '  PHP-CGI stopped.' } else { Write-Log '  PHP-CGI not running.' }
+    if (Test-Proc 'nginx')   { Stop-StackProc 'nginx';   Write-Log '  Nginx stopped.' }   else { Write-Log '  Nginx not running.' }
+    if (Test-Proc 'php-cgi') { Stop-StackProc 'php-cgi'; Write-Log '  PHP-CGI stopped.' } else { Write-Log '  PHP-CGI not running.' }
 
     if (Test-Proc 'mysqld') {
         if (-not $NoBackup) {
@@ -157,9 +167,9 @@ function Stop-Stack([switch]$NoBackup) {
                 if (-not (Test-Proc 'mysqld')) { $stopped = $true } else { Start-Sleep -Seconds 1; Flush-UI }
             }
             if ($stopped) { Write-Log '  MySQL stopped gracefully.' 'ok' }
-            else { Stop-Process -Name 'mysqld' -Force -ErrorAction SilentlyContinue; Write-Log '  MySQL did not stop gracefully - force-stopped.' 'warn' }
+            else { Stop-StackProc 'mysqld'; Write-Log '  MySQL did not stop gracefully - force-stopped.' 'warn' }
         } else {
-            Stop-Process -Name 'mysqld' -Force -ErrorAction SilentlyContinue
+            Stop-StackProc 'mysqld'
             Write-Log '  mysqladmin.exe missing - MySQL force-stopped.' 'warn'
         }
     } else {

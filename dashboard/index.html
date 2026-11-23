@@ -342,7 +342,10 @@
     background: color-mix(in srgb, var(--wait) 9%, var(--panel)); font-size: 13.5px;
   }
   .notice svg { flex: none; width: 16px; height: 16px; color: var(--wait); }
-  .notice:not([hidden]) + .section-head { margin-top: 20px; }
+  .notice:not([hidden]) + .section-head,
+  .notice:not([hidden]) + .notice[hidden] + .section-head { margin-top: 20px; }
+  .notice.danger { border-color: color-mix(in srgb, var(--off) 40%, var(--line)); background: color-mix(in srgb, var(--off) 8%, var(--panel)); }
+  .notice.danger svg { color: var(--off); }
 
   .search { position: relative; margin-right: auto; }
   .search > svg { position: absolute; left: 10px; top: 50%; width: 15px; height: 15px; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
@@ -604,6 +607,11 @@
       </div>
     </div>
   </section>
+
+  <div class="notice danger" id="foreignNotice" role="status" hidden>
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5M8 11h.01"/></svg>
+    <span></span>
+  </div>
 
   <div class="notice" id="setupNotice" role="status" hidden>
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2l6.5 11.5h-13z"/><path d="M8 6.5v3M8 11.5h.01"/></svg>
@@ -871,6 +879,17 @@
       const one = missing.length === 1;
       notice.querySelector('span').textContent =
         `${list} ${one ? 'is' : 'are'} missing from the stack folder. Run setup to download ${one ? 'it' : 'them'}. Your sites and the parts already installed are kept.`;
+    }
+
+    // Another stack folder running the same services (same ports): say which one.
+    const foreign = st.foreign || [];
+    const fNotice = $('#foreignNotice');
+    fNotice.hidden = !foreign.length;
+    if (foreign.length) {
+      const fmt = l => new Intl.ListFormat('en', { type: 'conjunction' }).format(l);
+      fNotice.querySelector('span').textContent =
+        `Another stack is running from ${fmt(foreign.map(f => `${f.root} (${fmt(f.parts)})`))}. ` +
+        `It uses the same ports, so stop it from its own Control Panel before starting this one.`;
     }
 
     for (const el of document.querySelectorAll('.slot')) {

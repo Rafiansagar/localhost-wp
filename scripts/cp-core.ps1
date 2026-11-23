@@ -39,8 +39,49 @@ function Invoke-Helper([string]$scriptName, [hashtable]$params) {
 }
 
 # ---- process / network / data helpers --------------------------------------
+# Only processes whose exe lives inside THIS stack folder count. Several stacks
+# can sit side by side (F:\localhost-wp-8.5, E:\localhost-wp): a mysqld.exe from
+# another stack must not show here as running, and Stop must never kill it.
+function Get-StackProc([string]$name) {
+    $root = $script:BASE.TrimEnd('\') + '\'
+    @(Get-Process -Name $name -ErrorAction SilentlyContinue | Where-Object {
+        $_.Path -and $_.Path.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase)
+    })
+}
+
 function Test-Proc([string]$name) {
-    return [bool](Get-Process -Name $name -ErrorAction SilentlyContinue)
+    return (@(Get-StackProc $name)).Count -gt 0
+}
+
+function Stop-StackProc([string]$name) {
+    Get-StackProc $name | Stop-Process -Force -ErrorAction SilentlyContinue
+}
+
+# Stack services running from somewhere else. They hold the same ports
+# (80, 3307, 8080, 9000, 9001+), so this stack cannot start while they run.
+# Returns one entry per foreign folder: @{ root = 'E:\localhost-wp'; parts = @('MySQL','Nginx') }
+function Get-ForeignStacks {
+    $root  = $script:BASE.TrimEnd('\') + '\'
+    $names = [ordered]@{ mysqld = 'MySQL'; 'php-cgi' = 'PHP'; nginx = 'Nginx' }
+    $found = [ordered]@{}
+    foreach ($n in $names.Keys) {
+        foreach ($p in Get-Process -Name $n -ErrorAction SilentlyContinue) {
+            $exe = $p.Path
+            if ($exe -and $exe.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+            # Path is empty for elevated processes we cannot inspect.
+            $owner = if ($exe) { Split-Path -Parent $exe } else { '(unknown folder)' }
+            if ($exe) {
+                $dir = $owner
+                while ($dir) {
+                    if (Test-Path (Join-Path $dir 'scripts\cp-core.ps1')) { $owner = $dir; break }
+                    $dir = Split-Path -Parent $dir
+                }
+            }
+            if (-not $found.Contains($owner)) { $found[$owner] = New-Object System.Collections.ArrayList }
+            if (-not $found[$owner].Contains($names[$n])) { [void]$found[$owner].Add($names[$n]) }
+        }
+    }
+    foreach ($k in $found.Keys) { [ordered]@{ root = $k; parts = @($found[$k]) } }
 }
 
 function Get-LocalIp {

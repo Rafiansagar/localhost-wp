@@ -16,5 +16,11 @@
     "version": "5.2.2",
     "url": "https://files.phpmyadmin.net/phpMyAdmin/{v}/phpMyAdmin-{v}-all-languages.zip",
     "folder": "phpMyAdmin-{v}-all-languages"
+  },
+  "electron": {
+    "version": "45.2.3",
+    "url": "https://github.com/electron/electron/releases/download/v{v}/electron-v{v}-win32-x64.zip",
+    "file": "electron-v{v}-win32-x64.zip",
+    "sums": "https://github.com/electron/electron/releases/download/v{v}/SHASUMS256.txt"
   }
 }

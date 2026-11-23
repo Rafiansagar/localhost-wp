@@ -8,8 +8,12 @@
 #  Safety: listens on localhost only, checks the Host header, and every API
 #  call must carry the per-run token embedded in the served page.
 #  Exits by itself a few seconds after the dashboard window closes.
+#
+#  Each stack folder gets its own port: 7070 if free, else the next one up, so
+#  two stacks side by side never answer for each other.
+#  -ParentPid: started by the Electron shell; exit when that process is gone.
 # ============================================================================
-param([string]$Base, [int]$Port = 7070, [switch]$NoWindow, [switch]$Restarted)
+param([string]$Base, [int]$Port = 7070, [switch]$NoWindow, [switch]$Restarted, [int]$ParentPid = 0)
 
 $baseArg = $Base
 
@@ -38,8 +42,6 @@ if (-not (Test-Stack $Base)) {
 }
 $Base = (Resolve-Path -LiteralPath $Base).Path
 
-$url = "http://localhost:$Port/"
-
 function Open-Window {
     if (-not $NoWindow) {
         try { Start-Process 'msedge' -ArgumentList "--app=$url", '--window-size=1440,900' -ErrorAction Stop }
@@ -47,14 +49,45 @@ function Open-Window {
     }
 }
 
-$listener = New-Object System.Net.HttpListener
-$listener.Prefixes.Add($url)
-try { $listener.Start() }
-catch {
-    # Already running: just bring up another window on it.
-    Open-Window
-    exit 0
+# The Electron shell reads the chosen port from this line on stdout.
+function Write-PortLine {
+    try { [Console]::Out.WriteLine("CP_PORT=$Port"); [Console]::Out.Flush() } catch { }
 }
+
+# Stack folder served by the dashboard on $p, or $null if none answers there.
+function Get-DashboardBase([int]$p) {
+    try {
+        $r = Invoke-RestMethod -Uri "http://localhost:$p/api/whoami" -TimeoutSec 2 -UseBasicParsing
+        if ($r.app -eq 'localhost-wp') { return "$($r.base)".TrimEnd('\') }
+    } catch { }
+    return $null
+}
+
+# First free port from $Port up. One held by this same stack's dashboard means
+# it is already running: open a window on that one instead of starting twice.
+$listener = $null
+for ($p = $Port; $p -lt $Port + 30; $p++) {
+    $l = New-Object System.Net.HttpListener
+    $l.Prefixes.Add("http://localhost:$p/")
+    try { $l.Start(); $listener = $l; $Port = $p; break }
+    catch {
+        $l.Close()
+        if ((Get-DashboardBase $p) -eq $Base.TrimEnd('\')) {
+            $Port = $p
+            $url = "http://localhost:$Port/"
+            Write-PortLine
+            Open-Window
+            exit 0
+        }
+    }
+}
+if (-not $listener) {
+    [System.Windows.Forms.MessageBox]::Show(
+        "No free port for the dashboard between $Port and $($Port + 29).",
+        'localhost-wp dashboard', 'OK', 'Error') | Out-Null
+    exit 1
+}
+$url = "http://localhost:$Port/"
 
 # ---- shared state (read by this thread, written by the worker too) ---------
 $shared = [hashtable]::Synchronized(@{
@@ -337,6 +370,11 @@ function Handle-Request($ctx) {
         } else { Send-Error $ctx 404 'Not found.' }
         return
     }
+    # Tokenless on purpose: a second launch asks which stack owns this port.
+    if ($path -eq '/api/whoami' -and $method -eq 'GET') {
+        Send-Json $ctx @{ app = 'localhost-wp'; base = $script:BASE }
+        return
+    }
     if (-not $path.StartsWith('/api/')) { Send-Error $ctx 404 'Not found.'; return }
 
     $tok = $req.Headers['X-Token']
@@ -381,6 +419,7 @@ function Handle-Request($ctx) {
                 setup    = [bool](Test-IsSetup)
                 missing  = @(Get-MissingParts)
                 services = $svc
+                foreign  = @(Get-ForeignStacks)
                 busy     = $shared.Busy
                 task     = $script:opArg
                 progress = if ($shared.Busy -eq 'new-site') { Get-NewSiteProgress $script:opArg } else { $shared.Progress }
@@ -458,6 +497,7 @@ function Handle-Request($ctx) {
 Write-Log "Base: $script:BASE"
 if ($Restarted) { Write-Log 'Dashboard updated - server restarted with the new code.' 'ok' }
 else { Open-Window }
+Write-PortLine
 
 # Newest change to this folder's scripts; when it moves, the server restarts
 # itself so edits take effect without closing the window.
@@ -484,6 +524,7 @@ while ($listener.IsListening) {
     }
     Complete-Op
     if (-not $shared.Busy) {
+        if ($ParentPid -and -not (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue)) { break }
         if ($script:exitAt -and (Get-Date) -gt $script:exitAt) { break }
         # No window has polled for 3 minutes (minimised windows still poll about once a minute).
         if (((Get-Date) - $lastHit).TotalSeconds -gt 180) { break }
@@ -499,5 +540,6 @@ if ($restart) {
     $argList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', "`"$PSCommandPath`"", '-Port', $Port, '-Restarted')
     if ($baseArg) { $argList += @('-Base', "`"$baseArg`"") }
     if ($NoWindow) { $argList += '-NoWindow' }
+    if ($ParentPid) { $argList += @('-ParentPid', $ParentPid) }
     Start-Process powershell -ArgumentList $argList
 }
