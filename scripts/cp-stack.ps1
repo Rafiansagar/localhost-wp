@@ -80,7 +80,7 @@ function Start-Stack {
     }
 
     # Leftovers of this stack that never started (not "running") are cleared first.
-    foreach ($n in 'mysqld', 'php-cgi', 'nginx') {
+    foreach ($n in 'mysqld', 'php-cgi', 'nginx', 'mailpit') {
         if (-not (Test-Proc $n) -and @(Get-StackProc $n).Count) { Stop-StackProc $n }
     }
 
@@ -114,6 +114,9 @@ function Start-Stack {
         else        { Write-Log '  MySQL did not become ready on 127.0.0.1:3307.' 'err' }
     }
 
+    # Mail catcher: php.ini pointed at it (before PHP starts) and Mailpit fetched if missing.
+    Invoke-Helper 'ensure-mail.ps1' @{ Base = $script:BASE } | Out-Null
+
     # PHP FastCGI
     if (Test-Proc 'php-cgi') {
         Write-Log '  PHP already running.'
@@ -140,6 +143,9 @@ function Start-Stack {
         } catch { Write-Log "  Nginx start failed: $($_.Exception.Message)" 'err' }
     }
 
+    # Mail catcher (optional: without it, mail is just not caught)
+    if (Get-MailCatcherOn) { Start-MailCatcher }
+
     Update-Status
     if ($mysqlSkipped -and (Test-Proc 'php-cgi') -and (Test-Proc 'nginx')) {
         Write-Log 'Stack started without MySQL - Windows needs the Visual C++ Runtime (see above).' 'warn'
@@ -147,6 +153,55 @@ function Start-Stack {
         Write-Log 'Stack started.' 'ok'
     } else {
         Write-Log 'Stack started with errors - check the status above.' 'warn'
+    }
+}
+
+# ---- Mail catcher (Mailpit) --------------------------------------------------
+# On unless config\mail-catcher.txt says "off". Off means the stack leaves mail
+# alone: no Mailpit, and php.ini's mail lines back to PHP's defaults.
+function Get-MailCatcherOn {
+    $f = Join-Path $script:BASE 'config\mail-catcher.txt'
+    -not ((Test-Path $f) -and "$(Get-Content -LiteralPath $f -TotalCount 1)".Trim() -eq 'off')
+}
+
+function Start-MailCatcher {
+    $mailpit = Join-Path $script:BASE 'mailpit\mailpit.exe'
+    if (Test-Proc 'mailpit') { Write-Log '  Mail catcher already running.'; return }
+    if (-not (Test-Path $mailpit)) { return }
+    Write-Log '  Starting mail catcher...' ; Flush-UI
+    $db = Join-Path $script:BASE 'mailpit\mailpit.db'
+    Start-Process -FilePath $mailpit -ArgumentList '--listen', '127.0.0.1:8025', '--smtp', '127.0.0.1:1025', '--database', "`"$db`"" -WorkingDirectory (Split-Path $mailpit) -WindowStyle Hidden
+    $up = $false
+    for ($i = 0; $i -lt 20 -and -not $up; $i++) { if (Test-Port 1025) { $up = $true } else { Start-Sleep -Milliseconds 250 } }
+    if ($up) { Write-Log '  Mail catcher ready - inbox at http://localhost:8025' 'ok' }
+    else     { Write-Log '  Mail catcher did not start - WordPress mail will not be caught.' 'warn' }
+}
+
+# The dashboard's switch. PHP reads php.ini only when it starts, so a running
+# PHP is restarted (about a second); MySQL and Nginx are not touched.
+function Set-MailCatcher([bool]$On) {
+    $cfg = Join-Path $script:BASE 'config'
+    New-Item -ItemType Directory -Force -Path $cfg | Out-Null
+    Set-Content -LiteralPath (Join-Path $cfg 'mail-catcher.txt') -Value $(if ($On) { 'on' } else { 'off' })
+    Write-Log $(if ($On) { 'Turning the mail catcher on...' } else { 'Turning the mail catcher off...' }) ; Flush-UI
+
+    Invoke-Helper 'ensure-mail.ps1' @{ Base = $script:BASE } | Out-Null
+
+    if (Test-Proc 'php-cgi') {
+        Write-Log '  Restarting PHP so it reads the new mail settings...' ; Flush-UI
+        Stop-StackProc 'php-cgi'
+        Invoke-Helper 'start-php.ps1' @{ PhpCgi = (Join-Path $script:BASE 'php\php-cgi.exe') } | Out-Null
+        Start-Sleep -Milliseconds 800
+        if (-not (Test-Proc 'php-cgi')) { Write-Log '  PHP did not come back up - use Start stack.' 'err' }
+    }
+
+    if ($On) {
+        # Started now only if the stack is up; otherwise Start stack does it.
+        if ((Test-Proc 'php-cgi') -or (Test-Proc 'nginx')) { Start-MailCatcher }
+        Write-Log 'Mail catcher on - mail from your sites lands in the inbox, nothing goes out.' 'ok'
+    } else {
+        if (@(Get-StackProc 'mailpit').Count) { Stop-StackProc 'mailpit'; Write-Log '  Mail catcher stopped.' }
+        Write-Log 'Mail catcher off - sites send mail the normal way again (SMTP plugins included).' 'ok'
     }
 }
 
@@ -182,6 +237,7 @@ function Stop-Stack([switch]$NoBackup) {
     if (Test-Proc 'nginx')   { Stop-Nginx;               Write-Log '  Nginx stopped.' }   else { Write-Log '  Nginx not running.' }
     Stop-StackProc 'nginx'   # never-started leftovers too
     if (Test-Proc 'php-cgi') { Stop-StackProc 'php-cgi'; Write-Log '  PHP-CGI stopped.' } else { Write-Log '  PHP-CGI not running.' }
+    if (@(Get-StackProc 'mailpit').Count) { Stop-StackProc 'mailpit'; Write-Log '  Mail catcher stopped.' }
 
     if (Test-Proc 'mysqld') {
         if (-not $NoBackup) {

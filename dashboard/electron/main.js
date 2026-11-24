@@ -182,7 +182,8 @@ function notify(title, content, level, onClick) {
 }
 
 const DONE = { start: () => 'Start stack', stop: () => 'Stop stack', 'stop-nobackup': () => 'Stop stack', reload: () => 'Reload Nginx',
-  setup: () => 'Setup', 'new-site': n => `New site: ${n}`, backup: n => `Backup: ${n}`, delete: n => `Delete site: ${n}` };
+  setup: () => 'Setup', 'new-site': n => `New site: ${n}`, backup: n => `Backup: ${n}`, delete: n => `Delete site: ${n}`,
+  'mail-on': () => 'Mail catcher on', 'mail-off': () => 'Mail catcher off' };
 
 // A job just finished: tell how it went, unless the window is in front.
 async function jobDone(job, task, afterSeq) {
@@ -192,6 +193,23 @@ async function jobDone(job, task, afterSeq) {
   const last = [...entries].reverse().find(e => e.level !== 'info') || entries[entries.length - 1];
   if (!last) return;
   notify(`localhost-wp - ${(DONE[job] || (() => job))(task)}`, String(last.msg).trim(), last.level, showWindow);
+}
+
+// A new email in the mail catcher: one notification per poll, naming the newest
+// (or how many arrived together). Clicking it opens the inbox. The first look
+// after launch only records what is there, so old mail never pops up.
+let mailSeen = null;     // { id, total } of the newest message seen
+function mailCheck(mail) {
+  if (!mail || !mail.running) return;
+  const id = mail.latest ? mail.latest.id : null;
+  const prev = mailSeen;
+  mailSeen = { id, total: mail.total || 0 };
+  if (!prev || !id || id === prev.id) return;
+  const fresh = Math.max(1, mailSeen.total - prev.total);
+  const m = mail.latest;
+  const title = fresh > 1 ? `${fresh} new emails` : `New email${m.from ? ` from ${m.from}` : ''}`;
+  const body = `${m.subject || '(no subject)'}${m.to ? `\nTo: ${m.to}` : ''}`;
+  notify(title.slice(0, 63), body.slice(0, 255), 'info', () => shell.openExternal('http://localhost:8025'));
 }
 
 // ---- taskbar progress and tray colour -----------------------------------------
@@ -276,7 +294,8 @@ async function checkUpdate() {
 
 // ---- tray ------------------------------------------------------------------
 const LABEL = { start: 'Starting stack', stop: 'Stopping stack', 'stop-nobackup': 'Stopping stack', reload: 'Reloading Nginx',
-  setup: 'Running setup', 'new-site': 'Creating site', backup: 'Backing up', delete: 'Deleting site' };
+  setup: 'Running setup', 'new-site': 'Creating site', backup: 'Backing up', delete: 'Deleting site',
+  'mail-on': 'Turning mail catcher on', 'mail-off': 'Turning mail catcher off' };
 
 function statusText(st) {
   if (!st) return 'Dashboard not reachable';
@@ -285,6 +304,32 @@ function statusText(st) {
   if (!st.setup) return 'Setup needed';
   const up = Object.values(st.services).filter(Boolean).length;
   return up === 3 ? 'All services running' : up ? `${up} of 3 services running` : 'Stack stopped';
+}
+
+// Same question the dashboard's switch asks, as a native box (the tray has no page).
+async function toggleMailCatcher() {
+  const st = status;
+  buildMenu();   // undo the checkbox's own tick until the switch really happens
+  if (!st || !st.mail || st.busy) return;
+  const on = !st.mail.enabled;
+  const { response } = await dialog.showMessageBox({
+    type: on ? 'question' : 'warning',
+    title: 'localhost-wp',
+    message: on ? 'Turn the mail catcher on?' : 'Turn the mail catcher off?',
+    detail: (on
+      ? 'Mail from your sites lands in the local inbox and nothing goes out, SMTP plugins included.'
+      : 'Sites send mail the normal way again. Sites with an SMTP plugin set up will really send to real addresses. Mail already in the inbox is kept.')
+      + '\n\n' + (st.services.php
+        ? 'PHP restarts for about a second to pick this up. MySQL and Nginx keep running.'
+        : 'Applies the next time the stack starts.'),
+    buttons: [on ? 'Turn on' : 'Turn off', 'Cancel'], defaultId: 0, cancelId: 1, noLink: true,
+  });
+  if (response === 0) act('/api/mail', { on });
+}
+
+function mailLabel(st) {
+  const n = (st && st.mail && st.mail.unread) || 0;
+  return n ? `Mail inbox (${n} unread)` : 'Mail inbox';
 }
 
 function buildMenu() {
@@ -307,6 +352,9 @@ function buildMenu() {
     { label: 'Stop stack (with backup)', visible: any, enabled: !busy, click: () => act('/api/stack/stop', { backup: true }) },
     { label: 'Stop stack (no backup)', visible: any, enabled: !busy, click: () => act('/api/stack/stop', { backup: false }) },
     { label: 'phpMyAdmin', visible: !!all, click: () => shell.openExternal('http://localhost:8080') },
+    { label: mailLabel(st), visible: !!(st && st.mail && st.mail.running), click: () => shell.openExternal('http://localhost:8025') },
+    { label: 'Mail catcher', type: 'checkbox', checked: !!(st && st.mail && st.mail.enabled),
+      visible: !!(st && st.mail && st.mail.enabled != null), enabled: !busy, click: toggleMailCatcher },
     { label: 'Open stack folder', click: () => shell.openPath(BASE) },
     { type: 'separator' },
     { label: 'Stop stack and quit', visible: any, enabled: !busy, click: stopAndQuit },
@@ -329,6 +377,7 @@ async function poll() {
   if (busy && !job) job = { name: busy, task: status.task, afterSeq: lastSeq };
   else if (!busy && job && status) { jobDone(job.name, job.task, job.afterSeq); job = null; }
   if (status) lastSeq = status.seq;
+  mailCheck(status && status.mail);
   showProgress(status);
   if (tray) buildMenu();
   pollTimer = setTimeout(poll, busy ? 1000 : 4000);

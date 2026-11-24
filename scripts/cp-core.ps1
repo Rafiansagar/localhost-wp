@@ -88,7 +88,7 @@ function Stop-StackProc([string]$name) {
 # Returns one entry per foreign folder: @{ root = 'E:\localhost-wp'; parts = @('MySQL','Nginx') }
 function Get-ForeignStacks {
     $root  = $script:BASE.TrimEnd('\') + '\'
-    $names = [ordered]@{ mysqld = 'MySQL'; 'php-cgi' = 'PHP'; nginx = 'Nginx' }
+    $names = [ordered]@{ mysqld = 'MySQL'; 'php-cgi' = 'PHP'; nginx = 'Nginx'; mailpit = 'Mail catcher' }
     $found = [ordered]@{}
     foreach ($n in $names.Keys) {
         foreach ($p in Get-Process -Name $n -ErrorAction SilentlyContinue) {

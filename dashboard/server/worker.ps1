@@ -16,6 +16,8 @@ switch ($Action) {
     'new-site'      { Invoke-NewSite $Arg }
     'backup'        { Invoke-Backup $Arg }
     'delete'        { Invoke-DeleteSite $Arg }
+    'mail-on'       { Set-MailCatcher $true }
+    'mail-off'      { Set-MailCatcher $false }
     'setup' {
         Write-Log 'Starting setup - downloading MySQL, PHP, Nginx, phpMyAdmin...' 'warn'
         $ProgressPreference = 'SilentlyContinue'

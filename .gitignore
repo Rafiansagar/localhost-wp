@@ -35,3 +35,13 @@ back/
 /_electron.zip.part
 /_electron_tmp/
 /localhost-wp.lnk
+
+# The "php/" rule above is for the PHP binaries; this folder is the stack's own code
+!/scripts/php/
+
+# Mail catcher (downloaded at setup / Start Stack), its on/off choice and leftovers
+/mailpit/
+/config/mail-catcher.txt
+/_mailpit.zip
+/_mailpit.zip.part
+/_mailpit_tmp/

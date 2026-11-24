@@ -118,6 +118,10 @@ $ini = $ini -replace "memory_limit = 128M","memory_limit = 256M"
 Set-Content "$Base\php\php.ini" $ini
 OK "php.ini configured."
 
+# Mail catcher (Mailpit) and php.ini's SMTP lines; never fatal.
+try { & (Join-Path $PSScriptRoot 'ensure-mail.ps1') -Base $Base }
+catch { Write-Host "[!] Mail catcher skipped - $($_.Exception.Message). Start Stack tries again." }
+
 # ============================================================
 # MYSQL CONFIG + INIT
 # ============================================================

@@ -240,6 +240,12 @@
   .btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
   .btn.quiet { border-color: transparent; background: transparent; color: var(--muted); padding: 0 10px; }
   .btn.quiet:hover:not(:disabled) { color: var(--ink); background: var(--panel-2); }
+  .btn .badge { margin-left: 6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--action); color: #fff; font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; }
+  .info-grid .wide { grid-column: 1 / -1; }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+  .panel-head h3 { margin: 0; }
+  .mail-state { margin-left: 6px; font-size: 12px; font-weight: 500; color: var(--muted); }
+  .mail-state[data-on] { color: var(--on); }
   .btn.danger:hover:not(:disabled) { color: var(--off); }
   .btn svg { width: 16px; height: 16px; flex: none; }
 
@@ -628,6 +634,7 @@
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
       </button>
     </div>
+    <button class="btn quiet" id="inbox" title="Mail caught from your sites">Mail<span class="badge" id="inboxCount" hidden></span></button>
     <button class="btn quiet" id="pma">phpMyAdmin</button>
     <button class="btn quiet" id="reloadList">Refresh list</button>
     <button class="btn primary" id="newSite">New site</button>
@@ -653,6 +660,13 @@
       <section class="panel"><h3>phpMyAdmin</h3><div id="infoPma"></div></section>
       <section class="panel"><h3>Site addresses</h3><div id="infoSites"></div></section>
       <section class="panel"><h3>Static sites</h3><div id="infoStatic"></div></section>
+      <section class="panel wide">
+        <div class="panel-head">
+          <h3>Mail catcher <span class="mail-state" id="mailState"></span></h3>
+          <button class="btn" id="mailToggle" hidden></button>
+        </div>
+        <div id="infoMail"></div>
+      </section>
     </div>
     <section class="panel">
       <h3>Folders</h3>
@@ -715,6 +729,18 @@
       <button class="btn quiet cancel" value="cancel">Cancel</button>
       <button class="btn" value="nobackup">Stop without backup</button>
       <button class="btn primary" value="backup">Back up and stop</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="mailDlg">
+  <form method="dialog">
+    <h3 id="mailDlgTitle"></h3>
+    <p id="mailDlgText"></p>
+    <p class="note" id="mailDlgPhp"></p>
+    <div class="foot">
+      <button class="btn quiet cancel" value="cancel">Cancel</button>
+      <button class="btn primary" value="ok" id="mailDlgOk"></button>
     </div>
   </form>
 </dialog>
@@ -843,6 +869,7 @@
     start: () => 'starting stack', stop: () => 'stopping stack', 'stop-nobackup': () => 'stopping stack',
     setup: () => 'running setup', reload: () => 'reloading nginx',
     'new-site': n => `creating ${n}`, backup: n => `backing up ${n}`, delete: n => `deleting ${n}`,
+    'mail-on': () => 'turning mail catcher on', 'mail-off': () => 'turning mail catcher off',
   };
   let spinTimer = null, spinI = 0;
   function setTermBusy(busy, task) {
@@ -940,6 +967,25 @@
     $('#newSite').disabled = !!busy || !svc.mysql;
     $('#newSite').title = svc.mysql ? '' : 'Start the stack first';
     $('#pma').disabled = !svc.nginx;
+
+    // Mail catcher: its own state, not one of the three services.
+    const mail = st.mail || {};
+    const inbox = $('#inbox');
+    inbox.hidden = !mail.installed && !mail.running;
+    inbox.disabled = !mail.running;
+    inbox.title = mail.running ? 'Mail caught from your sites'
+      : mail.enabled === false ? 'Mail catcher is off (Stack info to turn it on)' : 'Starts with the stack';
+    const toggle = $('#mailToggle');
+    toggle.hidden = mail.enabled == null;
+    toggle.textContent = mail.enabled ? 'Turn off' : 'Turn on';
+    toggle.disabled = !!busy;
+    const ms = $('#mailState');
+    ms.textContent = mail.enabled == null ? '' : mail.enabled ? (mail.running ? '· On, running' : '· On') : '· Off';
+    ms.toggleAttribute('data-on', !!mail.enabled);
+    const badge = $('#inboxCount');
+    badge.hidden = !mail.running || !mail.unread;
+    badge.textContent = mail.unread > 99 ? '99+' : String(mail.unread || '');
+    inbox.setAttribute('aria-label', mail.unread ? `Mail, ${mail.unread} unread` : 'Mail');
   }
 
   function showProgress(el, p, withText) {
@@ -1294,7 +1340,30 @@
     catch (e) { localLog(e.message); }
   });
   const localUrl = port => port === 80 ? 'http://localhost' : `http://localhost:${port}`;
+  const MAIL_URL = 'http://localhost:8025';
   $('#pma').addEventListener('click', () => openUrl(localUrl(state.ports.pma)));
+  $('#inbox').addEventListener('click', () => openUrl(MAIL_URL));
+
+  // Mail catcher switch: says what changes, and that PHP restarts if it is running.
+  $('#mailToggle').addEventListener('click', () => {
+    const st = state.status;
+    if (!st?.mail) return;
+    const on = !st.mail.enabled;
+    const d = $('#mailDlg');
+    $('#mailDlgTitle').textContent = on ? 'Turn the mail catcher on?' : 'Turn the mail catcher off?';
+    $('#mailDlgText').textContent = on
+      ? 'Mail from your sites lands in the local inbox and nothing goes out, SMTP plugins included.'
+      : 'Sites send mail the normal way again. Sites with an SMTP plugin set up (WP Mail SMTP, Easy WP SMTP...) will really send to real addresses. Mail already in the inbox is kept.';
+    $('#mailDlgPhp').textContent = st.services.php
+      ? 'PHP restarts for about a second to pick this up. MySQL and Nginx keep running.'
+      : 'Applies the next time the stack starts.';
+    $('#mailDlgOk').textContent = on ? 'Turn on' : 'Turn off';
+    d.returnValue = '';
+    d.showModal();
+    d.addEventListener('close', () => {
+      if (d.returnValue === 'ok') act('POST', '/api/mail', { on });
+    }, { once: true });
+  });
   $('#clearLog').addEventListener('click', () => {
     typeQueue.length = 0;
     logEl.querySelectorAll('.ln, hr').forEach(n => n.remove());
@@ -1382,7 +1451,7 @@
     $('#infoRelease').textContent = info.release ? `Release ${info.release}` : 'localhost-wp';
     $('#infoBase').textContent = info.base;
 
-    const names = { nginx: 'Nginx', mysql: 'MySQL', php: 'PHP', phpmyadmin: 'phpMyAdmin' };
+    const names = { nginx: 'Nginx', mysql: 'MySQL', php: 'PHP', phpmyadmin: 'phpMyAdmin', mailpit: 'Mailpit' };
     const vers = $('#infoVersions');
     vers.innerHTML = '';
     for (const [k, label] of Object.entries(names)) {
@@ -1408,6 +1477,12 @@
       kv('Username', db.user, { copy: db.user }),
       kv('Password', 'None (empty)', { plain: true }),
       kv('Version', info.versions.phpmyadmin || 'Not installed'),
+    );
+    $('#infoMail').replaceChildren(
+      kv('Inbox', MAIL_URL, { url: MAIL_URL, copy: MAIL_URL }),
+      kv('SMTP', '127.0.0.1:1025', { copy: '127.0.0.1:1025' }),
+      kv('What it does', 'Every email your sites send lands in this inbox instead of going out, including sites whose SMTP plugin (WP Mail SMTP, Easy WP SMTP) is set to Gmail, SendGrid and the like. No plugin needed: PHP\'s mail settings point here.', { plain: true }),
+      kv('Version', info.versions.mailpit || 'Downloaded on the next Start stack'),
     );
     const sitePattern = `http://${host()}:PORT`;
     $('#infoSites').replaceChildren(
@@ -1532,13 +1607,14 @@
   }
 
   function skeletonInfo() {
-    $('#infoVersions').innerHTML = ['Nginx', 'MySQL', 'PHP', 'phpMyAdmin']
+    $('#infoVersions').innerHTML = ['Nginx', 'MySQL', 'PHP', 'phpMyAdmin', 'Mailpit']
       .map(n => `<li><b>${n}</b><span><span class="skel" style="width:46px"></span></span></li>`).join('');
     const rows = n => Array.from({ length: n }, () => '<div class="kv"><span class="k"><span class="skel" style="width:60px"></span></span><span class="v"><span class="skel"></span></span><span></span></div>').join('');
     $('#infoDb').innerHTML = rows(7);
     $('#infoPma').innerHTML = rows(4);
     $('#infoSites').innerHTML = rows(3);
     $('#infoStatic').innerHTML = rows(3);
+    $('#infoMail').innerHTML = rows(4);
     $('#infoFolders').innerHTML = Array.from({ length: 8 }, () => '<tr><td><span class="skel" style="width:90px"></span></td><td><span class="skel" style="width:60%"></span></td><td></td></tr>').join('');
   }
 

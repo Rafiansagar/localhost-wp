@@ -43,7 +43,7 @@ After that you don't need the bat. Any of these opens the Control Panel directly
 
 The shortcut holds absolute paths. After moving a stack folder, run `get-electron.ps1` (below) to recreate it, and re-pin.
 
-- Closing the window hides it to the tray. The tray menu starts or stops the stack (the Stop items show only while something runs), opens phpMyAdmin while the stack is up, and **Quit** leaves the stack running.
+- Closing the window hides it to the tray. The tray menu starts or stops the stack (the Stop items show only while something runs), opens phpMyAdmin and the mail inbox while the stack is up, and **Quit** leaves the stack running.
 - Each stack folder is its own app: its Electron profile lives in `electron\userdata`, so two stacks (say `F:\localhost-wp-8.5` and `E:\localhost-wp`) never share a window. Launching the same stack again brings its window back.
 - The window title shows the stack folder.
 - The tray icon shows the stack state with a dot: green when everything runs, amber while busy or partly up, no dot when stopped.
@@ -62,11 +62,35 @@ The download is checked against the release's SHA-256 list. Change `electron.ver
 
 ### Several stacks on one PC
 
-Stacks share the same ports (80, 3307, 8080, 9000, 9001+), so one runs at a time.
+Stacks share the same ports (80, 1025, 3307, 8025, 8080, 9000, 9001+), so one runs at a time.
 
 - Each dashboard takes its own port: `7070`, or the next free one if another stack's dashboard is open.
 - Services count as this stack's only when their `.exe` lives in this folder. Another stack's MySQL or Nginx is never shown as running here, and **Stop** never touches it.
 - While another stack is running, the dashboard names its folder and **Start** refuses until it is stopped from its own Control Panel.
+
+### Mail catcher
+
+Every email your sites send (password resets, contact forms, WooCommerce orders) lands in a local inbox instead of going out, so nothing reaches real people while you test, even on a copy of a live site.
+
+- It is [Mailpit](https://mailpit.axllent.org), one portable `mailpit.exe` in `mailpit\`. Setup downloads it; on an older stack the next **Start stack** does. Its version is `mailpit.version` in `versions.json`.
+- It starts and stops with the stack: mail in on `127.0.0.1:1025`, inbox at **http://localhost:8025**.
+- Open it with the **Mail** button next to phpMyAdmin (it shows how many are unread) or **Mail inbox** in the tray. **Stack info** lists its address and version.
+- Each new email pops up a Windows notification with its sender and subject (or "3 new emails" when several arrive together); clicking it opens the inbox. Mail already there when the app starts does not pop up.
+- No plugin and no change to the sites: `php.ini` sends PHP's mail to the catcher (`SMTP = 127.0.0.1`, `smtp_port = 1025`).
+- `scripts\php\mail-catcher.php`, loaded before every request by `php.ini`'s `auto_prepend_file`, makes sure nothing slips out:
+  - **SMTP plugins** set to send through Gmail, SendGrid, Brevo and the like are switched to PHP mail with their own constants: `WPMS_ON` / `WPMS_MAILER` (WP Mail SMTP) and `EASY_WP_SMTP_ON` / `EASY_WP_SMTP_MAILER` (Easy WP SMTP). Their settings pages show the mailer as set by a constant; nothing is saved to the database, so the site's real settings stay as they are.
+  - Any other plugin that switches WordPress's mailer to SMTP is switched back to PHP mail just before sending.
+  - WordPress sends from `wordpress@<site host>`, and for a site on `localhost` it rejects that address itself (no dot). It becomes `wordpress@localhost.test` in that one case; a From address a site or plugin sets is kept.
+- Not covered: plugins that replace WordPress's mail function and call a web API themselves (Post SMTP, FluentSMTP with an API mailer). Deactivate those on local copies, or set their mailer to PHP / Default.
+- Caught mail is kept in `mailpit\mailpit.db` between restarts; delete it from the inbox page.
+
+**Turning it off.** The **Mail catcher** panel on **Stack info** has a **Turn off / Turn on** button, and the tray menu has a **Mail catcher** checkbox; both ask first. Off means the stack leaves mail completely alone:
+
+- Mailpit does not run (and is not downloaded on a stack that never had it).
+- `php.ini` gets PHP's defaults back (`SMTP = localhost`, `smtp_port = 25`, empty `auto_prepend_file`), so `mail-catcher.php` is not loaded and SMTP plugins send with their own settings again, to real addresses.
+- Mail already in the inbox is kept for when it is turned back on.
+
+PHP reads `php.ini` only when it starts, so switching while the stack runs restarts PHP for about a second; MySQL and Nginx keep running. With the stack stopped, the choice applies at the next start. It is remembered per stack in `config\mail-catcher.txt` (on unless that file says `off`).
 
 ---
 
@@ -74,8 +98,8 @@ Stacks share the same ports (80, 3307, 8080, 9000, 9001+), so one runs at a time
 
 Setup runs once and handles everything automatically:
 
-- Downloads and installs Nginx, MySQL, PHP (NTS, the version you picked) and phpMyAdmin
-- Configures `php.ini` (extensions, upload limits)
+- Downloads and installs Nginx, MySQL, PHP (NTS, the version you picked), phpMyAdmin and the Mailpit mail catcher
+- Configures `php.ini` (extensions, upload limits, mail to the catcher)
 - Configures MySQL (`my.ini`, initializes data directory)
 - Writes Nginx configs (main, phpMyAdmin vhost, WordPress snippet)
 - Configures phpMyAdmin
@@ -144,10 +168,13 @@ localhost-wp/
 │  ├─ cp-core.ps1             Utilities, status checks, helpers
 │  ├─ cp-stack.ps1            Start/Stop/Reload stack logic
 │  ├─ cp-sites.ps1            New site, backup, delete logic
+│  ├─ php/
+│  │  └─ mail-catcher.php     Keeps WordPress mail in the catcher (SMTP plugins, From address)
 │  └─ helper/
 │     ├─ setup.ps1            First-time setup (downloads + configures)
 │     ├─ download.ps1         Download/extract helpers shared by setup
 │     ├─ get-electron.ps1     Portable Electron into electron\ (checksum verified)
+│     ├─ ensure-mail.ps1      Mailpit into mailpit\ and php.ini's mail lines
 │     ├─ versions.ps1         Reads versions.json, finds PHP builds
 │     ├─ ensure-php-runtime.ps1
 │     ├─ start-php.ps1
@@ -165,7 +192,7 @@ Created by setup (gitignored — not committed):
 
 ```
 nginx/       mysql/       php/       phpmyadmin/       electron/
-config/      logs/        sites/
+mailpit/     config/      logs/        sites/
 ```
 
 ---

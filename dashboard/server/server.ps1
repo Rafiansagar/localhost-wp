@@ -168,6 +168,7 @@ $script:Folders = [ordered]@{
     nginx      = @('nginx',        'Nginx binary and main config')
     mysql      = @('mysql',        'MySQL binaries, data, logs and my.ini')
     phpmyadmin = @('phpmyadmin',   'phpMyAdmin')
+    mailpit    = @('mailpit',      'Mail catcher (Mailpit) and the mail it caught')
     sites      = @('sites',        'One folder per site; WordPress lives in sites\{name}\public')
     vhosts     = @('config\nginx', 'One .conf per site, loaded automatically')
     config     = @('config',       'ports.txt keeps the last assigned site port')
@@ -208,6 +209,7 @@ function Get-StackInfo {
             mysql      = Get-BinVersion 'mysql' 'mysql\bin\mysqld.exe' @('--version') 'Ver\s+([\d.]+)'
             php        = Get-BinVersion 'php' 'php\php.exe' @('-v') 'PHP\s+([\d.]+)'
             phpmyadmin = if ($pmaRel) { $pmaRel.Name.Substring(13) } else { $null }
+            mailpit    = Get-BinVersion 'mailpit' 'mailpit\mailpit.exe' @('version') 'v(\d+\.\d+\.\d+)'
         }
         mysql    = [ordered]@{ host = '127.0.0.1'; user = 'root'; config = $myIni; data = $dataDir }
         folders  = @($script:Folders.Keys | ForEach-Object {
@@ -291,6 +293,40 @@ function Get-ServiceState {
         mysql = Test-Proc 'mysqld'
         php   = Test-Proc 'php-cgi'
         nginx = Test-Proc 'nginx'
+    }
+}
+
+# Mail catcher: separate from the three core services, so a stack without it
+# still counts as fully running. Unread comes from Mailpit's own API.
+function Get-MailState {
+    $on = Test-Proc 'mailpit'
+    $unread = 0; $total = 0; $latest = $null
+    if ($on) {
+        $res = $null
+        try {
+            $r = [System.Net.WebRequest]::Create('http://127.0.0.1:8025/api/v1/messages?limit=1')
+            $r.Timeout = 500
+            $res = $r.GetResponse()
+            $sr = New-Object System.IO.StreamReader($res.GetResponseStream())
+            $j = $sr.ReadToEnd() | ConvertFrom-Json
+            $unread = [int]$j.unread
+            $total  = [int]$j.total
+            # Newest message, for the "new mail" notification.
+            $m = @($j.messages)[0]
+            if ($m) {
+                $from = if ($m.From.Name) { $m.From.Name } else { $m.From.Address }
+                $latest = [ordered]@{ id = $m.ID; subject = "$($m.Subject)"; from = "$from"; to = "$(@($m.To)[0].Address)" }
+            }
+        } catch { } finally { if ($res) { $res.Close() } }
+    }
+    [ordered]@{
+        enabled   = [bool](Get-MailCatcherOn)
+        installed = Test-Path (Join-Path $script:BASE 'mailpit\mailpit.exe')
+        running   = $on
+        unread    = $unread
+        total     = $total
+        latest    = $latest
+        url       = 'http://localhost:8025'
     }
 }
 
@@ -434,6 +470,7 @@ function Handle-Request($ctx) {
                 setup    = [bool](Test-IsSetup)
                 missing  = @(Get-MissingParts)
                 services = $svc
+                mail     = Get-MailState
                 foreign  = $foreign
                 busy     = $shared.Busy
                 task     = $script:opArg
@@ -462,6 +499,13 @@ function Handle-Request($ctx) {
         '^POST /api/stack/stop$' {
             $body = Read-Body $req
             if ($body -and $body.backup -eq $false) { Send-Started $ctx 'stop-nobackup' } else { Send-Started $ctx 'stop' }
+            return
+        }
+        '^POST /api/mail$' {
+            # Mail catcher switch: { on: true | false }
+            $body = Read-Body $req
+            if (-not $body -or $body.on -isnot [bool]) { Send-Error $ctx 400 'Send { "on": true } or { "on": false }.'; return }
+            Send-Started $ctx $(if ($body.on) { 'mail-on' } else { 'mail-off' })
             return
         }
         '^POST /api/sites$' {
