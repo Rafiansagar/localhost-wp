@@ -427,11 +427,14 @@ function Handle-Request($ctx) {
                 $lvl = if (-not $stopped.Count) { 'ok' } elseif (-not $running.Count) { 'err' } else { 'warn' }
                 Write-Log "Status -> running: $runTxt  |  stopped: $stopTxt" $lvl
             }
+            # While this stack stops, its own processes are mid-exit; no check then.
+            $foreign = @()
+            if ($shared.Busy -notin 'stop', 'stop-nobackup') { $foreign = @(Get-ForeignStacks) }
             Send-Json $ctx @{
                 setup    = [bool](Test-IsSetup)
                 missing  = @(Get-MissingParts)
                 services = $svc
-                foreign  = @(Get-ForeignStacks)
+                foreign  = $foreign
                 busy     = $shared.Busy
                 task     = $script:opArg
                 progress = if ($shared.Busy -eq 'new-site') { Get-NewSiteProgress $script:opArg } else { $shared.Progress }

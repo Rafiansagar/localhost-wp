@@ -79,6 +79,11 @@ function Start-Stack {
         return
     }
 
+    # Leftovers of this stack that never started (not "running") are cleared first.
+    foreach ($n in 'mysqld', 'php-cgi', 'nginx') {
+        if (-not (Test-Proc $n) -and @(Get-StackProc $n).Count) { Stop-StackProc $n }
+    }
+
     # MySQL (Windows' VC++ runtime installed on demand; skipped, not fatal, if declined)
     $mysqlSkipped = $false
     $vcMissing = $false
@@ -145,13 +150,37 @@ function Start-Stack {
     }
 }
 
+# Nginx's own "stop" makes the master end its workers. Killing them one by one
+# instead lets the master start a new worker in between, which can be left
+# behind half-created. Whatever remains after a few seconds is killed.
+function Stop-Nginx {
+    $nginxDir = Join-Path $script:BASE 'nginx'
+    $exe      = Join-Path $nginxDir 'nginx.exe'
+    if (Test-Path $exe) {
+        try {
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName         = $exe
+            $psi.WorkingDirectory = $nginxDir
+            $psi.Arguments        = '-s stop'
+            $psi.UseShellExecute  = $false
+            $psi.CreateNoWindow   = $true
+            $psi.EnvironmentVariables.Remove('NGINX') | Out-Null
+            $p = [System.Diagnostics.Process]::Start($psi)
+            [void]$p.WaitForExit(5000)
+            for ($i = 0; $i -lt 30 -and @(Get-StackProc 'nginx').Count; $i++) { Start-Sleep -Milliseconds 100 }
+        } catch { }
+    }
+    Stop-StackProc 'nginx'
+}
+
 # ---- REAL: Stop the whole stack (backs up DBs first) -----------------------
 #  (re-creates stop.bat; delegates the backup to your scripts/backup-databases.ps1)
 function Stop-Stack([switch]$NoBackup) {
     $mysqladmin = Join-Path $script:BASE 'mysql\bin\mysqladmin.exe'
     Write-Log 'Stopping stack...' 'warn' ; Flush-UI
 
-    if (Test-Proc 'nginx')   { Stop-StackProc 'nginx';   Write-Log '  Nginx stopped.' }   else { Write-Log '  Nginx not running.' }
+    if (Test-Proc 'nginx')   { Stop-Nginx;               Write-Log '  Nginx stopped.' }   else { Write-Log '  Nginx not running.' }
+    Stop-StackProc 'nginx'   # never-started leftovers too
     if (Test-Proc 'php-cgi') { Stop-StackProc 'php-cgi'; Write-Log '  PHP-CGI stopped.' } else { Write-Log '  PHP-CGI not running.' }
 
     if (Test-Proc 'mysqld') {

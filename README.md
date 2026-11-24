@@ -46,7 +46,7 @@ The shortcut holds absolute paths. After moving a stack folder, run `get-electro
 - Closing the window hides it to the tray. The tray menu starts or stops the stack, and **Quit** leaves the stack running.
 - Each stack folder is its own app: its Electron profile lives in `electron\userdata`, so two stacks (say `F:\localhost-wp-8.5` and `E:\localhost-wp`) never share a window. Launching the same stack again brings its window back.
 - The window title shows the stack folder.
-- The tray icon shows the stack state with a dot: green when everything runs, amber while busy or partly up, red when stopped.
+- The tray icon shows the stack state with a dot: green when everything runs, amber while busy or partly up, no dot when stopped.
 - Long jobs (setup, new site) fill the taskbar button with their progress. When a job ends while the window is hidden or in the background, a notification says how it went; clicking it opens the window.
 - When Windows shuts down, restarts or signs out with the stack running, the app stops it gracefully first (no backup) so MySQL closes its files cleanly. What happened is written to `logs\shutdown.log`.
 - Each site's **⋯** menu has **Open in VS Code** (opens `sites\<name>\public`) when VS Code is installed.

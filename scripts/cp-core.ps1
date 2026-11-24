@@ -42,19 +42,45 @@ function Invoke-Helper([string]$scriptName, [hashtable]$params) {
 # Only processes whose exe lives inside THIS stack folder count. Several stacks
 # can sit side by side (F:\localhost-wp-8.5, E:\localhost-wp): a mysqld.exe from
 # another stack must not show here as running, and Stop must never kill it.
+#
+# A process that was created but never started (e.g. an nginx worker whose
+# master was killed while spawning it) has no readable image path; its command
+# line still names the exe, so it is still recognised as this stack's.
+function Get-ProcExe($p) {
+    if ($p.Path) { return $p.Path }
+    try {
+        $c = Get-CimInstance Win32_Process -Filter "ProcessId=$($p.Id)" -ErrorAction Stop
+        if ($c.ExecutablePath) { return $c.ExecutablePath }
+        $m = [regex]::Match("$($c.CommandLine)", '^\s*(?:"([^"]+)"|(\S+))')
+        if ($m.Success) { return $m.Groups[1].Value + $m.Groups[2].Value }
+    } catch { }
+    return $null
+}
+
+function Test-InBase([string]$exe) {
+    $exe -and $exe.StartsWith($script:BASE.TrimEnd('\') + '\', [System.StringComparison]::OrdinalIgnoreCase)
+}
+
+# All of this stack's processes by that name, including never-started ones.
 function Get-StackProc([string]$name) {
-    $root = $script:BASE.TrimEnd('\') + '\'
-    @(Get-Process -Name $name -ErrorAction SilentlyContinue | Where-Object {
-        $_.Path -and $_.Path.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase)
-    })
+    @(Get-Process -Name $name -ErrorAction SilentlyContinue | Where-Object { Test-InBase (Get-ProcExe $_) })
 }
 
+# Running = started properly (readable path). A never-started leftover does
+# not count, so Start does not skip a service that is not really there.
 function Test-Proc([string]$name) {
-    return (@(Get-StackProc $name)).Count -gt 0
+    return (@(Get-Process -Name $name -ErrorAction SilentlyContinue | Where-Object { Test-InBase $_.Path })).Count -gt 0
 }
 
+# Kills this stack's processes by that name. Repeats briefly, because a master
+# (nginx) can spawn a new worker between two kills.
 function Stop-StackProc([string]$name) {
-    Get-StackProc $name | Stop-Process -Force -ErrorAction SilentlyContinue
+    for ($i = 0; $i -lt 5; $i++) {
+        $left = @(Get-StackProc $name)
+        if (-not $left.Count) { return }
+        $left | Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Milliseconds 200
+    }
 }
 
 # Stack services running from somewhere else. They hold the same ports
@@ -66,8 +92,14 @@ function Get-ForeignStacks {
     $found = [ordered]@{}
     foreach ($n in $names.Keys) {
         foreach ($p in Get-Process -Name $n -ErrorAction SilentlyContinue) {
-            $exe = $p.Path
-            if ($exe -and $exe.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+            $exe = Get-ProcExe $p
+            if (Test-InBase $exe) { continue }
+            # No path at all: either exiting right now (e.g. while a Stop kills it),
+            # or elevated and unreadable. Only the second is a real other stack.
+            if (-not $exe) {
+                $exiting = try { $p.HasExited } catch { $false }
+                if ($exiting -or -not (Get-CimInstance Win32_Process -Filter "ProcessId=$($p.Id)" -ErrorAction SilentlyContinue)) { continue }
+            }
             # Path is empty for elevated processes we cannot inspect.
             $owner = if ($exe) { Split-Path -Parent $exe } else { '(unknown folder)' }
             if ($exe) {

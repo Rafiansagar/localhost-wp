@@ -203,9 +203,9 @@ function showProgress(st) {
   else win.setProgressBar(1, { mode: 'indeterminate' });
 }
 
-// App icon with a status dot (green running, amber busy or partly up, red stopped),
-// drawn into the bitmap so no extra image files are needed.
-const DOT = { live: [0x3D, 0xBB, 0x80], busy: [0xE3, 0xAA, 0x3A], off: [0xE0, 0x6A, 0x5F] };
+// App icon with a status dot (green running, amber busy or partly up; no dot
+// when stopped), drawn into the bitmap so no extra image files are needed.
+const DOT = { live: [0x3D, 0xBB, 0x80], busy: [0xE3, 0xAA, 0x3A] };
 const trayImages = {};
 function trayImage(kind) {
   if (trayImages[kind]) return trayImages[kind];
@@ -223,8 +223,10 @@ function trayImage(kind) {
       px[i + 3] = 255 * a + px[i + 3] * (1 - a);
     }
   };
-  paint(24, 24, 8.5, [0x14, 0x18, 0x1F]);                    // dark ring so the dot reads on any icon
-  paint(24, 24, 6.5, DOT[kind]);
+  if (DOT[kind]) {                                           // stopped: plain icon, no dot
+    paint(24, 24, 8.5, [0x14, 0x18, 0x1F]);                  // dark ring so the dot reads on any icon
+    paint(24, 24, 6.5, DOT[kind]);
+  }
   return (trayImages[kind] = nativeImage.createFromBitmap(px, { width: S, height: S, scaleFactor: 2 }));
 }
 
