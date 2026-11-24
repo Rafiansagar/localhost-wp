@@ -43,7 +43,7 @@ After that you don't need the bat. Any of these opens the Control Panel directly
 
 The shortcut holds absolute paths. After moving a stack folder, run `get-electron.ps1` (below) to recreate it, and re-pin.
 
-- Closing the window hides it to the tray. The tray menu starts or stops the stack, and **Quit** leaves the stack running.
+- Closing the window hides it to the tray. The tray menu starts or stops the stack (the Stop items show only while something runs), opens phpMyAdmin while the stack is up, and **Quit** leaves the stack running.
 - Each stack folder is its own app: its Electron profile lives in `electron\userdata`, so two stacks (say `F:\localhost-wp-8.5` and `E:\localhost-wp`) never share a window. Launching the same stack again brings its window back.
 - The window title shows the stack folder.
 - The tray icon shows the stack state with a dot: green when everything runs, amber while busy or partly up, no dot when stopped.

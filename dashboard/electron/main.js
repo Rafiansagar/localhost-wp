@@ -304,12 +304,13 @@ function buildMenu() {
     { type: 'separator' },
     { label: 'Open Control Panel', click: showWindow },
     { label: 'Start stack', enabled: !busy && !!st.setup && !all && !blocked, click: () => act('/api/stack/start') },
-    { label: 'Stop stack (backs up databases)', enabled: !busy && any, click: () => act('/api/stack/stop', { backup: true }) },
-    { label: 'Stop stack (no backup)', enabled: !busy && any, click: () => act('/api/stack/stop', { backup: false }) },
+    { label: 'Stop stack (with backup)', visible: any, enabled: !busy, click: () => act('/api/stack/stop', { backup: true }) },
+    { label: 'Stop stack (no backup)', visible: any, enabled: !busy, click: () => act('/api/stack/stop', { backup: false }) },
+    { label: 'phpMyAdmin', visible: !!all, click: () => shell.openExternal('http://localhost:8080') },
     { label: 'Open stack folder', click: () => shell.openPath(BASE) },
     { type: 'separator' },
-    { label: 'Stop stack and quit', enabled: !busy && any, click: stopAndQuit },
-    { label: 'Quit (stack keeps running)', click: quit },
+    { label: 'Stop stack and quit', visible: any, enabled: !busy, click: stopAndQuit },
+    { label: any ? 'Quit (stack keeps running)' : 'Quit', click: quit },
   ]));
 }
 
