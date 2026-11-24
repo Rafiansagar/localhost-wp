@@ -1116,6 +1116,7 @@
   const ICONS = {
     backup: '<path d="M8 2.5v7M5 7l3 3 3-3M3 12.5h10"/>',
     dir: '<path d="M2 4.5h4l1.5 1.5H14v6.5H2z"/>',
+    code: '<path d="M5.5 4.5L2 8l3.5 3.5M10.5 4.5L14 8l-3.5 3.5"/>',
     delete: '<path d="M2.5 4.5h11M6 4.5V3h4v1.5M4 4.5l.7 8.5h6.6l.7-8.5"/>',
   };
 
@@ -1133,6 +1134,7 @@
     const items = [
       ['backup', 'Back up database', busy || s.db !== 'yes'],
       ['dir', 'Open folder', false],
+      ...(state.vscode ? [['code', 'Open in VS Code', false]] : []),
       null,
       ['delete', 'Delete site…', busy],
     ];
@@ -1180,6 +1182,7 @@
     if (a === 'site') openUrl(siteUrl(s.port));
     if (a === 'admin') openUrl(siteUrl(s.port, '/wp-admin'));
     if (a === 'dir') act('POST', `${path}/open-dir`);
+    if (a === 'code') act('POST', `${path}/open-code`);
     if (a === 'backup') act('POST', `${path}/backup`);
     if (a === 'delete') {
       const d = $('#delDlg'), f = d.querySelector('form');
@@ -1548,6 +1551,7 @@
     $('#base').title = boot.base;
     $('#infoBase').textContent = boot.base;
     Object.assign(state.ports, boot.ports);
+    state.vscode = !!boot.vscode;
     $('#addrMysql').textContent = `127.0.0.1:${state.ports.mysql}`;
     $('#addrPhp').textContent = `127.0.0.1:${state.ports.php}`;
     $('#addrNginx').textContent = `phpMyAdmin :${state.ports.pma}`;

@@ -128,6 +128,18 @@ $token      = [guid]::NewGuid().ToString('N')
 $indexPath  = Join-Path $Root 'index.html'
 $workerPath = Join-Path $PSScriptRoot 'worker.ps1'
 $hosts      = @('localhost')
+
+# VS Code's own Code.exe: the code.cmd wrapper on PATH would flash a console window.
+function Get-VsCodeExe {
+    $c = @()
+    $cmd = Get-Command code.cmd -ErrorAction SilentlyContinue
+    if ($cmd) { $c += Join-Path (Split-Path -Parent (Split-Path -Parent $cmd.Source)) 'Code.exe' }   # <install>\bin\code.cmd
+    $c += "$env:LOCALAPPDATA\Programs\Microsoft VS Code\Code.exe"
+    if ($env:ProgramFiles) { $c += "$env:ProgramFiles\Microsoft VS Code\Code.exe" }
+    $c | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
+}
+$script:VsCode = Get-VsCodeExe
+
 $ip = Get-LocalIp
 if ($ip -and $ip -ne '127.0.0.1') { $hosts += $ip }
 
@@ -356,7 +368,7 @@ function Handle-Request($ctx) {
 
     if ($path -eq '/' -and $method -eq 'GET') {
         # Base, hosts and ports go into the page itself so the first paint is complete.
-        $boot = (ConvertTo-Json -InputObject @{ base = $script:BASE; hosts = $hosts; ports = Get-Ports } -Compress).Replace('</', '<\/')
+        $boot = (ConvertTo-Json -InputObject @{ base = $script:BASE; hosts = $hosts; ports = Get-Ports; vscode = [bool]$script:VsCode } -Compress).Replace('</', '<\/')
         $html = [System.IO.File]::ReadAllText($indexPath).Replace('__CP_TOKEN__', $token).Replace('__CP_BOOT__', $boot)
         Send-Bytes $ctx ([System.Text.Encoding]::UTF8.GetBytes($html)) 'text/html; charset=utf-8'
         return
@@ -455,7 +467,7 @@ function Handle-Request($ctx) {
             Send-Started $ctx 'new-site' $name
             return
         }
-        '^POST /api/sites/([^/]+)/(backup|delete|open-dir)$' {
+        '^POST /api/sites/([^/]+)/(backup|delete|open-dir|open-code)$' {
             $name = [uri]::UnescapeDataString($Matches[1]); $act = $Matches[2]
             if (-not (Test-KnownSite $name)) { Send-Error $ctx 404 "No site named '$name'."; return }
             if ($act -eq 'backup') { Send-Started $ctx 'backup' $name; return }
@@ -469,6 +481,16 @@ function Handle-Request($ctx) {
                 return
             }
             $siteDir = Join-Path $script:SitesDir $name
+            if ($act -eq 'open-code') {
+                # The WordPress root (public\) when there is one, else the site folder.
+                $dir = if (Test-Path (Join-Path $siteDir 'public')) { Join-Path $siteDir 'public' } else { $siteDir }
+                $rel = $dir.Substring($script:BASE.Length).TrimStart('\')
+                if (-not $script:VsCode)      { Write-Log 'VS Code not found on this PC.' 'err' }
+                elseif (-not (Test-Path $dir)) { Write-Log "Directory not found: $dir" 'err' }
+                else { Start-Process -FilePath $script:VsCode -ArgumentList "`"$dir`""; Write-Log "Opened $rel in VS Code" }
+                Send-Json $ctx @{ ok = $true }
+                return
+            }
             if (Test-Path $siteDir) { Start-Process explorer.exe $siteDir; Write-Log "Opened folder sites\$name" }
             else { Write-Log "Directory not found: $siteDir" 'err' }
             Send-Json $ctx @{ ok = $true }
