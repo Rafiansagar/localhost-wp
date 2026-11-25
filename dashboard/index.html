@@ -765,6 +765,19 @@
   const SVC_NAMES = { mysql: 'MySQL', php: 'PHP', nginx: 'Nginx' };
   const BUSY_LABEL = { start: 'Starting…', stop: 'Stopping…', 'stop-nobackup': 'Stopping…', setup: 'Setting up…' };
 
+  // Enter in a dialog presses its main (blue) button. Left to the browser, Enter
+  // presses the form's first button, which is Cancel in every dialog here.
+  // requestSubmit still checks the fields (site name pattern); a disabled main
+  // button (delete before the name is typed) means Enter does nothing.
+  for (const form of document.querySelectorAll('dialog form')) {
+    form.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' || e.isComposing || e.target.tagName === 'BUTTON') return;
+      e.preventDefault();
+      const main = form.querySelector('.btn.primary');
+      if (main && !main.disabled) form.requestSubmit(main);
+    });
+  }
+
   const state = { status: null, sites: [], seq: 0, online: true, siteSig: '', ports: { mysql: 3307, php: 9000, pma: 8080, home: 80 } };
   const logEl = $('#log');
   let timer = null;
