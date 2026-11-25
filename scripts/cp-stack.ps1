@@ -179,15 +179,27 @@ function Start-MailCatcher {
 
 # The dashboard's switch. PHP reads php.ini only when it starts, so a running
 # PHP is restarted (about a second); MySQL and Nginx are not touched.
+# Also the dashboard's "Download now" for a stack set up before the mail
+# catcher existed (on already, Mailpit not downloaded yet).
 function Set-MailCatcher([bool]$On) {
+    $was = Get-MailCatcherOn
     $cfg = Join-Path $script:BASE 'config'
     New-Item -ItemType Directory -Force -Path $cfg | Out-Null
     Set-Content -LiteralPath (Join-Path $cfg 'mail-catcher.txt') -Value $(if ($On) { 'on' } else { 'off' })
-    Write-Log $(if ($On) { 'Turning the mail catcher on...' } else { 'Turning the mail catcher off...' }) ; Flush-UI
+    $msg = if (-not $On) { 'Turning the mail catcher off...' } elseif ($was) { 'Setting up the mail catcher...' } else { 'Turning the mail catcher on...' }
+    Write-Log $msg ; Flush-UI
 
+    $ini = Join-Path $script:BASE 'php\php.ini'
+    $iniBefore = if (Test-Path $ini) { (Get-FileHash -LiteralPath $ini).Hash } else { '' }
     Invoke-Helper 'ensure-mail.ps1' @{ Base = $script:BASE } | Out-Null
+    $iniChanged = (Test-Path $ini) -and (Get-FileHash -LiteralPath $ini).Hash -ne $iniBefore
 
-    if (Test-Proc 'php-cgi') {
+    if ($On -and -not (Test-Path (Join-Path $script:BASE 'mailpit\mailpit.exe'))) {
+        Write-Log 'Mail catcher could not be downloaded - see above. Start stack tries again.' 'err'
+    }
+
+    # PHP reads php.ini only at start: restarted only when the mail lines changed.
+    if ($iniChanged -and (Test-Proc 'php-cgi')) {
         Write-Log '  Restarting PHP so it reads the new mail settings...' ; Flush-UI
         Stop-StackProc 'php-cgi'
         Invoke-Helper 'start-php.ps1' @{ PhpCgi = (Join-Path $script:BASE 'php\php-cgi.exe') } | Out-Null
@@ -196,6 +208,7 @@ function Set-MailCatcher([bool]$On) {
     }
 
     if ($On) {
+        if (-not (Test-Path (Join-Path $script:BASE 'mailpit\mailpit.exe'))) { return }   # reported above
         # Started now only if the stack is up; otherwise Start stack does it.
         if ((Test-Proc 'php-cgi') -or (Test-Proc 'nginx')) { Start-MailCatcher }
         Write-Log 'Mail catcher on - mail from your sites lands in the inbox, nothing goes out.' 'ok'

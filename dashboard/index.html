@@ -350,8 +350,10 @@
     background: color-mix(in srgb, var(--wait) 9%, var(--panel)); font-size: 13.5px;
   }
   .notice svg { flex: none; width: 16px; height: 16px; color: var(--wait); }
-  .notice:not([hidden]) + .section-head,
-  .notice:not([hidden]) + .notice[hidden] + .section-head { margin-top: 20px; }
+  .notice:not([hidden]) ~ .section-head { margin-top: 20px; }
+  .notice .btn { margin-left: auto; flex: none; }
+  .notice.info { border-color: color-mix(in srgb, var(--action) 40%, var(--line)); background: color-mix(in srgb, var(--action) 8%, var(--panel)); }
+  .notice.info svg { color: var(--action); }
   .notice.danger { border-color: color-mix(in srgb, var(--off) 40%, var(--line)); background: color-mix(in srgb, var(--off) 8%, var(--panel)); }
   .notice.danger svg { color: var(--off); }
 
@@ -624,6 +626,12 @@
   <div class="notice" id="setupNotice" role="status" hidden>
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2l6.5 11.5h-13z"/><path d="M8 6.5v3M8 11.5h.01"/></svg>
     <span></span>
+  </div>
+
+  <div class="notice info" id="mailNotice" role="status" hidden>
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3.5" width="12" height="9" rx="1.5"/><path d="M2.5 4.5L8 8.5l5.5-4"/></svg>
+    <span></span>
+    <button class="btn" id="mailGet">Download now</button>
   </div>
 
   <div class="section-head">
@@ -990,6 +998,19 @@
     inbox.disabled = !mail.running;
     inbox.title = mail.running ? 'Mail caught from your sites'
       : mail.enabled === false ? 'Mail catcher is off (Stack info to turn it on)' : 'Starts with the stack';
+    // Older stacks get Mailpit on their next Start stack; say so, and offer it now.
+    const mn = $('#mailNotice');
+    const getting = busy === 'mail-on';
+    mn.hidden = !st.setup || mail.enabled !== true || mail.installed || (busy && !getting);
+    if (!mn.hidden) {
+      mn.querySelector('span').textContent = getting
+        ? (st.progress?.text ? `Downloading: ${st.progress.text}` : 'Setting up the mail catcher (Mailpit)…')
+        : 'The mail catcher (Mailpit) is not downloaded yet. It downloads by itself the next time you start the stack, or you can get it now.'
+          + (svc.php ? ' PHP restarts for about a second.' : '');
+      $('#mailGet').disabled = getting;
+      $('#mailGet').textContent = getting ? 'Downloading…' : 'Download now';
+    }
+
     const toggle = $('#mailToggle');
     toggle.hidden = mail.enabled == null;
     toggle.textContent = mail.enabled ? 'Turn off' : 'Turn on';
@@ -1356,8 +1377,11 @@
   });
   const localUrl = port => port === 80 ? 'http://localhost' : `http://localhost:${port}`;
   const MAIL_URL = 'http://localhost:8025';
+  // Mailpit is optional: missing means "comes on next start", or "off" if switched off.
+  const mailpitMissingText = () => state.status?.mail?.enabled === false ? 'Off' : 'On next start';
   $('#pma').addEventListener('click', () => openUrl(localUrl(state.ports.pma)));
   $('#inbox').addEventListener('click', () => openUrl(MAIL_URL));
+  $('#mailGet').addEventListener('click', () => act('POST', '/api/mail', { on: true }));
 
   // Mail catcher switch: says what changes, and that PHP restarts if it is running.
   $('#mailToggle').addEventListener('click', () => {
@@ -1473,7 +1497,7 @@
       const li = document.createElement('li');
       li.innerHTML = '<b></b><span></span>';
       li.querySelector('b').textContent = label;
-      li.querySelector('span').textContent = info.versions[k] || 'Not installed';
+      li.querySelector('span').textContent = info.versions[k] || (k === 'mailpit' ? mailpitMissingText() : 'Not installed');
       vers.append(li);
     }
 
@@ -1497,7 +1521,7 @@
       kv('Inbox', MAIL_URL, { url: MAIL_URL, copy: MAIL_URL }),
       kv('SMTP', '127.0.0.1:1025', { copy: '127.0.0.1:1025' }),
       kv('What it does', 'Every email your sites send lands in this inbox instead of going out, including sites whose SMTP plugin (WP Mail SMTP, Easy WP SMTP) is set to Gmail, SendGrid and the like. No plugin needed: PHP\'s mail settings point here.', { plain: true }),
-      kv('Version', info.versions.mailpit || 'Downloaded on the next Start stack'),
+      kv('Version', info.versions.mailpit || mailpitMissingText()),
     );
     const sitePattern = `http://${host()}:PORT`;
     $('#infoSites').replaceChildren(

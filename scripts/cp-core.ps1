@@ -27,14 +27,26 @@ function Flush-UI { [System.Windows.Forms.Application]::DoEvents() }
 function Invoke-Helper([string]$scriptName, [hashtable]$params) {
     $path = Join-Path $script:HelperDir $scriptName
     if (-not (Test-Path $path)) { Write-Log "Helper not found: scripts\helper\$scriptName" 'err'; return $false }
+    # Download progress lines ("[%] <pct> <text>") go to the dashboard's progress
+    # display (when there is one) instead of filling the log twice a second.
+    $hasShared = $null -ne (Get-Variable -Name shared -ValueOnly -ErrorAction SilentlyContinue)
     try {
         & $path @params *>&1 | ForEach-Object {
-            $t = "$_".Trim(); if ($t) { Write-Log "  $t"; Flush-UI }
+            $t = "$_".Trim()
+            if (-not $t) { return }
+            $m = [regex]::Match($t, '^\[%\]\s+(-?\d+)\s+(.*)$')
+            if ($m.Success) {
+                if ($hasShared) { $shared.Progress = @{ pct = [int]$m.Groups[1].Value; text = $m.Groups[2].Value } }
+                return
+            }
+            Write-Log "  $t"; Flush-UI
         }
         return $true
     } catch {
         Write-Log "  $scriptName failed: $($_.Exception.Message)" 'err'
         return $false
+    } finally {
+        if ($hasShared) { $shared.Progress = $null }
     }
 }
 
