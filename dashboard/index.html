@@ -118,13 +118,14 @@
   .kv .skel { width: 60%; }
   .info { overflow-y: auto; gap: 16px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
   .info-head {
-    display: grid; grid-template-columns: 230px minmax(0, 1fr) auto; align-items: center; gap: 8px 24px;
+    /* The middle (release, folder, status) keeps room; the versions take what is left and wrap. */
+    display: grid; grid-template-columns: 230px minmax(220px, 1fr) minmax(0, auto); align-items: center; gap: 8px 24px;
     padding: 6px 22px 6px 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow);
   }
   .info-head h2 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
   .info-head p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
-  .info-head .live { margin-top: 10px; display: inline-flex; align-items: center; gap: 8px; color: var(--ink); font-size: 13.5px; font-weight: 500; }
-  .info-head .live i { width: 8px; height: 8px; border-radius: 50%; background: var(--live, var(--muted)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--live, var(--muted)) 20%, transparent); }
+  .info-head .live { margin-top: 10px; display: inline-flex; align-items: flex-start; gap: 8px; color: var(--ink); font-size: 13.5px; font-weight: 500; }
+  .info-head .live i { flex: none; margin-top: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--live, var(--muted)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--live, var(--muted)) 20%, transparent); }
 
   /* ---- 3D server stack: one slab per service, mirrors live state, leans toward the cursor ---- */
   .stack3d {
@@ -176,9 +177,10 @@
     background: radial-gradient(closest-side, color-mix(in srgb, #000 30%, transparent), transparent);
     filter: blur(3px); pointer-events: none;
   }
-  .versions { display: flex; flex-wrap: wrap; margin: 0; padding: 0; list-style: none; border: 1px solid var(--line); border-radius: 10px; }
-  .versions li { display: grid; padding: 7px 14px; }
-  .versions li + li { border-left: 1px solid var(--line); }
+  /* Cells draw their own left/top lines, pulled 1px out so the box's edge hides
+     them on the first cell of each row and on the first row when they wrap. */
+  .versions { display: flex; flex-wrap: wrap; margin: 0; padding: 0; list-style: none; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .versions li { flex: 1 0 auto; display: grid; padding: 7px 14px; border-left: 1px solid var(--line); border-top: 1px solid var(--line); margin: -1px 0 0 -1px; }
   .versions b { font-size: 12px; font-weight: 500; color: var(--muted); }
   .versions span { font: 500 14px/1.4 var(--mono); }
   .info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
