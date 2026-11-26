@@ -334,6 +334,11 @@
   .chead .grow { flex: 1; min-width: 0; }
   .chead h2 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; }
   .chead p { margin: 4px 0 0; font-size: 13.5px; color: var(--muted); }
+  .chead .addrs { display: flex; flex-wrap: wrap; gap: 4px 22px; margin-top: 10px; font-size: 12.5px; }
+  .chead .addrs > span { display: inline-flex; align-items: center; gap: 8px; }
+  .chead .addrs .k { color: var(--muted); }
+  .chead .addrs code { font-size: 12.5px; color: var(--ink); }
+  .chead .addrs .copy { width: 24px; height: 24px; margin-left: -4px; }
   .chead .sw { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); font-weight: 500; margin-top: 6px; }
   .section-title { margin: 28px 0 10px; font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
   .section-title.first { margin-top: 0; }
@@ -1102,13 +1107,13 @@
       const u = state.mail ? unread() : (m.unread || 0);
       const status = m.enabled === false ? 'Off. Sites send mail the normal way.' : !m.installed ? 'Not downloaded yet' : m.running ? `Keeps every email your sites send on this PC. Nothing goes out, SMTP plugins included.` : 'Paused while the stack is stopped';
       return {
-        html: `<div class="chead"><div class="grow"><h2 id="mailTitle">Mail catcher</h2><p>${esc(status)}</p></div>
+        html: `<div class="chead"><div class="grow"><h2 id="mailTitle">Mail catcher</h2><p>${esc(status)}</p>
+            ${m.enabled !== false && m.installed ? `<div class="addrs" title="PHP's mail settings point here, so no plugin is needed. SMTP plugins set to Gmail, SendGrid and the like are caught too.">
+              <span><span class="k">Inbox</span><code>${esc(MAIL_URL)}</code><button class="copy" data-copy="${esc(MAIL_URL)}" title="Copy inbox address" aria-label="Copy inbox address">${ic('copy', 14)}</button></span>
+              <span><span class="k">SMTP</span><code>127.0.0.1:1025</code><button class="copy" data-copy="127.0.0.1:1025" title="Copy SMTP address" aria-label="Copy SMTP address">${ic('copy', 14)}</button></span></div>` : ''}</div>
             <button class="btn" data-act="inbox" ${m.running ? '' : 'disabled'}>${ic('ext', 15)}Open inbox</button>
             <span class="sw">${m.enabled ? 'On' : 'Off'}<button class="switch" role="switch" aria-checked="${!!m.enabled}" aria-labelledby="mailTitle" data-act="mail-toggle" ${busy() || m.enabled == null ? 'disabled' : ''}></button></span></div>
-          ${mailFeed(null)}
-          <h3 class="section-title">Addresses</h3>
-          <div class="two"><div class="card">${kvRow('Inbox', MAIL_URL, { copy: MAIL_URL })}${kvRow('SMTP', '127.0.0.1:1025', { copy: '127.0.0.1:1025' })}</div>
-          <div class="card"><p style="margin:10px 0;font-size:13.5px;color:var(--muted)">PHP's mail settings point here, so no plugin is needed. Sites whose SMTP plugin (WP Mail SMTP, Easy WP SMTP) is set to Gmail, SendGrid and the like are caught too. ${u ? `${u} unread.` : ''}</p></div></div>`,
+          ${mailFeed(null)}`,
         after() { wireMail(null); for (const b of $$('[data-act]', $('#pageInner'))) if (!b.closest('.feed-card')) b.onclick = () => doAction(b.dataset.act); },
       };
     },
@@ -1335,6 +1340,7 @@
     const { page, a, b } = parseRoute();
     const key = `${page}/${a || ''}/${b || ''}/${st()?.setup}`;
     const s = st();
+    if (page === 'site' && a) loadSiteInfo(a);   // before the early returns, so it keeps refreshing
     const dataSig = JSON.stringify([key, page === 'sites' ? '' : state.sites, s && [s.services, s.mail, s.busy, s.setup, s.missing], page === 'mail' || page === 'site' ? state.mail : '', page === 'stack' ? state.info : '', page === 'site' ? siteInfo[a] || '' : '', page === 'settings' ? !!(state.settings || s?.settings) : '', host()]);
     if (!force && key === pageKey && pageObj?.refresh) { pageObj.refresh(); return; }
     if (!force && renderPage.sig === dataSig) return;
@@ -1353,7 +1359,6 @@
     pageKey = key;
     markNav();
     if (page === 'stack' && !state.info) loadInfo();
-    if (page === 'site' && a) loadSiteInfo(a);
     if ((page === 'mail' || page === 'site') && !state.mail) loadMail();
   }
   window.addEventListener('hashchange', () => { closeMenu(); renderPage(true); try { localStorage.setItem('cp-route', location.hash); } catch { } });
