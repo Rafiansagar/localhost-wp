@@ -53,6 +53,9 @@ back/
 /config/network-catcher.txt
 /config/network-rules.json
 
+# The app's own preferences (Settings page); the server has defaults when it's missing
+/config/app-settings.json
+
 # Stack page's PHP & MySQL settings and the ini file PHP reads from them
 /config/php-tuning.json
 /config/php-ini/

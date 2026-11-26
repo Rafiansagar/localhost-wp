@@ -273,7 +273,8 @@ sites/mysite/sql/
 
 ## Glimpse
 
-![Dashboard](./dashboard/dashboard1.png)  
-![Stack info](./dashboard/dashboard2.png)  
+![Sites](./dashboard/dashboard1.png)  
+![Stack](./dashboard/dashboard2.png)  
+![Settings, PHP & MySQL](./dashboard/dashboard3.png)  
 ![Server Running](./dashboard/server-running.png)  
 
