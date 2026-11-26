@@ -235,7 +235,7 @@ function Set-MailCatcher([bool]$On) {
 # $keys: one setting, or several separated by commas (Reset all), so PHP restarts once.
 function Set-StackTuning([string]$keys) {
     $t = Get-Tuning $script:BASE
-    $labels = @{ opcache = 'OPcache'; opcacheMemory = 'OPcache memory'; opcacheFiles = 'OPcache max files'; workers = 'PHP workers'
+    $labels = @{ opcache = 'OPcache'; opcacheKeep = 'Keep OPcache after restart'; opcacheMemory = 'OPcache memory'; opcacheFiles = 'OPcache max files'; workers = 'PHP workers'
                  memoryLimit = 'PHP memory limit'; uploadMax = 'Max upload size'; maxExecution = 'Max execution time'; mysqlBuffer = 'MySQL cache' }
     $list = @($keys -split ',' | Where-Object { $labels.ContainsKey($_) })
     if (-not $list.Count) { Write-Log "Unknown setting '$keys'." 'err'; return }
@@ -271,6 +271,7 @@ function Set-StackTuning([string]$keys) {
     Start-Sleep -Milliseconds 800
     if (Test-Proc 'php-cgi') { Write-Log '  PHP restarted with the new setting.' 'ok' }
     else { Write-Log '  PHP did not come back up - use Start stack.' 'err' }
+    if ($list -contains 'opcacheKeep' -and -not ($t.Contains('opcacheKeep') -and $t.opcacheKeep)) { Clear-TuningCache $script:BASE }
 }
 
 # Nginx's own "stop" makes the master end its workers. Killing them one by one

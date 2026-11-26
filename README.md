@@ -125,7 +125,7 @@ It also answers the Stack page's live OPcache numbers (`?__localhost_wp=status` 
 
 ### PHP & MySQL settings
 
-The **Stack** page's **PHP & MySQL** card shows the values in effect and changes them: OPcache on or off, its memory and file limit, the number of PHP workers, PHP's memory limit, upload size and execution time, and MySQL's cache (`innodb_buffer_pool_size`).
+The **Stack** page's **PHP & MySQL** card shows the values in effect and changes them: OPcache on or off, keeping its cache after a restart, its memory and file limit, the number of PHP workers, PHP's memory limit, upload size and execution time, and MySQL's cache (`innodb_buffer_pool_size`).
 
 - Nothing is changed by default. Every setting shows the stack's own value from `php.ini`, `my.ini` and `start-php.ps1` (4 workers) until someone changes it.
 - A fresh setup gives: OPcache off, 4 PHP workers, PHP's own memory limit (128M) and execution time (30 s), 64M uploads (PHP and Nginx), and a 128M MySQL cache.
@@ -136,7 +136,8 @@ The **Stack** page's **PHP & MySQL** card shows the values in effect and changes
   - The upload size also sets Nginx's `client_max_body_size` in `nginx.conf`; Reset puts setup's 64M back.
 - A PHP change restarts PHP for about a second; MySQL and Nginx keep running. With the stack stopped, changes apply at the next start.
 - Turning OPcache on here also makes PHP check files for changes on every request (`opcache.revalidate_freq=0`), so code edits show at once.
-- Live numbers while the stack runs: PHP workers busy (open connections from Nginx to PHP), and OPcache's memory, files and hit rate, with **Clear cache**. When every worker is busy, new requests wait in line, and Nginx answers 504 after 60 seconds.
+- **Keep cache after restart** (`opcache.file_cache`) saves every compiled file in the `opcache-cache` folder. After a PHP restart, a page loads them from there instead of compiling again; files changed since are compiled fresh. **Clear cache** and turning it off empty the folder. It stays in memory as before, so only the first load after a restart gets faster.
+- Live numbers while the stack runs: PHP workers busy (open connections from Nginx to PHP), and OPcache's memory and files, with **Clear cache**. When every worker is busy, new requests wait in line, and Nginx answers 504 after 60 seconds.
 - Windows Defender scans every PHP file as it is read, which slows first loads. Excluding the stack folder in **Windows Security > Virus & threat protection > Exclusions** helps; it needs admin rights, so localhost-wp doesn't do it.
 
 Nginx's error logs go to real files: `nginx\logs\error.log`, and phpMyAdmin's to `logs\nginx\phpmyadmin-error.log`. Stacks set up earlier wrote them to a file named `nginx\off`; **Start stack** fixes that.

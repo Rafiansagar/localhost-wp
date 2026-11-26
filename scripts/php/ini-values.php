@@ -15,6 +15,7 @@ function localhost_wp_cfg($name, $default)
 $opcache = extension_loaded('Zend OPcache');
 echo json_encode(array(
     'opcache'       => $opcache && (bool) localhost_wp_cfg('opcache.enable', '1'),
+    'opcacheKeep'   => (string) localhost_wp_cfg('opcache.file_cache', '') !== '',
     'opcacheMemory' => (int) localhost_wp_cfg('opcache.memory_consumption', 128),
     'opcacheFiles'  => (int) localhost_wp_cfg('opcache.max_accelerated_files', 10000),
     'memoryLimit'   => (string) localhost_wp_cfg('memory_limit', '128M'),

@@ -1282,6 +1282,7 @@ function Handle-Request($ctx) {
             return
         }
         '^POST /api/tuning/opcache-reset$' {
+            Clear-TuningCache $script:BASE   # the saved copies too, or a restart would load them back
             $o = Invoke-PhpStatus 'opcache-reset'
             if (-not $o) { Send-Error $ctx 409 "PHP didn't answer. Start the stack, or wait until PHP isn't busy."; return }
             Write-Log 'OPcache cleared - pages compile their PHP files again on the next visit.' 'ok'

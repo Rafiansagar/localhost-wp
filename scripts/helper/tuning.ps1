@@ -16,6 +16,7 @@
 # keep PHP or MySQL from starting.
 $script:TuningSpec = [ordered]@{
     opcache       = @($true, $false)
+    opcacheKeep   = @($true, $false)                           # keep compiled files on disk across PHP restarts
     opcacheMemory = @(64, 128, 256, 512, 1024)                 # MB
     opcacheFiles  = @(10000, 20000, 65000, 130000)
     workers       = @(2, 4, 6, 8, 12, 16)
@@ -24,12 +25,20 @@ $script:TuningSpec = [ordered]@{
     maxExecution  = @(30, 60, 120, 300, 0)                     # seconds, 0 = no limit; Nginx waits 300 for WordPress
     mysqlBuffer   = @(128, 256, 512, 1024, 2048)               # MB
 }
-$script:TuningPhpKeys = @('opcache', 'opcacheMemory', 'opcacheFiles', 'workers', 'memoryLimit', 'uploadMax', 'maxExecution')
+$script:TuningPhpKeys = @('opcache', 'opcacheKeep', 'opcacheMemory', 'opcacheFiles', 'workers', 'memoryLimit', 'uploadMax', 'maxExecution')
 $script:TuningDefaultWorkers = 4          # start-php.ps1's own number
 $script:TuningDefaultBody    = '64M'      # setup's client_max_body_size
 
 function Get-TuningFile([string]$Base) { Join-Path $Base 'config\php-tuning.json' }
 function Get-TuningIniDir([string]$Base) { Join-Path $Base 'config\php-ini' }
+function Get-TuningCacheDir([string]$Base) { Join-Path $Base 'opcache-cache' }
+
+# Empties the folder "Keep cache after restart" saves compiled files in, so a
+# restart can't load old copies back. Used by Clear cache and by turning it off.
+function Clear-TuningCache([string]$Base) {
+    $dir = Get-TuningCacheDir $Base
+    if (Test-Path -LiteralPath $dir) { Get-ChildItem -LiteralPath $dir -Force | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue }
+}
 
 # Changed settings only: @{ workers = 8; ... }. Unknown keys and values outside
 # the allowed lists are dropped.
@@ -86,6 +95,13 @@ function Write-TuningIni([string]$Base) {
             $lines += 'opcache.enable=0'
         }
     }
+    if ($t.Contains('opcacheKeep') -and $t.opcacheKeep) {
+        # A copy of every compiled file on disk; after a restart PHP loads it from
+        # there instead of compiling again. Files changed since are compiled fresh.
+        $cache = Get-TuningCacheDir $Base
+        New-Item -ItemType Directory -Force -Path $cache | Out-Null
+        $lines += "opcache.file_cache=`"$($cache.Replace('\', '/'))`""
+    }
     if ($t.Contains('opcacheMemory')) { $lines += "opcache.memory_consumption=$($t.opcacheMemory)" }
     if ($t.Contains('opcacheFiles'))  { $lines += "opcache.max_accelerated_files=$($t.opcacheFiles)" }
     if ($t.Contains('memoryLimit'))   { $lines += "memory_limit=$($t.memoryLimit)" }
@@ -133,7 +149,7 @@ function Update-NginxTuning([string]$Base, [switch]$ResetBody) {
 
 # For the Activity log: "512 MB", "no limit", "8".
 function Format-TuningValue([string]$key, $v) {
-    if ($key -eq 'opcache') { if ($v) { return 'on' } else { return 'off' } }
+    if ($key -in 'opcache', 'opcacheKeep') { if ($v) { return 'on' } else { return 'off' } }
     if ($key -in 'opcacheMemory', 'mysqlBuffer') { if ([int]$v -ge 1024) { return "$([int]$v / 1024) GB" } else { return "$v MB" } }
     if ($key -eq 'opcacheFiles') { return ('{0:N0} files' -f [int]$v) }
     if ($key -in 'memoryLimit', 'uploadMax') { if ("$v" -eq '-1') { return 'no limit' } else { return ("$v" -replace '(?i)G$', ' GB' -replace '(?i)M$', ' MB') } }
@@ -166,6 +182,7 @@ function Get-TuningStock([string]$Base) {
             $out = $p.StandardOutput.ReadToEnd(); [void]$p.WaitForExit(5000)
             $j = $out | ConvertFrom-Json
             $stock.opcache       = [bool]$j.opcache
+            $stock.opcacheKeep   = [bool]$j.opcacheKeep
             $stock.opcacheMemory = [int]$j.opcacheMemory
             $stock.opcacheFiles  = [int]$j.opcacheFiles
             $stock.memoryLimit   = "$($j.memoryLimit)"

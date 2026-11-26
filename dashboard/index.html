@@ -1434,6 +1434,7 @@
   // stack's own value again, or Reset, removes it.
   const TUNE = [
     ['opcache', 'OPcache', 'Makes every page faster: PHP keeps its compiled code in memory instead of reading and compiling every file on each request. Code edits still show at once.'],
+    ['opcacheKeep', 'Keep cache after restart', 'Saves the compiled files on disk, in the <code>opcache-cache</code> folder, so the first page after a restart loads from there instead of compiling again. Clear cache empties it too.'],
     ['opcacheMemory', 'OPcache memory', 'Shared by all sites. Files that don\'t fit aren\'t cached and load at normal speed.'],
     ['opcacheFiles', 'OPcache max files', 'A WordPress site with Elementor and a few plugins is often 3,000 to 5,000 files. OPcache rounds this up to its next size, so the live count can show a bit more.'],
     ['workers', 'PHP workers', 'Requests PHP handles at once, for every site and phpMyAdmin together. Each uses about 30 to 60 MB.'],
@@ -1445,7 +1446,7 @@
   const tuneMB = v => { const s = String(v); if (s === '-1') return Infinity; const m = /^(\d+)\s*([KMG]?)/i.exec(s); if (!m) return 0; const n = +m[1], u = m[2].toUpperCase(); return u === 'G' ? n * 1024 : u === 'K' ? n / 1024 : u === 'M' ? n : n / 1048576; };
   const tuneSize = mb => mb === Infinity ? 'No limit' : mb >= 1024 && mb % 1024 === 0 ? `${mb / 1024} GB` : `${mb} MB`;
   function tuneLabel(k, v) {
-    if (k === 'opcache') return v ? 'On' : 'Off';
+    if (k === 'opcache' || k === 'opcacheKeep') return v ? 'On' : 'Off';
     if (k === 'opcacheMemory' || k === 'mysqlBuffer') return tuneSize(+v);
     if (k === 'opcacheFiles') return +v % 1000 === 0 ? `${+v / 1000}k` : (+v).toLocaleString();
     if (k === 'memoryLimit' || k === 'uploadMax') return tuneSize(tuneMB(v));
@@ -1482,7 +1483,7 @@
       const stock = t.stock[k], changed = k in t.set, cur = tuneCur(t, k);
       const mark = changed && stock !== undefined ? `<span class="chg">Changed from ${esc(tuneLabel(k, stock))} · <button class="link" data-tune-reset="${k}">Reset</button></span>` : '';
       let ctrl;
-      if (k === 'opcache') ctrl = `<button class="switch" role="switch" aria-checked="${!!cur}" aria-labelledby="tn-${k}" data-tune="${k}"></button>`;
+      if (k === 'opcache' || k === 'opcacheKeep') ctrl = `<button class="switch" role="switch" aria-checked="${!!cur}" aria-labelledby="tn-${k}" data-tune="${k}"></button>`;
       else {
         const opts = [...t.options[k]];
         if (stock !== undefined && stock !== null && !opts.some(o => tuneSame(k, o, stock))) opts.push(stock);
@@ -1494,7 +1495,7 @@
     const by = keys => TUNE.filter(([k]) => keys.includes(k)).map(row).join('');
     const nChanged = Object.keys(t.set).length;
     return `<div class="card opt-card ${busy ? 'tune-busy' : ''}" ${busy ? 'inert' : ''}>
-        <div class="opt-group"><h3>OPcache</h3>${by(opcacheOn ? ['opcache', 'opcacheMemory', 'opcacheFiles'] : ['opcache'])}</div>
+        <div class="opt-group"><h3>OPcache</h3>${by(opcacheOn ? ['opcache', 'opcacheKeep', 'opcacheMemory', 'opcacheFiles'] : ['opcache'])}</div>
         <div class="opt-group"><h3>PHP</h3>${by(['workers', 'memoryLimit', 'uploadMax', 'maxExecution'])}</div>
         <div class="opt-group"><h3>MySQL</h3>${by(['mysqlBuffer'])}</div>
       </div>
