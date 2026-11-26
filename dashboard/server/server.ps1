@@ -424,6 +424,8 @@ function Get-SiteInfo([string]$name) {
         }
         $m = [regex]::Match($t, "(?m)^\s*\`$table_prefix\s*=\s*['""]([^'""]*)['""]")
         if ($m.Success) { $prefix = $m.Groups[1].Value }
+        # A line of the user's own that forces errors onto pages, whatever WP_DEBUG_DISPLAY says.
+        $debug['iniDisplay'] = [regex]::IsMatch($t, "(?mi)^\s*@?ini_set\s*\(\s*['""]display_errors['""]\s*,\s*(1|true|['""](1|on)['""])\s*\)")
     }
     $content = Join-Path $pub 'wp-content'
     $count = { param($sub) @(Get-ChildItem -LiteralPath (Join-Path $content $sub) -Directory -ErrorAction SilentlyContinue).Count }
@@ -444,6 +446,56 @@ function Get-SiteInfo([string]$name) {
             nginx = Get-LogSummary (Join-Path $script:BASE "logs\nginx\$name-error.log") 'nginx'
         }
     }
+}
+
+# Site page > Debugging switches: sets one debug constant in wp-config.php.
+# The existing define(...) line is rewritten in place; a missing one is added
+# next to the other debug lines (or above the "stop editing" comment / the
+# ABSPATH block). Turning WP_DEBUG on also writes WP_DEBUG_LOG and
+# WP_DEBUG_DISPLAY when they are missing, with WordPress's defaults, so the
+# file says exactly what the switches show. Encoding, BOM and line endings are
+# kept, and the file is replaced in one step.
+function Set-WpDebug([string]$name, [string]$key, [bool]$on) {
+    $cfg = Join-Path $script:SitesDir "$name\public\wp-config.php"
+    if (-not (Test-Path -LiteralPath $cfg)) { throw "No wp-config.php in sites\$name\public." }
+    $bytes = [System.IO.File]::ReadAllBytes($cfg)
+    $bom = $bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF
+    $skip = if ($bom) { 3 } else { 0 }
+    $text = (New-Object System.Text.UTF8Encoding($false)).GetString($bytes, $skip, $bytes.Length - $skip)
+    $nl = if ($text -match "`r`n") { "`r`n" } else { "`n" }
+
+    $lineRx = { param($k) [regex]"(?mi)^(\s*define\s*\(\s*['""]$k['""]\s*,\s*)([^)]+?)(\s*\))" }
+    $set = {
+        param($t, $k, [string]$v, [bool]$replace)
+        $rx = & $lineRx $k
+        if ($rx.IsMatch($t)) {
+            if (-not $replace) { return $t }
+            return $rx.Replace($t, [System.Text.RegularExpressions.MatchEvaluator] { param($m) $m.Groups[1].Value + $v + $m.Groups[3].Value }.GetNewClosure())
+        }
+        $line = "define( '$k', $v );"
+        # After the last debug define, so the lines stay together.
+        $last = [regex]::Matches($t, "(?mi)^\s*define\s*\(\s*['""]WP_DEBUG\w*['""][^\r\n]*")
+        if ($last.Count) {
+            $m = $last[$last.Count - 1]
+            $end = $m.Index + $m.Length
+            return $t.Insert($end, $nl + $line)
+        }
+        $anchor = [regex]::Match($t, "(?m)^.*(That's all, stop editing|if\s*\(\s*!\s*defined\s*\(\s*['""]ABSPATH['""]|require_once\s+ABSPATH).*$")
+        if (-not $anchor.Success) { throw "Couldn't find where to add $k in wp-config.php." }
+        return $t.Insert($anchor.Index, $line + $nl)
+    }
+
+    $val = if ($on) { 'true' } else { 'false' }
+    $text = & $set $text $key $val $true
+    if ($key -eq 'WP_DEBUG' -and $on) {
+        $text = & $set $text 'WP_DEBUG_LOG' 'false' $false
+        $text = & $set $text 'WP_DEBUG_DISPLAY' 'true' $false
+    }
+    $enc = New-Object System.Text.UTF8Encoding($bom)
+    $tmp = "$cfg.localhost-wp.tmp"
+    [System.IO.File]::WriteAllText($tmp, $text, $enc)
+    Move-Item -LiteralPath $tmp -Destination $cfg -Force
+    Write-Log "$name`: $key set to $val in wp-config.php" 'ok'
 }
 
 # ---- app settings (config\app-settings.json) ----------------------------------
@@ -728,6 +780,16 @@ function Handle-Request($ctx) {
             $name = [uri]::UnescapeDataString($Matches[1])
             if (-not (Test-KnownSite $name)) { Send-Error $ctx 404 "No site named '$name'."; return }
             Send-Json $ctx (Get-SiteInfo $name)
+            return
+        }
+        '^POST /api/sites/([^/]+)/debug$' {
+            $name = [uri]::UnescapeDataString($Matches[1])
+            if (-not (Test-KnownSite $name)) { Send-Error $ctx 404 "No site named '$name'."; return }
+            $b = Read-Body $req
+            $key = "$($b.key)"
+            if ($key -notin 'WP_DEBUG', 'WP_DEBUG_LOG', 'WP_DEBUG_DISPLAY' -or $b.on -isnot [bool]) { Send-Error $ctx 400 'Unknown setting.'; return }
+            try { Set-WpDebug $name $key $b.on; Send-Json $ctx (Get-SiteInfo $name) }
+            catch { Write-Log "$name`: $($_.Exception.Message)" 'err'; Send-Error $ctx 500 $_.Exception.Message }
             return
         }
         '^POST /api/sites/([^/]+)/open-(sql|php-log|nginx-log)$' {

@@ -290,6 +290,8 @@
   .ov .big span { color: var(--muted); font-size: 13px; }
   .ov .meta { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
   .ov .meta code { font-size: 12px; color: var(--ink); }
+  .ov .meta.note { margin-top: 8px; padding: 8px 10px; border-radius: 7px; color: var(--wait-text); background: color-mix(in srgb, var(--wait) 10%, transparent); }
+  .ov .kv .switch:disabled { opacity: .45; }
   .ov .btns { display: flex; align-items: center; gap: 6px; margin: 12px 0 6px; flex-wrap: wrap; }
   .ov .btns .why { color: var(--muted); font-size: 12.5px; margin-left: 4px; }
   .ov .lg { border-top: 1px solid var(--line); padding: 10px 0 8px; margin-top: 8px; }
@@ -1035,7 +1037,6 @@
         const dbText = { yes: 'Exists', no: 'Missing', unknown: 'Start MySQL to check' }[s.db] || '';
         const mails = mailOf(name).slice(0, 4);
         const skel = w => `<span class="skel" style="width:${w}px;height:12px"></span>`;
-        const sw = on => on ? '<span class="pill live"><i></i>On</span>' : '<span class="pill"><i></i>Off</span>';
         // Backups
         const bk = info?.backups, latest = bk?.latest;
         const busyBk = busy() === 'backup' && st()?.task === name;
@@ -1062,12 +1063,15 @@
             ${l.last ? `<div class="last" title="${esc(l.last)}"><span>${esc(l.last)}</span></div>` : ''}</div>`;
         };
         const d = info?.debug;
+        const dsw = (key, label, on, why) => `<button class="switch" role="switch" aria-checked="${!!on}" data-debug="${key}" aria-label="${label}" ${why ? `disabled title="${esc(why)}"` : ''}></button>`;
+        const needDebug = d && !d.WP_DEBUG ? 'Turn on Debug mode first' : '';
         const debugging = `<div class="card"><h3>Debugging</h3>
           ${!info ? skel(180) : !d ? '<p class="meta">No wp-config.php, so no debug settings yet.</p>' : `
-            ${kvRow('Debug mode', '', { actions: sw(d.WP_DEBUG) })}
-            ${kvRow('Log to file', '', { actions: sw(d.WP_DEBUG && d.WP_DEBUG_LOG) })}
-            ${kvRow('Show on pages', '', { actions: sw(d.WP_DEBUG && d.WP_DEBUG_DISPLAY) })}`}
-          <p class="meta" style="margin-top:6px">Set in <code>wp-config.php</code>.</p>
+            ${kvRow('Debug mode', '', { actions: dsw('WP_DEBUG', 'Debug mode', d.WP_DEBUG) })}
+            ${kvRow('Log to file', '', { actions: dsw('WP_DEBUG_LOG', 'Log to file', d.WP_DEBUG && d.WP_DEBUG_LOG, needDebug) })}
+            ${kvRow('Show on pages', '', { actions: dsw('WP_DEBUG_DISPLAY', 'Show errors on pages', d.WP_DEBUG && d.WP_DEBUG_DISPLAY, needDebug) })}
+            ${d.iniDisplay ? `<p class="meta note">Your wp-config.php also has <code>ini_set('display_errors', 1)</code>, so PHP errors show on pages whatever this switch says.</p>` : ''}
+            <p class="meta" style="margin-top:6px">Saved to <code>wp-config.php</code>. Takes effect on the next page load.</p>`}
           ${logRow('php', 'PHP errors', 'wp-content\\debug.log', info?.logs?.php)}
           ${logRow('nginx', 'Nginx errors', `logs\\nginx\\${name}-error.log`, info?.logs?.nginx)}</div>`;
         const plug = info && info.plugins != null ? `${plural(info.plugins, 'plugin')}, ${plural(info.themes, 'theme')}` : '';
@@ -1098,6 +1102,13 @@
           for (const b of $$('[data-a]', $('#pageInner'))) b.onclick = e => { e.preventDefault(); if (!b.disabled) siteAction(b.dataset.a, s, b); };
           for (const t of $$('[data-tab]')) t.onclick = () => { location.hash = `#site/${encodeURIComponent(name)}/${t.dataset.tab}`; };
           rovingTabs($('.tabs2'));
+          for (const b of $$('[data-debug]', $('#pageInner'))) b.onclick = async () => {
+            const on = b.getAttribute('aria-checked') !== 'true';
+            b.disabled = true; b.setAttribute('aria-checked', String(on));
+            try { siteInfo[name] = await call('POST', `/api/sites/${encodeURIComponent(name)}/debug`, { key: b.dataset.debug, on }); siteInfoAt[name] = Date.now(); }
+            catch (e) { localLog(e.message); siteInfoAt[name] = 0; }
+            await pullLog(); renderPage(true);
+          };
           wireMail(name);
         },
       };
