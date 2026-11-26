@@ -138,17 +138,10 @@ function createWindow() {
     if (!url.startsWith(origin() + '/')) { e.preventDefault(); if (/^https?:\/\//.test(url)) shell.openExternal(url); }
   });
 
-  // Closing follows Settings > Window: hide to the tray (default), ask, or stop
-  // the stack and quit.
   win.on('close', e => {
     if (quitting) return;
     e.preventDefault();
-    const choice = (settings && settings.closeAction) || 'tray';
-    const running = status && Object.values(status.services || {}).some(Boolean);
-    // Nothing to stop: quit straight away (a job still running stops first).
-    if (choice === 'stop') { running || (status && status.busy) ? stopAndQuit() : quit(); return; }
-    if (choice === 'ask') { askOnClose(running); return; }
-    hideToTray();
+    onWindowClose();
   });
 
   // Windows shutdown, restart or sign-out.
@@ -168,17 +161,49 @@ function hideToTray() {
   }
 }
 
-async function askOnClose(running) {
+// Closing the window:
+//   stack stopped           -> quit (the tray only exists to keep sites running)
+//   stack stopping          -> hide, then quit once the stop is done
+//   stack running / a job   -> Settings > Window: tray (default), ask, or stop and quit
+// The decision uses a fresh status, not the last 4-second poll.
+let closing = false;
+async function onWindowClose() {
+  if (closing) return;
+  closing = true;
+  try {
+    let st = status;
+    try { st = await Promise.race([api('GET', '/api/status'), new Promise((_, no) => setTimeout(no, 1500))]); status = st; } catch { }
+    if (!st) { quit(); return; }                       // no server to keep: nothing is running
+    const up = Object.values(st.services || {}).some(Boolean);
+    const busy = st.busy || null;
+    if (busy === 'stop' || busy === 'stop-nobackup') { win.hide(); await waitIdle(); quit(); return; }
+    if (!up && !busy) { quit(); return; }
+    const choice = (settings && settings.closeAction) || 'tray';
+    if (choice === 'stop') { await stopAndQuit(); return; }
+    if (choice === 'ask') { await askOnClose(); return; }
+    hideToTray();
+  } finally { closing = false; }
+}
+
+async function askOnClose() {
   const { response } = await dialog.showMessageBox(win, {
     type: 'question',
     title: 'localhost-wp',
-    message: running ? 'Close localhost-wp?' : 'Close the window?',
-    detail: running ? 'Your sites keep working while it runs in the tray.' : 'localhost-wp keeps running in the tray.',
-    buttons: running ? ['Keep running in the tray', 'Stop the stack and quit', 'Cancel'] : ['Keep in the tray', 'Quit', 'Cancel'],
+    message: 'Close localhost-wp?',
+    detail: 'Your sites keep working while it runs in the tray.',
+    buttons: ['Keep running in the tray', 'Stop the stack and quit', 'Cancel'],
     defaultId: 0, cancelId: 2, noLink: true,
   });
   if (response === 0) hideToTray();
-  else if (response === 1) running ? stopAndQuit() : quit();
+  else if (response === 1) await stopAndQuit();
+}
+
+// Until no job runs (at most 3 minutes, so a stuck job never keeps the app alive forever).
+async function waitIdle() {
+  for (let i = 0; i < 360; i++) {
+    await new Promise(r => setTimeout(r, 500));
+    try { if (!(await api('GET', '/api/status')).busy) return; } catch { return; }
+  }
 }
 
 // Settings > Startup: a Run entry for this exe, named per stack folder so two
@@ -450,11 +475,7 @@ async function stopAndQuit() {
   }
   try { await api('POST', '/api/stack/stop', { backup }); }
   catch { return poll(); }   // busy with something else: stay open, the log says why
-  // Wait for the stop (and its database backup) to finish before leaving.
-  for (let i = 0; i < 360; i++) {
-    await new Promise(r => setTimeout(r, 500));
-    try { if (!(await api('GET', '/api/status')).busy) break; } catch { break; }
-  }
+  await waitIdle();   // the stop (and its database backup) finishes before leaving
   quit();
 }
 

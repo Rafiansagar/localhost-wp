@@ -1198,7 +1198,7 @@
                 ${row('s-startupStack', 'Start the stack too', 'MySQL, PHP, Nginx and the mail catcher if it is on', sw('startupStack', cfg.startupStack))}
                 ${row('s-startupShow', 'Show the window', 'Off keeps it in the tray until you click the icon', sw('startupShow', cfg.startupShow))}</div></div>
             <div class="opt-group" id="g-Window"><h3>Window</h3>
-              ${row('s-closeAction', 'When I close the window', IS_APP ? '' : 'Needs the localhost-wp app', seg('closeAction', [['tray', 'Keep running in the tray'], ['ask', 'Ask'], ['stop', 'Stop the stack and quit']]))}</div>
+              ${row('s-closeAction', 'When I close the window while the stack runs', IS_APP ? 'With the stack stopped, closing the window quits the app' : 'Needs the localhost-wp app', seg('closeAction', [['tray', 'Keep running in the tray'], ['ask', 'Ask'], ['stop', 'Stop the stack and quit']]))}</div>
             <div class="opt-group" id="g-Stack"><h3>Stack</h3>
               ${row('s-stopBackup', 'When I stop the stack', "Backups go to each site's sql folder", seg('stopBackup', [['backup', 'Back up databases'], ['ask', 'Ask each time'], ['none', "Don't back up"]]))}
               ${row('s-host', 'Open site links using', 'The network address works from your phone or another device on the same network', `<select class="pick" id="hostSel" aria-labelledby="s-host">${state.hosts.map(h => `<option value="${esc(h)}" ${h === host() ? 'selected' : ''}>${h === 'localhost' ? 'This PC (localhost)' : `Network address (${esc(h)})`}</option>`).join('')}</select>`)}</div>
