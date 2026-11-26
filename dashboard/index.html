@@ -1433,7 +1433,7 @@
   // here. Only a changed setting is saved (config\php-tuning.json); picking the
   // stack's own value again, or Reset, removes it.
   const TUNE = [
-    ['opcache', 'OPcache', 'Keeps compiled PHP in memory, so a page doesn\'t read and compile every file again. Code edits still show at once.'],
+    ['opcache', 'OPcache', 'Makes every page faster: PHP keeps its compiled code in memory instead of reading and compiling every file on each request. Code edits still show at once.'],
     ['opcacheMemory', 'OPcache memory', 'Shared by all sites. Files that don\'t fit aren\'t cached and load at normal speed.'],
     ['opcacheFiles', 'OPcache max files', 'A WordPress site with Elementor and a few plugins is often 3,000 to 5,000 files. OPcache rounds this up to its next size, so the live count can show a bit more.'],
     ['workers', 'PHP workers', 'Requests PHP handles at once, for every site and phpMyAdmin together. Each uses about 30 to 60 MB.'],
