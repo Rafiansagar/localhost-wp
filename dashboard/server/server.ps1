@@ -1272,6 +1272,15 @@ function Handle-Request($ctx) {
             Send-Started $ctx 'tuning' $k
             return
         }
+        # Reset all: every changed setting back to the stack's own, in one job.
+        '^POST /api/tuning/reset$' {
+            $keys = @((Get-Tuning $script:BASE).Keys)
+            if (-not $keys.Count) { Send-Json $ctx @{ ok = $true; reset = @() }; return }
+            if ($shared.Busy) { Send-Error $ctx 409 "Busy with '$($shared.Busy)'. Wait for it to finish."; return }
+            foreach ($k in $keys) { Set-TuningValue $script:BASE $k $null }
+            Send-Started $ctx 'tuning' ($keys -join ',')
+            return
+        }
         '^POST /api/tuning/opcache-reset$' {
             $o = Invoke-PhpStatus 'opcache-reset'
             if (-not $o) { Send-Error $ctx 409 "PHP didn't answer. Start the stack, or wait until PHP isn't busy."; return }

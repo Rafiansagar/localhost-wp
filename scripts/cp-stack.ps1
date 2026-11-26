@@ -232,28 +232,38 @@ function Set-MailCatcher([bool]$On) {
 # this puts it into effect on the running stack. With the stack stopped, the
 # next Start does it. PHP restarts for about a second; MySQL resizes its cache
 # while it runs; Nginx reloads for the upload limit.
-function Set-StackTuning([string]$key) {
+# $keys: one setting, or several separated by commas (Reset all), so PHP restarts once.
+function Set-StackTuning([string]$keys) {
     $t = Get-Tuning $script:BASE
-    $label = @{ opcache = 'OPcache'; opcacheMemory = 'OPcache memory'; opcacheFiles = 'OPcache max files'; workers = 'PHP workers'
-                memoryLimit = 'PHP memory limit'; uploadMax = 'Max upload size'; maxExecution = 'Max execution time'; mysqlBuffer = 'MySQL cache' }[$key]
-    if (-not $label) { Write-Log "Unknown setting '$key'." 'err'; return }
-    if ($t.Contains($key)) { Write-Log "$label set to $(Format-TuningValue $key $t[$key])." }
-    else { Write-Log "$label back to the stack's own value ($(Format-TuningValue $key (Get-TuningStock $script:BASE)[$key]))." }
+    $labels = @{ opcache = 'OPcache'; opcacheMemory = 'OPcache memory'; opcacheFiles = 'OPcache max files'; workers = 'PHP workers'
+                 memoryLimit = 'PHP memory limit'; uploadMax = 'Max upload size'; maxExecution = 'Max execution time'; mysqlBuffer = 'MySQL cache' }
+    $list = @($keys -split ',' | Where-Object { $labels.ContainsKey($_) })
+    if (-not $list.Count) { Write-Log "Unknown setting '$keys'." 'err'; return }
+    $stock = $null
+    foreach ($key in $list) {
+        if ($t.Contains($key)) { Write-Log "$($labels[$key]) set to $(Format-TuningValue $key $t[$key])." }
+        else {
+            if (-not $stock) { $stock = Get-TuningStock $script:BASE }
+            Write-Log "$($labels[$key]) back to the stack's own value ($(Format-TuningValue $key $stock[$key]))."
+        }
+    }
 
-    if ($key -eq 'uploadMax') {
+    if ($list -contains 'uploadMax') {
         $changed = Update-NginxTuning $script:BASE -ResetBody:(-not $t.Contains('uploadMax'))
         if ($changed -and (Test-Proc 'nginx')) { Invoke-NginxReload | Out-Null }
     }
 
-    if ($key -eq 'mysqlBuffer') {
-        if (-not (Test-Proc 'mysqld')) { Write-Log '  MySQL is stopped - it uses this when the stack starts.' 'ok'; return }
-        $mb = if ($t.Contains('mysqlBuffer')) { $t.mysqlBuffer } else { (Get-TuningStock $script:BASE).mysqlBuffer }
-        $out = & $script:MysqlExe --protocol=TCP --host=127.0.0.1 --port=3307 -u root -e "SET GLOBAL innodb_buffer_pool_size = $([long]$mb * 1MB)" 2>&1
-        if ($LASTEXITCODE -eq 0) { Write-Log "  MySQL is resizing its cache to $(Format-TuningValue 'mysqlBuffer' $mb) now, no restart needed." 'ok' }
-        else { Write-Log "  MySQL did not take it: $("$out".Trim()) - it is used from the next stack start." 'err' }
-        return
+    if ($list -contains 'mysqlBuffer') {
+        if (-not (Test-Proc 'mysqld')) { Write-Log '  MySQL is stopped - it uses this when the stack starts.' 'ok' }
+        else {
+            $mb = if ($t.Contains('mysqlBuffer')) { $t.mysqlBuffer } else { (Get-TuningStock $script:BASE).mysqlBuffer }
+            $out = & $script:MysqlExe --protocol=TCP --host=127.0.0.1 --port=3307 -u root -e "SET GLOBAL innodb_buffer_pool_size = $([long]$mb * 1MB)" 2>&1
+            if ($LASTEXITCODE -eq 0) { Write-Log "  MySQL is resizing its cache to $(Format-TuningValue 'mysqlBuffer' $mb) now, no restart needed." 'ok' }
+            else { Write-Log "  MySQL did not take it: $("$out".Trim()) - it is used from the next stack start." 'err' }
+        }
     }
 
+    if (-not @($list | Where-Object { $script:TuningPhpKeys -contains $_ }).Count) { return }
     if (-not (Test-Proc 'php-cgi')) { Write-Log '  PHP is stopped - it uses this when the stack starts.' 'ok'; return }
     Write-Log '  Restarting PHP so it reads the new setting...' ; Flush-UI
     Stop-StackProc 'php-cgi'

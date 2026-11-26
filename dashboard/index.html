@@ -461,17 +461,23 @@
   .svc-card .st { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
   .svc-card .ver { font: 12px var(--mono); color: var(--muted); }
   .tune { padding: 0 20px; }
-  .tune .opt .chg { display: block; margin-top: 3px; font-size: 12.5px; color: var(--wait-text); }
-  .tune .opt .chg .link { font-size: 12.5px; }
+  .opt .chg { display: block; margin-top: 3px; font-size: 12.5px; color: var(--wait-text); }
+  .opt .chg .link { font-size: 12.5px; }
   .tune-busy { opacity: .55; }
   .tune-live { display: grid; gap: 8px; padding: 14px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .tune-sum { margin: 0; padding: 11px 0 13px; font-size: 12.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 8px; }
+  .tune-sum i { font-style: normal; opacity: .6; }
+  .tune-sum .chg { color: var(--wait-text); }
+  a.btn { text-decoration: none; }
   .tune-live .row { display: flex; align-items: center; gap: 6px 12px; flex-wrap: wrap; min-height: 26px; }
   .tune-live .k { width: 96px; flex: none; color: var(--muted); }
   .tune-live .bar { width: 140px; }
   .tune-live .btn { margin-left: auto; }
   .bar i.warn { background: var(--wait); }
   .warn-t { color: var(--wait-text); }
-  .tune-foot { margin: 0; padding: 12px 0 14px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+  .tune-foot { display: flex; align-items: flex-start; gap: 16px; margin: 12px 2px 0; font-size: 12.5px; color: var(--muted); }
+  .tune-foot p { margin: 0; flex: 1; }
+  .tune-foot .btn { flex: none; }
   .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
   .two .card { padding: 12px 20px 8px; }
   .two h3 { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
@@ -487,7 +493,7 @@
   .opt-card { padding: 4px 20px; }
   .opt-group { padding: 14px 0 6px; scroll-margin-top: 16px; }
   .opt-group + .opt-group { border-top: 1px solid var(--line); }
-  .opt-group h3 { margin: 0 0 2px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .opt-group h3 { margin: 0 0 2px; font-size: 15px; font-weight: 600; color: var(--ink); }
   .opt-group > p { margin: 4px 0 8px; font-size: 13px; color: var(--muted); }
   .opt { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 11px 0; }
   .opt > :first-child { flex: 1 1 260px; min-width: 0; }
@@ -508,6 +514,13 @@
   .settings-nav a { padding: 6px 10px; border-radius: 8px; color: var(--muted); text-decoration: none; font-size: 13.5px; }
   .settings-nav a:hover { color: var(--ink); }
   .settings-nav a[aria-current="true"] { color: var(--ink); background: var(--panel); font-weight: 500; }
+  .settings-page { min-width: 0; }
+  /* Narrow window: the section list becomes a row of tabs above the page. */
+  @media (max-width: 860px) {
+    .settings-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+    .settings-nav { position: static; flex-direction: row; gap: 2px; overflow-x: auto; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+    .settings-nav a { white-space: nowrap; }
+  }
 
   /* Row menu */
   .menu { position: fixed; z-index: 30; min-width: 220px; padding: 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); box-shadow: 0 16px 40px -16px rgba(0,0,0,.4); }
@@ -1323,7 +1336,7 @@
         html: `<div class="phead"><h2>Stack</h2><div class="sub">${info?.release ? `Release ${esc(info.release)}` : ''}<span>${esc(info?.base || '')}</span></div></div>
           <h3 class="section-title first">Services</h3>
           <div class="svc-grid">${card('mysql', 'MySQL', v.mysql, p.mysql)}${card('php', 'PHP', v.php, p.php)}${card('nginx', 'Nginx', v.nginx, p.home)}${card('mail', 'Mail catcher', v.mailpit ? `Mailpit ${v.mailpit}` : '', 8025)}</div>
-          <h3 class="section-title">PHP &amp; MySQL</h3>
+          <h3 class="section-title">PHP &amp; MySQL<span class="push"><a class="btn sm" href="#settings/php">${ic('gear', 14)}Change settings</a></span></h3>
           ${tuneCard()}
           <h3 class="section-title">Database<span class="push"><button class="btn sm" data-act="pma" ${svcs().nginx ? '' : 'disabled title="Start the stack first"'}>${ic('ext', 14)}Open phpMyAdmin</button></span></h3>
           <div class="two">
@@ -1358,30 +1371,39 @@
       const seg = (key, opts) => `<div class="seg" role="group" aria-labelledby="s-${key}" data-set="${key}">${opts.map(([v, l]) => `<button aria-pressed="${cfg[key] === v}" data-v="${v}">${l}</button>`).join('')}</div>`;
       const appOnly = IS_APP ? '' : 'disabled';
       const theme = document.documentElement.dataset.theme || 'auto';
-      const secs = ['Startup', 'Window', 'Stack', 'Notifications', 'Appearance'];
+      // One section per page, each with its own address (#settings/php).
+      // Old addresses (#settings/Startup, /Window, /Appearance) land on General.
+      const secs = [['general', 'General'], ['stack', 'Stack'], ['php', 'PHP & MySQL'], ['notifications', 'Notifications']];
+      let cur = String(section || '').toLowerCase();
+      cur = { startup: 'general', window: 'general', appearance: 'general' }[cur] || cur;
+      if (!secs.some(([id]) => id === cur)) cur = 'general';
+      const group = (title, body, intro = '') => `<div class="opt-group"><h3>${title}</h3>${intro}${body}</div>`;
+      const pages = {
+        general: () => `<div class="card opt-card">
+          ${group('Startup', `${row('s-startup', 'Open localhost-wp when I sign in to Windows', 'It waits in the tray', sw('startup', cfg.startup, appOnly))}
+            <div class="indent" id="startupMore" ${cfg.startup && IS_APP ? '' : 'inert'}>
+              ${row('s-startupStack', 'Start the stack too', 'MySQL, PHP, Nginx and the mail catcher if it is on', sw('startupStack', cfg.startupStack))}
+              ${row('s-startupShow', 'Show the window', 'Off keeps it in the tray until you click the icon', sw('startupShow', cfg.startupShow))}</div>`,
+            IS_APP ? '' : '<p>These need the localhost-wp app (localhost-wp.exe), which runs in the tray.</p>')}
+          ${group('Window', row('s-closeAction', 'When I close the window while the stack runs', IS_APP ? 'With the stack stopped, closing the window quits the app' : 'Needs the localhost-wp app', seg('closeAction', [['tray', 'Keep running in the tray'], ['ask', 'Ask'], ['stop', 'Stop the stack and quit']])))}
+          ${group('Appearance', row('s-theme', 'Theme', '', `<div class="seg" role="group" aria-labelledby="s-theme" id="themeSeg">${[['auto', 'Match Windows'], ['light', 'Light'], ['dark', 'Dark']].map(([v, l]) => `<button aria-pressed="${theme === v}" data-theme="${v}">${l}</button>`).join('')}</div>`))}
+        </div>`,
+        stack: () => `<div class="card opt-card">
+          ${group('Stopping', row('s-stopBackup', 'When I stop the stack', "Backups go to each site's sql folder", seg('stopBackup', [['backup', 'Back up databases'], ['ask', 'Ask each time'], ['none', "Don't back up"]])))}
+          ${group('Links', row('s-host', 'Open site links using', 'The network address works from your phone or another device on the same network', `<select class="pick" id="hostSel" aria-labelledby="s-host">${state.hosts.map(h => `<option value="${esc(h)}" ${h === host() ? 'selected' : ''}>${h === 'localhost' ? 'This PC (localhost)' : `Network address (${esc(h)})`}</option>`).join('')}</select>`))}
+        </div>`,
+        php: () => tuneSettingsHtml(),
+        notifications: () => `<div class="card opt-card">
+          ${group('Windows notifications', `${row('s-errorAlerts', 'PHP errors, as soon as one is caught', 'Fatal stays on screen until you close it, with a sound. Warnings show briefly. Notices and deprecations are silent. The same error alerts again after 10 minutes at most.', seg('errorAlerts', [['off', 'Off'], ['fatal', 'Fatal only'], ['warning', 'Fatal and warnings'], ['all', 'Everything']]))}
+            ${row('s-notifyMail', 'New mail in the mail catcher', '', sw('notifyMail', cfg.notifyMail, appOnly))}
+            ${row('s-notifyJobs', 'A job finished (start, stop, new site, backup)', '', sw('notifyJobs', cfg.notifyJobs, appOnly))}`,
+            IS_APP ? '<p>From the localhost-wp app, also while its window is closed.</p>' : '<p>These need the localhost-wp app (localhost-wp.exe).</p>')}
+        </div>`,
+      };
       return {
         html: `<div class="phead"><h2>Settings</h2></div>
-          <div class="settings-grid"><nav class="settings-nav" aria-label="Settings sections">${secs.map(x => `<a href="#settings/${x}" data-jump="g-${x}">${x}</a>`).join('')}</nav>
-          <div class="card opt-card">
-            <div class="opt-group" id="g-Startup"><h3>Startup</h3>
-              ${IS_APP ? '' : '<p>These need the localhost-wp app (localhost-wp.exe), which runs in the tray.</p>'}
-              ${row('s-startup', 'Open localhost-wp when I sign in to Windows', 'It waits in the tray', sw('startup', cfg.startup, appOnly))}
-              <div class="indent" id="startupMore" ${cfg.startup && IS_APP ? '' : 'inert'}>
-                ${row('s-startupStack', 'Start the stack too', 'MySQL, PHP, Nginx and the mail catcher if it is on', sw('startupStack', cfg.startupStack))}
-                ${row('s-startupShow', 'Show the window', 'Off keeps it in the tray until you click the icon', sw('startupShow', cfg.startupShow))}</div></div>
-            <div class="opt-group" id="g-Window"><h3>Window</h3>
-              ${row('s-closeAction', 'When I close the window while the stack runs', IS_APP ? 'With the stack stopped, closing the window quits the app' : 'Needs the localhost-wp app', seg('closeAction', [['tray', 'Keep running in the tray'], ['ask', 'Ask'], ['stop', 'Stop the stack and quit']]))}</div>
-            <div class="opt-group" id="g-Stack"><h3>Stack</h3>
-              ${row('s-stopBackup', 'When I stop the stack', "Backups go to each site's sql folder", seg('stopBackup', [['backup', 'Back up databases'], ['ask', 'Ask each time'], ['none', "Don't back up"]]))}
-              ${row('s-host', 'Open site links using', 'The network address works from your phone or another device on the same network', `<select class="pick" id="hostSel" aria-labelledby="s-host">${state.hosts.map(h => `<option value="${esc(h)}" ${h === host() ? 'selected' : ''}>${h === 'localhost' ? 'This PC (localhost)' : `Network address (${esc(h)})`}</option>`).join('')}</select>`)}</div>
-            <div class="opt-group" id="g-Notifications"><h3>Notifications</h3>
-              ${IS_APP ? '<p>Windows notifications from the localhost-wp app.</p>' : '<p>These need the localhost-wp app (localhost-wp.exe).</p>'}
-              ${row('s-errorAlerts', 'PHP errors, as soon as one is caught', 'Fatal stays on screen until you close it, with a sound. Warnings show briefly. Notices and deprecations are silent. The same error alerts again after 10 minutes at most.', seg('errorAlerts', [['off', 'Off'], ['fatal', 'Fatal only'], ['warning', 'Fatal and warnings'], ['all', 'Everything']]))}
-              ${row('s-notifyMail', 'New mail in the mail catcher', '', sw('notifyMail', cfg.notifyMail, appOnly))}
-              ${row('s-notifyJobs', 'A job finished (start, stop, new site, backup)', '', sw('notifyJobs', cfg.notifyJobs, appOnly))}</div>
-            <div class="opt-group" id="g-Appearance"><h3>Appearance</h3>
-              ${row('s-theme', 'Theme', '', `<div class="seg" role="group" aria-labelledby="s-theme" id="themeSeg">${[['auto', 'Match Windows'], ['light', 'Light'], ['dark', 'Dark']].map(([v, l]) => `<button aria-pressed="${theme === v}" data-theme="${v}">${l}</button>`).join('')}</div>`)}</div>
-          </div></div>`,
+          <div class="settings-grid"><nav class="settings-nav" aria-label="Settings sections">${secs.map(([id, l]) => `<a href="#settings/${id}" aria-current="${id === cur}">${esc(l)}</a>`).join('')}</nav>
+          <div class="settings-page">${pages[cur]()}</div></div>`,
         after() {
           for (const b of $$('.switch[data-set]')) b.onclick = () => {
             const on = b.getAttribute('aria-checked') !== 'true';
@@ -1394,13 +1416,13 @@
             for (const x of $$('button', g)) x.setAttribute('aria-pressed', x === b);
             saveSetting(g.dataset.set, b.dataset.v, g);
           };
-          $('#hostSel').onchange = e => { try { localStorage.setItem('cp-host', e.target.value); } catch { } savedFlash(e.target); };
+          const hs = $('#hostSel');
+          if (hs) hs.onchange = e => { try { localStorage.setItem('cp-host', e.target.value); } catch { } savedFlash(e.target); };
           for (const b of $$('#themeSeg button')) b.onclick = () => {
             for (const x of $$('#themeSeg button')) x.setAttribute('aria-pressed', x === b);
             setTheme(b.dataset.theme); savedFlash(b);
           };
-          spy();
-          if (section) $('#g-' + section)?.scrollIntoView({ block: 'start' });
+          if (cur === 'php') wireTuneSettings();
         },
       };
     },
@@ -1434,14 +1456,30 @@
   const tuneSame = (k, a, b) => k === 'memoryLimit' || k === 'uploadMax' ? tuneMB(a) === tuneMB(b) : String(a) === String(b);
   let tuneTimer = 0, tuneLiveBusy = false;
 
+  const tuneCur = (t, k) => k in t.set ? t.set[k] : t.stock[k];
+
+  // Stack page: the live numbers, and a one-line summary of what PHP and MySQL run with.
   function tuneCard() {
     const t = state.tuning;
-    if (!t) return `<div class="card tune"><p class="meta" style="padding:14px 0"><span class="skel" style="width:220px"></span></p></div>`;
+    const sum = !t ? `<span class="skel" style="width:300px"></span>`
+      : [['opcache', v => `OPcache ${v ? 'on' : 'off'}`], ['workers', v => `${v} PHP workers`], ['memoryLimit', v => `${tuneLabel('memoryLimit', v)} memory limit`],
+         ['uploadMax', v => `${tuneLabel('uploadMax', v)} uploads`], ['maxExecution', v => +v === 0 ? 'no time limit' : `${v} s time limit`], ['mysqlBuffer', v => `${tuneLabel('mysqlBuffer', v)} MySQL cache`]]
+        .map(([k, f]) => `<span class="${k in t.set ? 'chg' : ''}" ${k in t.set ? 'title="Changed in Settings"' : ''}>${esc(f(tuneCur(t, k)))}</span>`).join('<i>·</i>');
+    return `<div class="card tune">
+      <div class="tune-live" id="tuneLive">${tuneLiveHtml()}</div>
+      <p class="tune-sum">${sum}</p>
+    </div>`;
+  }
+
+  // Settings > PHP & MySQL: every setting, grouped. Lists of sizes are dropdowns;
+  // the stack's own value is marked "(default)".
+  function tuneSettingsHtml() {
+    const t = state.tuning;
+    if (!t) return `<div class="card opt-card"><p class="meta" style="padding:16px 0"><span class="skel" style="width:240px"></span></p></div>`;
     const busy = st()?.busy;
-    const opcacheOn = 'opcache' in t.set ? t.set.opcache : t.stock.opcache;
-    // OPcache's memory and file limit only matter while it's on.
-    const rows = TUNE.filter(([k]) => opcacheOn || (k !== 'opcacheMemory' && k !== 'opcacheFiles')).map(([k, name, help]) => {
-      const stock = t.stock[k], changed = k in t.set, cur = changed ? t.set[k] : stock;
+    const opcacheOn = tuneCur(t, 'opcache');
+    const row = ([k, name, help]) => {
+      const stock = t.stock[k], changed = k in t.set, cur = tuneCur(t, k);
       const mark = changed && stock !== undefined ? `<span class="chg">Changed from ${esc(tuneLabel(k, stock))} · <button class="link" data-tune-reset="${k}">Reset</button></span>` : '';
       let ctrl;
       if (k === 'opcache') ctrl = `<button class="switch" role="switch" aria-checked="${!!cur}" aria-labelledby="tn-${k}" data-tune="${k}"></button>`;
@@ -1449,15 +1487,21 @@
         const opts = [...t.options[k]];
         if (stock !== undefined && stock !== null && !opts.some(o => tuneSame(k, o, stock))) opts.push(stock);
         opts.sort((a, b) => tuneOrder(k, a) - tuneOrder(k, b));
-        ctrl = `<div class="seg" role="group" aria-labelledby="tn-${k}" data-tune="${k}">${opts.map(o => `<button aria-pressed="${tuneSame(k, o, cur)}" data-v="${esc(String(o))}">${esc(tuneLabel(k, o))}</button>`).join('')}</div>`;
+        ctrl = `<select class="pick" data-tune="${k}" aria-labelledby="tn-${k}">${opts.map(o => `<option value="${esc(String(o))}" ${tuneSame(k, o, cur) ? 'selected' : ''}>${esc(tuneLabel(k, o))}${tuneSame(k, o, stock) ? ' (default)' : ''}</option>`).join('')}</select>`;
       }
       return `<div class="opt"><span><span class="t" id="tn-${k}">${name}</span><span class="s">${help}</span>${mark}</span><span class="ok" aria-live="polite"></span>${ctrl}</div>`;
-    }).join('');
-    return `<div class="card tune">
-      <div class="tune-live" id="tuneLive">${tuneLiveHtml()}</div>
-      <div ${busy ? 'inert' : ''} class="${busy ? 'tune-busy' : ''}">${rows}</div>
-      <p class="tune-foot">${busy === 'tuning' ? 'Applying… ' : ''}A PHP change restarts PHP for about a second; MySQL and Nginx keep running. With the stack stopped, changes apply when it starts. Only what you change here is saved, in <code>config\\php-tuning.json</code>; the rest is the stack's own <code>php.ini</code> and <code>my.ini</code>, which are never edited.</p>
-    </div>`;
+    };
+    const by = keys => TUNE.filter(([k]) => keys.includes(k)).map(row).join('');
+    const nChanged = Object.keys(t.set).length;
+    return `<div class="card opt-card ${busy ? 'tune-busy' : ''}" ${busy ? 'inert' : ''}>
+        <div class="opt-group"><h3>OPcache</h3>${by(opcacheOn ? ['opcache', 'opcacheMemory', 'opcacheFiles'] : ['opcache'])}</div>
+        <div class="opt-group"><h3>PHP</h3>${by(['workers', 'memoryLimit', 'uploadMax', 'maxExecution'])}</div>
+        <div class="opt-group"><h3>MySQL</h3>${by(['mysqlBuffer'])}</div>
+      </div>
+      <div class="tune-foot">
+        <p>${busy === 'tuning' ? '<b>Applying…</b> ' : ''}A PHP change restarts PHP for about a second; MySQL and Nginx keep running. With the stack stopped, changes apply when it starts. Only what you change is saved, in <code>config\\php-tuning.json</code>; the defaults are the stack's own <code>php.ini</code> and <code>my.ini</code>, which are never edited. Live numbers are on the <a class="link" href="#stack">Stack</a> page.</p>
+        ${nChanged ? `<button class="btn sm" data-tune-reset-all ${busy ? 'disabled' : ''}>Reset all (${nChanged})</button>` : ''}
+      </div>`;
   }
 
   function tuneLiveHtml() {
@@ -1508,26 +1552,37 @@
       await call('POST', '/api/tuning', { key: k, value: v });
       if (v === null) delete t.set[k]; else t.set[k] = v;
       savedFlash(el);
-      if (k === 'opcache') renderPage(true);   // shows or hides OPcache's own rows
+      renderPage(true);   // the "Changed" mark, and OPcache's own rows shown or hidden
     } catch (e) { localLog(e.message); }
     state.tuneDirty = true;
     tick();
   }
-  function wireTune() {
+  // Loads the settings, and again once a change has been applied.
+  function syncTuning() {
     if (!state.tuning) loadTuning();
     else if (state.tuneDirty && !st()?.busy) { state.tuneDirty = false; loadTuning(); setTimeout(loadTuneLive, 300); }
-    for (const b of $$('.switch[data-tune]')) b.onclick = () => { const on = b.getAttribute('aria-checked') !== 'true'; b.setAttribute('aria-checked', on); saveTune(b.dataset.tune, on, b); };
-    for (const g of $$('.seg[data-tune]')) g.onclick = e => {
-      const b = e.target.closest('button'); if (!b || b.getAttribute('aria-pressed') === 'true') return;
-      for (const x of $$('button', g)) x.setAttribute('aria-pressed', x === b);
-      const k = g.dataset.tune, raw = b.dataset.v;
-      saveTune(k, k === 'memoryLimit' || k === 'uploadMax' ? raw : +raw, g);
-    };
-    for (const b of $$('[data-tune-reset]')) b.onclick = () => saveTune(b.dataset.tuneReset, null, b);
+  }
+  // Stack page: live numbers, refreshed every 4 seconds while the page is open.
+  function wireTune() {
+    syncTuning();
     wireTuneLive();
     clearInterval(tuneTimer);
     loadTuneLive();
     tuneTimer = setInterval(() => { if (parseRoute().page !== 'stack') { clearInterval(tuneTimer); return; } loadTuneLive(); }, 4000);
+  }
+  // Settings > PHP & MySQL.
+  function wireTuneSettings() {
+    syncTuning();
+    for (const b of $$('.switch[data-tune]')) b.onclick = () => { const on = b.getAttribute('aria-checked') !== 'true'; b.setAttribute('aria-checked', on); saveTune(b.dataset.tune, on, b); };
+    for (const s of $$('select[data-tune]')) s.onchange = () => { const k = s.dataset.tune; saveTune(k, k === 'memoryLimit' || k === 'uploadMax' ? s.value : +s.value, s); };
+    for (const b of $$('[data-tune-reset]')) b.onclick = () => saveTune(b.dataset.tuneReset, null, b);
+    const all = $('[data-tune-reset-all]');
+    if (all) all.onclick = async () => {
+      all.disabled = true;
+      try { await call('POST', '/api/tuning/reset'); state.tuning.set = {}; } catch (e) { localLog(e.message); }
+      state.tuneDirty = true;
+      renderPage(true); tick();
+    };
   }
 
   function setupPage() {
@@ -1871,31 +1926,6 @@
     catch (e) { localLog(e.message); }
   }
   function savedFlash(el) { const ok = el.closest('.opt')?.querySelector('.ok'); if (!ok) return; ok.textContent = 'Saved'; ok.classList.add('show'); clearTimeout(ok.t); ok.t = setTimeout(() => ok.classList.remove('show'), 1200); }
-  // Section list follows the scroll. The last sections can't reach the top, so a
-  // clicked one stays highlighted while the page sits at the bottom.
-  function spy() {
-    const links = $$('.settings-nav a'), page = $('#page'), groups = $$('.opt-group[id]');
-    let pinned = null;
-    const mark = id => { for (const l of links) l.setAttribute('aria-current', l.dataset.jump === id); };
-    const update = () => {
-      if (!$('.settings-nav')) return;
-      const atBottom = page.scrollTop + page.clientHeight >= page.scrollHeight - 2;
-      if (pinned && atBottom) return mark(pinned);
-      const top = page.getBoundingClientRect().top + 40;
-      let cur = groups[0].id;
-      for (const g of groups) if (g.getBoundingClientRect().top <= top) cur = g.id;
-      mark(cur);
-    };
-    page.onscroll = update;
-    const release = () => { pinned = null; };
-    page.onwheel = release; page.ontouchstart = release;
-    page.onkeydown = e => { if (/Arrow|Page|Home|End| /.test(e.key)) release(); };
-    for (const l of links) l.onclick = e => {
-      e.preventDefault(); pinned = l.dataset.jump; mark(pinned);
-      $('#' + pinned).scrollIntoView({ block: 'start', behavior: reduceMotion.matches ? 'auto' : 'smooth' });
-    };
-    update();
-  }
 
   // ================= Router =================
   let pageKey = '', pageObj = null;
@@ -1910,7 +1940,7 @@
     const key = `${page}/${a || ''}/${b || ''}/${st()?.setup}`;
     const s = st();
     if (page === 'site' && a) loadSiteInfo(a);   // before the early returns, so it keeps refreshing
-    const dataSig = JSON.stringify([key, page === 'sites' ? '' : state.sites, s && [s.services, s.mail, s.busy, s.setup, s.missing], page === 'mail' || page === 'site' ? state.mail : '', page === 'errors' || page === 'site' ? [state.errors, s?.errors?.enabled, s?.errors?.ready, s?.errors?.fatalBySite] : '', page === 'network' || page === 'site' ? [state.net, s?.network] : '', page === 'stack' ? [state.info, state.tuning] : '', page === 'site' ? siteInfo[a] || '' : '', page === 'settings' ? !!(state.settings || s?.settings) : '', host()]);
+    const dataSig = JSON.stringify([key, page === 'sites' ? '' : state.sites, s && [s.services, s.mail, s.busy, s.setup, s.missing], page === 'mail' || page === 'site' ? state.mail : '', page === 'errors' || page === 'site' ? [state.errors, s?.errors?.enabled, s?.errors?.ready, s?.errors?.fatalBySite] : '', page === 'network' || page === 'site' ? [state.net, s?.network] : '', page === 'stack' ? [state.info, state.tuning] : '', page === 'site' ? siteInfo[a] || '' : '', page === 'settings' ? [!!(state.settings || s?.settings), state.tuning] : '', host()]);
     if (!force && key === pageKey && pageObj?.refresh) { pageObj.refresh(); return; }
     if (!force && renderPage.sig === dataSig) return;
     renderPage.sig = dataSig;
@@ -1926,7 +1956,7 @@
     $('#pageInner').innerHTML = obj.html;
     obj.after?.();
     pageObj = obj;
-    if (key !== pageKey && !(page === 'settings' && a)) $('#page').scrollTop = 0; else if (key === pageKey) $('#page').scrollTop = keep;
+    if (key !== pageKey) $('#page').scrollTop = 0; else $('#page').scrollTop = keep;
     pageKey = key;
     markNav();
     if (page === 'stack' && !state.info) loadInfo();
