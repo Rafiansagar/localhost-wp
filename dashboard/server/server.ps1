@@ -348,8 +348,105 @@ function Get-SiteRows {
             server = $srv
             db     = $db
             config = Test-Path (Join-Path $script:SitesDir "$($s.Name)\public\wp-config.php")
+            wp     = Get-WpVersion $s.Name
         }
     }
+}
+
+# WordPress version from wp-includes\version.php, or $null (not WordPress, or not installed yet).
+function Get-WpVersion([string]$name) {
+    $f = Join-Path $script:SitesDir "$name\public\wp-includes\version.php"
+    if (-not (Test-Path -LiteralPath $f)) { return $null }
+    try {
+        $m = [regex]::Match([System.IO.File]::ReadAllText($f), "\`$wp_version\s*=\s*'([^']+)'")
+        if ($m.Success) { return $m.Groups[1].Value }
+    } catch { }
+    return $null
+}
+
+# ---- app settings (config\app-settings.json) ----------------------------------
+# Read by the page (Settings) and by the Electron shell through /api/status:
+# start with Windows, what closing the window does, backups on stop, notifications.
+$script:SettingsDefaults = [ordered]@{
+    startup      = $false   # open localhost-wp when signing in to Windows
+    startupStack = $true    # ...and start the stack
+    startupShow  = $false   # ...and show the window (off: tray only)
+    closeAction  = 'tray'   # tray | ask | stop
+    stopBackup   = 'backup' # backup | ask | none
+    notifyMail   = $true
+    notifyJobs   = $true
+}
+$script:SettingsChoices = @{ closeAction = @('tray', 'ask', 'stop'); stopBackup = @('backup', 'ask', 'none') }
+$script:SettingsFile = Join-Path $script:BASE 'config\app-settings.json'
+
+function Get-AppSettings {
+    $s = [ordered]@{}
+    foreach ($k in $script:SettingsDefaults.Keys) { $s[$k] = $script:SettingsDefaults[$k] }
+    if (Test-Path -LiteralPath $script:SettingsFile) {
+        try {
+            $saved = Get-Content -Raw -LiteralPath $script:SettingsFile | ConvertFrom-Json
+            foreach ($k in $script:SettingsDefaults.Keys) {
+                $v = $saved.$k
+                if ($null -eq $v) { continue }
+                if ($script:SettingsChoices.Contains($k)) { if ($script:SettingsChoices[$k] -contains "$v") { $s[$k] = "$v" } }
+                elseif ($v -is [bool]) { $s[$k] = $v }
+            }
+        } catch { }
+    }
+    return $s
+}
+
+# Merges known keys with valid values; anything else is refused.
+function Set-AppSettings($body) {
+    $s = Get-AppSettings
+    foreach ($p in $body.PSObject.Properties) {
+        $k = $p.Name; $v = $p.Value
+        if (-not $script:SettingsDefaults.Contains($k)) { throw "Unknown setting '$k'." }
+        if ($script:SettingsChoices.Contains($k)) {
+            if ($script:SettingsChoices[$k] -notcontains "$v") { throw "Invalid value for '$k'." }
+            $s[$k] = "$v"
+        } elseif ($v -is [bool]) { $s[$k] = $v }
+        else { throw "'$k' must be true or false." }
+    }
+    $dir = Split-Path -Parent $script:SettingsFile
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force $dir | Out-Null }
+    [System.IO.File]::WriteAllText($script:SettingsFile, (ConvertTo-Json -InputObject $s), (New-Object System.Text.UTF8Encoding $false))
+    return $s
+}
+
+# ---- mail catcher inbox (Mailpit's API on 127.0.0.1:8025) ---------------------
+$script:MailApi = 'http://127.0.0.1:8025/api/v1'
+
+function Invoke-Mailpit([string]$method, [string]$path, $body) {
+    $p = @{ Method = $method; Uri = "$script:MailApi$path"; TimeoutSec = 3; UseBasicParsing = $true }
+    if ($null -ne $body) { $p.Body = [System.Text.Encoding]::UTF8.GetBytes((ConvertTo-Json -InputObject $body -Compress)); $p.ContentType = 'application/json' }
+    Invoke-RestMethod @p
+}
+
+# Newest messages, light fields only. Site = the tag mail-catcher.php adds (X-Tags).
+function Get-MailMessages([int]$limit) {
+    $r = Invoke-Mailpit 'GET' "/messages?limit=$limit" $null
+    @(foreach ($m in @($r.messages)) {
+        if (-not $m) { continue }
+        $from = if ($m.From.Name) { $m.From.Name } else { $m.From.Address }
+        [ordered]@{
+            id      = $m.ID
+            subject = "$($m.Subject)"
+            from    = "$from"
+            to      = "$(@($m.To)[0].Address)"
+            created = "$($m.Created)"
+            read    = [bool]$m.Read
+            site    = "$(@($m.Tags)[0])"
+            snippet = "$($m.Snippet)"
+        }
+    })
+}
+
+# Only Mailpit message IDs (letters and digits) pass through.
+function Get-MailIds($body) {
+    $ids = @(@($body.ids) | Where-Object { $_ } | ForEach-Object { "$_" })
+    foreach ($i in $ids) { if ($i -notmatch '^[A-Za-z0-9]{8,40}$') { throw 'Invalid message id.' } }
+    return ,$ids
 }
 
 function Get-LogAfter([int]$after) {
@@ -476,7 +573,38 @@ function Handle-Request($ctx) {
                 task     = $script:opArg
                 progress = if ($shared.Busy -eq 'new-site') { Get-NewSiteProgress $script:opArg } else { $shared.Progress }
                 seq      = $shared.Seq
+                settings = Get-AppSettings
             }
+            return
+        }
+        '^GET /api/settings$' {
+            Send-Json $ctx (Get-AppSettings)
+            return
+        }
+        '^POST /api/settings$' {
+            $body = Read-Body $req
+            if (-not $body) { Send-Error $ctx 400 'Send the settings to change.'; return }
+            try { Send-Json $ctx (Set-AppSettings $body) } catch { Send-Error $ctx 400 $_.Exception.Message }
+            return
+        }
+        '^GET /api/mail/messages$' {
+            if (-not (Test-Proc 'mailpit')) { Send-Json $ctx @{ running = $false; messages = @() }; return }
+            try { Send-Json $ctx @{ running = $true; messages = @(Get-MailMessages 200) } }
+            catch { Send-Error $ctx 502 "The mail catcher didn't answer - $($_.Exception.Message)" }
+            return
+        }
+        '^POST /api/mail/(read|delete)$' {
+            # { ids: [...] }; no ids means every message.
+            $op = $Matches[1]
+            if (-not (Test-Proc 'mailpit')) { Send-Error $ctx 409 'The mail catcher is not running.'; return }
+            try {
+                $ids = Get-MailIds (Read-Body $req)
+                if ($op -eq 'read') { Invoke-Mailpit 'PUT' '/messages' @{ IDs = $ids; Read = $true } | Out-Null }
+                else { Invoke-Mailpit 'DELETE' '/messages' @{ IDs = $ids } | Out-Null }
+                $what = if ($ids.Count) { "$($ids.Count) message$(if ($ids.Count -ne 1) { 's' })" } else { 'all mail' }
+                Write-Log $(if ($op -eq 'read') { "Marked $what as read." } else { "Deleted $what from the mail catcher." }) 'ok'
+                Send-Json $ctx @{ ok = $true }
+            } catch { Send-Error $ctx 400 $_.Exception.Message }
             return
         }
         '^GET /api/sites$' {

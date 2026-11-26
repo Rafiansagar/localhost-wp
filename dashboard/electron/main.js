@@ -47,6 +47,9 @@ let token = '';
 let quitting = false;
 let hintShown = false;
 let status = null;
+let settings = null;          // config\app-settings.json, read through the dashboard API
+// Started by Windows at sign-in (Settings > Startup), not by the user.
+const atStartup = process.argv.includes('--startup');
 
 // ---- backend ---------------------------------------------------------------
 // server.ps1 picks a free port (7070 up) and prints "CP_PORT=<n>". If this
@@ -99,7 +102,7 @@ function createWindow() {
   const wa = screen.getPrimaryDisplay().workAreaSize;
   win = new BrowserWindow({
     width: Math.min(1440, wa.width), height: Math.min(900, wa.height),
-    minWidth: 760, minHeight: 520,
+    minWidth: 1024, minHeight: 600,
     show: false,
     autoHideMenuBar: true,
     icon: fs.existsSync(APP_ICO) ? APP_ICO : path.join(ICONS, 'icon-192.png'),
@@ -121,31 +124,72 @@ function createWindow() {
   win.on('page-title-updated', (e, t) => { e.preventDefault(); win.setTitle(`${t} - ${BASE}`); });
 
   // Site links, WP Admin, docs: the user's own browser, never inside the shell.
+  // The dashboard's own links (Ctrl/Shift/middle click on a site name) stay
+  // in this window: the page needs the app's token, a browser tab has none.
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:\/\//.test(url)) shell.openExternal(url);
+    if (url.startsWith(origin() + '/')) {
+      const hash = new URL(url).hash;
+      if (hash) win.webContents.executeJavaScript(`location.hash = ${JSON.stringify(hash)}`).catch(() => { });
+      showWindow();
+    } else if (/^https?:\/\//.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
   win.webContents.on('will-navigate', (e, url) => {
     if (!url.startsWith(origin() + '/')) { e.preventDefault(); if (/^https?:\/\//.test(url)) shell.openExternal(url); }
   });
 
-  // Closing hides to the tray; the stack keeps running either way.
+  // Closing follows Settings > Window: hide to the tray (default), ask, or stop
+  // the stack and quit.
   win.on('close', e => {
     if (quitting) return;
     e.preventDefault();
-    win.hide();
-    if (!hintShown && tray) {
-      hintShown = true;
-      notify('localhost-wp', 'Still in the tray. Right-click the icon to quit.', 'info', showWindow);
-    }
+    const choice = (settings && settings.closeAction) || 'tray';
+    const running = status && Object.values(status.services || {}).some(Boolean);
+    // Nothing to stop: quit straight away (a job still running stops first).
+    if (choice === 'stop') { running || (status && status.busy) ? stopAndQuit() : quit(); return; }
+    if (choice === 'ask') { askOnClose(running); return; }
+    hideToTray();
   });
 
   // Windows shutdown, restart or sign-out.
   win.on('query-session-end', stopForShutdown);
   win.on('session-end', stopForShutdown);
 
-  win.once('ready-to-show', () => win.show());
+  // Opened by Windows at sign-in: stays in the tray unless "Show the window" is on.
+  win.once('ready-to-show', () => { if (!atStartup || (settings && settings.startupShow)) win.show(); });
   win.loadURL(origin() + '/');
+}
+
+function hideToTray() {
+  win.hide();
+  if (!hintShown && tray) {
+    hintShown = true;
+    notify('localhost-wp', 'Still in the tray. Right-click the icon to quit.', 'info', showWindow);
+  }
+}
+
+async function askOnClose(running) {
+  const { response } = await dialog.showMessageBox(win, {
+    type: 'question',
+    title: 'localhost-wp',
+    message: running ? 'Close localhost-wp?' : 'Close the window?',
+    detail: running ? 'Your sites keep working while it runs in the tray.' : 'localhost-wp keeps running in the tray.',
+    buttons: running ? ['Keep running in the tray', 'Stop the stack and quit', 'Cancel'] : ['Keep in the tray', 'Quit', 'Cancel'],
+    defaultId: 0, cancelId: 2, noLink: true,
+  });
+  if (response === 0) hideToTray();
+  else if (response === 1) running ? stopAndQuit() : quit();
+}
+
+// Settings > Startup: a Run entry for this exe, named per stack folder so two
+// stacks never overwrite each other's entry.
+let loginApplied = null;
+function applyLoginItem() {
+  if (!settings || loginApplied === settings.startup) return;
+  loginApplied = settings.startup;
+  try {
+    app.setLoginItemSettings({ openAtLogin: !!settings.startup, path: process.execPath, args: ['--startup'], name: APP_ID });
+  } catch { }
 }
 
 function showWindow() {
@@ -188,6 +232,7 @@ const DONE = { start: () => 'Start stack', stop: () => 'Stop stack', 'stop-nobac
 // A job just finished: tell how it went, unless the window is in front.
 async function jobDone(job, task, afterSeq) {
   if (win && win.isVisible() && win.isFocused() && !win.isMinimized()) return;
+  if (settings && settings.notifyJobs === false) return;
   let entries = [];
   try { entries = (await api('GET', `/api/log?after=${afterSeq}`)).entries || []; } catch { }
   const last = [...entries].reverse().find(e => e.level !== 'info') || entries[entries.length - 1];
@@ -205,6 +250,7 @@ function mailCheck(mail) {
   const prev = mailSeen;
   mailSeen = { id, total: mail.total || 0 };
   if (!prev || !id || id === prev.id) return;
+  if (settings && settings.notifyMail === false) return;
   const fresh = Math.max(1, mailSeen.total - prev.total);
   const m = mail.latest;
   const title = fresh > 1 ? `${fresh} new emails` : `New email${m.from ? ` from ${m.from}` : ''}`;
@@ -373,6 +419,7 @@ let lastSeq = 0;
 async function poll() {
   clearTimeout(pollTimer);
   try { status = await api('GET', '/api/status'); } catch { status = null; }
+  if (status && status.settings) { settings = status.settings; applyLoginItem(); }
   const busy = status?.busy || null;
   if (busy && !job) job = { name: busy, task: status.task, afterSeq: lastSeq };
   else if (!busy && job && status) { jobDone(job.name, job.task, job.afterSeq); job = null; }
@@ -385,7 +432,23 @@ async function poll() {
 
 async function stopAndQuit() {
   showWindow();
-  try { await api('POST', '/api/stack/stop', { backup: true }); }
+  // Settings > Stack > "When I stop the stack" decides the database backup.
+  let backup = (settings && settings.stopBackup) !== 'none';
+  if (settings && settings.stopBackup === 'ask') {
+    const { response } = await dialog.showMessageBox(win, {
+      type: 'question',
+      title: 'localhost-wp',
+      message: 'Back up the databases before stopping?',
+      detail: "Backups go to each site's sql folder.",
+      buttons: ['Back up and quit', "Don't back up", 'Cancel'],
+      defaultId: 0,
+      cancelId: 2,
+      noLink: true,
+    });
+    if (response === 2) return;
+    backup = response === 0;
+  }
+  try { await api('POST', '/api/stack/stop', { backup }); }
   catch { return poll(); }   // busy with something else: stay open, the log says why
   // Wait for the stop (and its database backup) to finish before leaving.
   for (let i = 0; i < 360; i++) {
@@ -412,6 +475,7 @@ if (!app.requestSingleInstanceLock()) {
     try {
       await startServer();
       await readToken();
+      try { settings = await api('GET', '/api/settings'); } catch { }
     } catch (e) {
       dialog.showErrorBox('localhost-wp', `The Control Panel could not start.\n\n${e.message}`);
       app.exit(1);
@@ -421,6 +485,14 @@ if (!app.requestSingleInstanceLock()) {
     tray.on('click', showWindow);
     tray.on('balloon-click', () => { const f = balloonAction; balloonAction = null; if (f) f(); });
     createWindow();
+    applyLoginItem();
+    // Sign-in start with "Start the stack too": start it unless it already runs.
+    if (atStartup && settings && settings.startupStack) {
+      try {
+        const st = await api('GET', '/api/status');
+        if (st.setup && !st.busy && !(st.foreign || []).length && !Object.values(st.services).every(Boolean)) await api('POST', '/api/stack/start');
+      } catch { }
+    }
     poll();
     setTimeout(checkUpdate, 15000);
     setInterval(checkUpdate, 6 * 3600 * 1000);

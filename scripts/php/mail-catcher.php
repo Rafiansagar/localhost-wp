@@ -23,11 +23,21 @@ foreach (array(
 unset($localhost_wp_name, $localhost_wp_value);
 
 // 2) Any other plugin that turns WordPress's mailer into SMTP: switched back to
-//    PHP mail as the very last step before sending.
+//    PHP mail as the very last step before sending. The mail is also tagged with
+//    the site's folder name (Mailpit reads X-Tags), so the dashboard can show
+//    each site's own mail.
 $GLOBALS['wp_filter']['phpmailer_init'][PHP_INT_MAX][] = array(
     'function'      => static function ($phpmailer) {
-        if (is_object($phpmailer) && method_exists($phpmailer, 'isMail')) {
+        if (!is_object($phpmailer)) {
+            return;
+        }
+        if (method_exists($phpmailer, 'isMail')) {
             $phpmailer->isMail();
+        }
+        $root = isset($_SERVER['DOCUMENT_ROOT']) ? (string) $_SERVER['DOCUMENT_ROOT'] : '';
+        if (method_exists($phpmailer, 'addCustomHeader')
+            && preg_match('~[\\\\/]sites[\\\\/]([A-Za-z0-9_-]+)[\\\\/]public[\\\\/]?$~', $root, $m)) {
+            $phpmailer->addCustomHeader('X-Tags', $m[1]);
         }
     },
     'accepted_args' => 1,

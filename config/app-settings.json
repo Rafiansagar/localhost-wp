@@ -1,0 +1,9 @@
+{
+    "startup":  true,
+    "startupStack":  true,
+    "startupShow":  true,
+    "closeAction":  "stop",
+    "stopBackup":  "none",
+    "notifyMail":  true,
+    "notifyJobs":  true
+}
