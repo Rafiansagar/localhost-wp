@@ -527,9 +527,9 @@ $script:SettingsDefaults = [ordered]@{
     stopBackup   = 'backup' # backup | ask | none
     notifyMail   = $true
     notifyJobs   = $true
-    notifyErrors = $true    # a new fatal error in the error catcher
+    errorAlerts  = 'fatal'  # toast for caught PHP errors: off | fatal | warning (fatal and warnings) | all
 }
-$script:SettingsChoices = @{ closeAction = @('tray', 'ask', 'stop'); stopBackup = @('backup', 'ask', 'none') }
+$script:SettingsChoices = @{ closeAction = @('tray', 'ask', 'stop'); stopBackup = @('backup', 'ask', 'none'); errorAlerts = @('off', 'fatal', 'warning', 'all') }
 $script:SettingsFile = Join-Path $script:BASE 'config\app-settings.json'
 
 function Get-AppSettings {
@@ -544,6 +544,8 @@ function Get-AppSettings {
                 if ($script:SettingsChoices.Contains($k)) { if ($script:SettingsChoices[$k] -contains "$v") { $s[$k] = "$v" } }
                 elseif ($v -is [bool]) { $s[$k] = $v }
             }
+            # 2.6 had an on/off "notifyErrors" (fatal only); off carries over.
+            if ($null -eq $saved.errorAlerts -and $saved.notifyErrors -eq $false) { $s.errorAlerts = 'off' }
         } catch { }
     }
     return $s
@@ -599,6 +601,12 @@ function Test-ErrorCatcherReady {
     $ini = Join-Path $script:BASE 'php\php.ini'
     if (-not (Test-Path -LiteralPath $ini)) { return $false }
     return [bool](Select-String -LiteralPath $ini -Pattern '^\s*auto_prepend_file\s*=\s*"?[^"]*/scripts/php/localhost-wp\.php' -Quiet)
+}
+
+$script:ErrMutedFile = Join-Path $script:BASE 'config\error-alerts-muted.json'
+function Get-ErrMuted {
+    if (-not (Test-Path -LiteralPath $script:ErrMutedFile)) { return @() }
+    try { return @(Get-Content -LiteralPath $script:ErrMutedFile -Raw | ConvertFrom-Json | ForEach-Object { "$_" }) } catch { return @() }
 }
 
 function Get-ErrFiles { @(Get-ChildItem -LiteralPath $script:ErrDir -Filter '*.jsonl' -File -ErrorAction SilentlyContinue) }
@@ -1008,8 +1016,23 @@ function Handle-Request($ctx) {
                 enabled = Get-ErrorCatcherOn
                 ready   = Test-ErrorCatcherReady
                 seen    = Get-ErrSeen
+                muted   = @(Get-ErrMuted)
                 groups  = Get-ErrorGroups
             })
+            return
+        }
+        # Alerts for one site on or off (the app reads config\error-alerts-muted.json).
+        '^POST /api/errors/mute$' {
+            $b = Read-Body $req
+            $site = "$($b.site)"
+            if (-not (Test-KnownSite $site) -or $b.muted -isnot [bool]) { Send-Error $ctx 400 'Send a site and muted: true or false.'; return }
+            $list = @(Get-ErrMuted | Where-Object { $_ -ne $site })
+            if ($b.muted) { $list += $site }
+            $dir = Split-Path -Parent $script:ErrMutedFile
+            if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force $dir | Out-Null }
+            [System.IO.File]::WriteAllText($script:ErrMutedFile, (ConvertTo-Json -InputObject @($list | Sort-Object) -Compress), (New-Object System.Text.UTF8Encoding $false))
+            Write-Log $(if ($b.muted) { "Error alerts muted for $site (its errors are still caught)." } else { "Error alerts on for $site." }) 'ok'
+            Send-Json $ctx @{ ok = $true; muted = @($list) }
             return
         }
         # Mark as read: one site, or all ("*").

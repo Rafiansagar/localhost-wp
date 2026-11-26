@@ -297,6 +297,18 @@
   .copy svg { width: 15px; height: 15px; }
   .ov .col { display: grid; gap: 16px; align-content: start; min-width: 0; }
   .ov h3 .cnt { margin-left: 6px; vertical-align: 1px; }
+  .ov h3 .more { float: right; font-size: 12.5px; font-weight: 500; }
+  .ov .ecounts { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 8px; }
+  .ov .elist { margin: 0 -20px -10px; border-top: 1px solid var(--line); }
+  .ov .erow { display: grid; grid-template-columns: 86px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 9px 20px; border-bottom: 1px solid var(--line); color: var(--ink); text-decoration: none; font-size: 13px; }
+  .ov .erow:last-child { border-bottom: 0; }
+  .ov .erow:hover { background: color-mix(in srgb, var(--panel-2) 70%, transparent); }
+  .ov .erow .m { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ov .erow.new .m { font-weight: 650; }
+  .ov .erow .w { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+  .ov .lg-head { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .ov .lg-head + .lg { border-top: 0; margin-top: 0; }
+  .btn[data-err-mute][aria-pressed="true"] { color: var(--wait-text); }
   .ov .big { display: flex; align-items: baseline; gap: 10px; margin: 4px 0 2px; }
   .ov .big b { font-size: 18px; font-weight: 600; letter-spacing: -.01em; }
   .ov .big span { color: var(--muted); font-size: 13px; }
@@ -551,6 +563,8 @@
   <symbol id="i-trash" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.5h11M6 4.5V3h4v1.5M4 4.5l.7 8.5h6.6l.7-8.5"/></symbol>
   <symbol id="i-bug" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="6" height="8.5" rx="3"/><path d="M6.3 5.2a1.7 1.7 0 0 1 3.4 0M8 8.2v5.3M2.5 9H5M11 9h2.5M3.2 5.2l1.9 1.3M12.8 5.2l-1.9 1.3M3.2 13l1.9-1.4M12.8 13l-1.9-1.4"/></symbol>
   <symbol id="i-net" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c1.7 1.7 2.5 3.7 2.5 6S9.7 12.3 8 14M8 2C6.3 3.7 5.5 5.7 5.5 8s.8 4.3 2.5 6"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5V7a4 4 0 0 1 8 0v4.5l1 1H3zM6.5 14h3"/></symbol>
+  <symbol id="i-bell-off" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.2 4.3A4 4 0 0 1 12 7v3.5M4 7v4.5l-1 1h9M6.5 14h3M2.5 2.5l11 11"/></symbol>
   <symbol id="i-x" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></symbol>
   <symbol id="i-warn" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5M8 11h.01"/></symbol>
   <symbol id="i-dl" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13.5h10"/></symbol>
@@ -1189,8 +1203,9 @@
             ${kvRow('Show on pages', '', { actions: dsw('WP_DEBUG_DISPLAY', 'Show errors on pages', d.WP_DEBUG && d.WP_DEBUG_DISPLAY, needDebug) })}
             ${d.iniDisplay ? `<p class="meta note">Your wp-config.php also has <code>ini_set('display_errors', 1)</code>, so PHP errors show on pages whatever this switch says.</p>` : ''}
             <p class="meta" style="margin-top:6px">Saved to <code>wp-config.php</code>. Takes effect on the next page load.</p>`}
-          ${logRow('php', 'PHP errors', 'wp-content\\debug.log', info?.logs?.php)}
-          ${logRow('nginx', 'Nginx errors', `logs\\nginx\\${name}-error.log`, info?.logs?.nginx)}</div>`;
+          <p class="lg-head" title="The raw files, as WordPress and Nginx write them. The Errors card and tab come from the error catcher instead.">Log files</p>
+          ${logRow('php', 'debug.log', 'wp-content\\debug.log', info?.logs?.php)}
+          ${logRow('nginx', 'Nginx error log', `logs\\nginx\\${name}-error.log`, info?.logs?.nginx)}</div>`;
         const plug = info && info.plugins != null ? `${plural(info.plugins, 'plugin')}, ${plural(info.themes, 'theme')}` : '';
         body = `<div class="ov">
           <div class="col">
@@ -1202,6 +1217,7 @@
               ${plug ? kvRow('Installed', plug, { plain: true }) : ''}
               ${info?.created ? kvRow('Created', fmtWhen(info.created), { plain: true }) : ''}
             </div>
+            ${siteErrorsCard(name)}
             <div class="card"><h3>Recent mail${u ? ` <span class="cnt">${u} new</span>` : ''}</h3>${mailBlock(mails, name, true)}</div>
           </div>
           <div class="col">${backups}${debugging}</div>
@@ -1344,8 +1360,8 @@
               ${row('s-stopBackup', 'When I stop the stack', "Backups go to each site's sql folder", seg('stopBackup', [['backup', 'Back up databases'], ['ask', 'Ask each time'], ['none', "Don't back up"]]))}
               ${row('s-host', 'Open site links using', 'The network address works from your phone or another device on the same network', `<select class="pick" id="hostSel" aria-labelledby="s-host">${state.hosts.map(h => `<option value="${esc(h)}" ${h === host() ? 'selected' : ''}>${h === 'localhost' ? 'This PC (localhost)' : `Network address (${esc(h)})`}</option>`).join('')}</select>`)}</div>
             <div class="opt-group" id="g-Notifications"><h3>Notifications</h3>
-              ${IS_APP ? '<p>Shown from the tray icon, only while the window is not in front.</p>' : '<p>These need the localhost-wp app (localhost-wp.exe).</p>'}
-              ${row('s-notifyErrors', 'A new fatal error in the error catcher', '', sw('notifyErrors', cfg.notifyErrors, appOnly))}
+              ${IS_APP ? '<p>Windows notifications from the localhost-wp app.</p>' : '<p>These need the localhost-wp app (localhost-wp.exe).</p>'}
+              ${row('s-errorAlerts', 'PHP errors, as soon as one is caught', 'Fatal stays on screen until you close it, with a sound. Warnings show briefly. Notices and deprecations are silent. The same error alerts again after 10 minutes at most.', seg('errorAlerts', [['off', 'Off'], ['fatal', 'Fatal only'], ['warning', 'Fatal and warnings'], ['all', 'Everything']]))}
               ${row('s-notifyMail', 'New mail in the mail catcher', '', sw('notifyMail', cfg.notifyMail, appOnly))}
               ${row('s-notifyJobs', 'A job finished (start, stop, new site, backup)', '', sw('notifyJobs', cfg.notifyJobs, appOnly))}</div>
             <div class="opt-group" id="g-Appearance"><h3>Appearance</h3>
@@ -1436,13 +1452,31 @@
     const clear = errClearAsk
       ? `<span class="confirm">Delete ${all.length} ${all.length === 1 ? 'error' : 'errors'}${scope ? ` from ${esc(scope)}` : ''}?<button class="btn sm danger" data-err-act="clear-yes">Delete</button><button class="btn quiet sm" data-err-act="clear-no">Cancel</button></span>`
       : `<button class="btn quiet sm" data-err-act="clear" ${all.length ? '' : 'disabled'}>Clear</button>`;
-    const head = `<div class="feed-head">${all.length ? seg : `<span>No errors</span>`}${pick}<span class="spacer"></span>${site ? '<a class="link" href="#errors">All sites</a>' : ''}
+    const muted = site && (state.errors.muted || []).includes(site);
+    const mute = site ? `<button class="btn quiet sm" data-err-mute aria-pressed="${!!muted}" title="${muted ? `Errors from ${esc(site)} are still caught, but don't pop up` : `Pop-up alerts for ${esc(site)}, at the level set in Settings`}">${ic(muted ? 'bell-off' : 'bell', 14)}${muted ? 'Alerts muted' : 'Alerts on'}</button>` : '';
+    const head = `<div class="feed-head">${all.length ? seg : `<span>No errors</span>`}${pick}<span class="spacer"></span>${mute}${site ? '<a class="link" href="#errors">All sites</a>' : ''}
       <button class="btn quiet sm" data-err-act="read" ${nNew ? '' : 'disabled'}>Mark all as read</button><span class="clear-slot">${clear}</span></div>`;
     const note = e && !e.ready ? `<div class="list-note">${ic('warn', 14)}<span>${svcs().php ? 'Stop and start the stack once: PHP picks up the error catcher when it starts.' : 'Catching starts with the next Start stack.'}</span></div>` : '';
     const rows = list.length ? list.map(g => errRow(g, !!site)).join('')
       : `<div class="empty"><span class="ico">${ic('check', 20)}</span><h3>No PHP errors</h3><p>${scope ? `${esc(scope)} hasn't reported any.` : "None of your sites has reported any."} New ones show up here as they happen.</p></div>`;
     const foot = `<div class="list-foot">Shows what PHP reports. With Debug mode off, WordPress leaves out notices and deprecations: turn it on ${site ? 'under Overview, Debugging' : "from a site's page"} to see them too.</div>`;
     return `<div class="card feed-card">${head}${note}<div class="feed-list">${rows}${foot}</div></div>`;
+  }
+  // Site Overview: what the error catcher has for this site, newest first.
+  function siteErrorsCard(name) {
+    const e = st()?.errors;
+    const link = `<a class="link more" href="#site/${encodeURIComponent(name)}/errors">See all</a>`;
+    if (e && e.enabled === false) return `<div class="card"><h3>Errors</h3><p class="meta">The error catcher is off. Turn it on from <a class="link" href="#errors">Errors</a>.</p></div>`;
+    if (!state.errors) return `<div class="card"><h3>Errors</h3><p class="meta"><span class="skel" style="width:160px"></span></p></div>`;
+    const list = errorsOf(name);
+    if (!list.length) return `<div class="card"><h3>Errors</h3><p class="meta" style="margin-bottom:10px">No PHP errors caught on ${esc(name)}. New ones show up here as they happen.</p></div>`;
+    const n = { fatal: 0, warning: 0, notice: 0, deprecated: 0 };
+    for (const g of list) n[g.sev]++;
+    const word = { fatal: ['fatal', 'fatal'], warning: ['warning', 'warnings'], notice: ['notice', 'notices'], deprecated: ['deprecation', 'deprecations'] };
+    const nNew = list.filter(errIsNew).length;
+    return `<div class="card"><h3>Errors${nNew ? ` <span class="cnt ${errNewFatal(name) ? 'bad' : ''}">${nNew} new</span>` : ''}${link}</h3>
+      <div class="ecounts">${Object.keys(n).filter(k => n[k]).map(k => `<span class="sev ${k}">${n[k]} ${word[k][n[k] === 1 ? 0 : 1]}</span>`).join('')}</div>
+      <div class="elist">${list.slice(0, 4).map(g => `<a class="erow ${errIsNew(g) ? 'new' : ''}" href="#errors/${g.id}" title="${esc(g.msg)}"><span class="sev ${g.sev}">${SEV[g.sev]}</span><span class="m">${esc(g.msg)}</span><span class="w">${esc(timeAgo(new Date(g.last * 1000)))}</span></a>`).join('')}</div></div>`;
   }
   function errRow(g, hideSite) {
     const open = errOpen.has(g.id), when = new Date(g.last * 1000);
@@ -1471,6 +1505,12 @@
     const pick = $('[data-err-site]', root);
     if (pick) pick.onchange = () => { errSite = pick.value; errClearAsk = false; renderPage(true); };
     for (const b of $$('[data-err-open]', root)) b.onclick = () => act('POST', '/api/errors/open', { id: b.dataset.errOpen });
+    const mute = $('[data-err-mute]', root);
+    if (mute) mute.onclick = async () => {
+      mute.disabled = true;
+      try { await call('POST', '/api/errors/mute', { site, muted: mute.getAttribute('aria-pressed') !== 'true' }); } catch (e) { localLog(e.message); }
+      await pullLog(); await loadErrors(true); renderPage(true);
+    };
     for (const b of $$('[data-err-url]', root)) b.onclick = () => openUrl(b.dataset.errUrl);
     for (const b of $$('[data-err-copy]', root)) b.onclick = async () => {
       const g = errorsOf(null).find(x => x.id === b.dataset.errCopy); if (!g) return;

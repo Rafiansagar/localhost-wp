@@ -19,7 +19,7 @@
 //  sight, fills the taskbar button during long jobs, colours the tray icon
 //  by stack state, and says when a newer GitHub release is out.
 // ============================================================================
-const { app, BrowserWindow, Tray, Menu, nativeImage, shell, dialog, screen, nativeTheme } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, shell, dialog, screen, nativeTheme, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -266,13 +266,54 @@ function stopForShutdown() {
 }
 
 // ---- notifications -----------------------------------------------------------
-// Tray balloons: Windows 10/11 shows them as normal notifications, and unlike
-// Electron's Notification they need no Start-menu registration.
+// Windows toasts. Windows shows a desktop app's toasts only when a Start Menu
+// shortcut carries the app's AppUserModelID, so one is kept in place (named
+// after the stack folder, so two stacks get two). Without it, or if a toast
+// fails, the tray balloon is used instead.
+//   opts.sticky  stays on screen until closed (fatal errors)
+//   opts.silent  no sound (notices, deprecations)
+const SHORTCUT = path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs',
+  `localhost-wp - ${BASE.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim()}.lnk`);
+let toastReady = false;
+function ensureToastShortcut() {
+  try {
+    let ok = false;
+    if (fs.existsSync(SHORTCUT)) {
+      const l = shell.readShortcutLink(SHORTCUT);
+      ok = l.target.toLowerCase() === process.execPath.toLowerCase() && l.appUserModelId === APP_ID;
+    }
+    if (!ok) {
+      ok = shell.writeShortcutLink(SHORTCUT, fs.existsSync(SHORTCUT) ? 'replace' : 'create', {
+        target: process.execPath, appUserModelId: APP_ID, description: `localhost-wp - ${BASE}`,
+        ...(fs.existsSync(APP_ICO) ? { icon: APP_ICO, iconIndex: 0 } : {}),
+      });
+    }
+    toastReady = ok && Notification.isSupported();
+  } catch { toastReady = false; }
+}
+
 let balloonAction = null;
-function notify(title, content, level, onClick) {
-  if (!tray) return;
-  balloonAction = onClick || null;
-  tray.displayBalloon({ title, content, iconType: { err: 'error', warn: 'warning' }[level] || 'info', respectQuietTime: true });
+const toasts = new Set();   // kept referenced until closed, or click handlers are lost
+function notify(title, content, level, onClick, opts = {}) {
+  const balloon = () => {
+    if (!tray) return;
+    balloonAction = onClick || null;
+    tray.displayBalloon({ title, content, iconType: { err: 'error', warn: 'warning' }[level] || 'info', respectQuietTime: true });
+  };
+  if (!toastReady) return balloon();
+  try {
+    const n = new Notification({
+      title: String(title).slice(0, 120), body: String(content).slice(0, 400),
+      silent: !!opts.silent, timeoutType: opts.sticky ? 'never' : 'default',
+      ...(fs.existsSync(APP_ICO) ? { icon: APP_ICO } : {}),
+    });
+    toasts.add(n);
+    const done = () => toasts.delete(n);
+    n.on('click', () => { done(); if (onClick) onClick(); });
+    n.on('close', done);
+    n.on('failed', () => { done(); balloon(); });
+    n.show();
+  } catch { balloon(); }
 }
 
 const DONE = { start: () => 'Start stack', stop: () => 'Stop stack', 'stop-nobackup': () => 'Stop stack', reload: () => 'Reload Nginx',
@@ -308,23 +349,109 @@ function mailCheck(mail) {
   notify(title.slice(0, 63), body.slice(0, 255), 'info', () => shell.openExternal('http://localhost:8025'));
 }
 
-// A new fatal error in the error catcher: one notification per error group the
-// first time it shows up new. Clicking opens the Errors page.
-let fatalSeen;   // undefined until the first poll, so errors from before launch stay quiet
-function errorCheck(errors) {
-  if (!errors) return;
-  const f = errors.latestFatal;
-  const key = f ? `${f.id}:${f.last}` : '';
-  const prev = fatalSeen;
-  fatalSeen = key;
-  if (prev === undefined || !f || key === prev) return;
-  if (settings && settings.notifyErrors === false) return;
-  if (win && win.isVisible() && win.isFocused()) return;   // the badge in the window says it
-  const n = errors.fatalNew || 1;
-  notify(`${n > 1 ? `${n} new fatal errors` : 'Fatal error'} on ${f.site}`.slice(0, 63), String(f.msg || '').slice(0, 255), 'err', () => {
+// ---- error alerts ---------------------------------------------------------------
+// The error catcher (scripts\php\error-catcher.php) appends each request's new
+// errors to logs\errors\<site>.jsonl when the request ends. This watches that
+// folder and reads only what was added, so an alert shows the moment it is
+// caught. Settings > Notifications picks the level; a site can be muted from
+// its Errors tab (config\error-alerts-muted.json).
+//   fatal       stays on screen until closed, with a sound
+//   warning     shows briefly, with a sound
+//   notice / deprecated   silent
+// The same error alerts at most once in 10 minutes, errors arriving together
+// make one toast, and nothing pops up while that error list is on screen.
+const ERR_DIR = path.join(BASE, 'logs', 'errors');
+const ERR_MUTED = path.join(BASE, 'config', 'error-alerts-muted.json');
+const SEV_RANK = { fatal: 3, warning: 2, notice: 1, deprecated: 1 };
+const SEV_NAME = { fatal: 'Fatal error', warning: 'Warning', notice: 'Notice', deprecated: 'Deprecated' };
+const LEVEL_MIN = { fatal: 3, warning: 2, all: 1 };
+const errSeverity = t => (t & 4437) ? 'fatal' : (t & 674) ? 'warning' : (t & 24576) ? 'deprecated' : 'notice';
+const errOffsets = new Map();   // file name -> bytes already read
+const errAlerted = new Map();   // error key -> time of its last alert
+let errTimer = null;
+
+function startErrorWatch() {
+  try {
+    fs.mkdirSync(ERR_DIR, { recursive: true });
+    // Start at the end of each file: errors from before launch never alert.
+    for (const f of fs.readdirSync(ERR_DIR)) if (isErrLog(f)) errOffsets.set(f, fs.statSync(path.join(ERR_DIR, f)).size);
+    const w = fs.watch(ERR_DIR, (_e, name) => {
+      if (name && !isErrLog(String(name))) return;
+      clearTimeout(errTimer);
+      errTimer = setTimeout(readNewErrors, 200);   // errors arriving together make one alert
+    });
+    w.on('error', () => { });
+  } catch { }
+}
+function isErrLog(f) { return f.endsWith('.jsonl') && !f.endsWith('.old.jsonl'); }
+
+function readNewErrors() {
+  const fresh = [];
+  let names = [];
+  try { names = fs.readdirSync(ERR_DIR).filter(isErrLog); } catch { return; }
+  for (const f of names) {
+    const file = path.join(ERR_DIR, f);
+    let size = 0;
+    try { size = fs.statSync(file).size; } catch { continue; }
+    let from = errOffsets.has(f) ? errOffsets.get(f) : 0;   // a new site's file is read from the start
+    if (size < from) from = 0;                               // cleared or rotated
+    if (size === from) { errOffsets.set(f, size); continue; }
+    const buf = Buffer.alloc(Math.min(size - from, 1048576));
+    let got = 0;
+    try { const fd = fs.openSync(file, 'r'); got = fs.readSync(fd, buf, 0, buf.length, from); fs.closeSync(fd); } catch { continue; }
+    const text = buf.toString('utf8', 0, got);
+    const end = text.lastIndexOf('\n');            // a line still being written waits for the next look
+    if (end < 0) continue;
+    errOffsets.set(f, from + Buffer.byteLength(text.slice(0, end + 1)));
+    const site = f.replace(/\.jsonl$/, '');
+    for (const ln of text.slice(0, end).split('\n')) {
+      try { const e = JSON.parse(ln); e.site = site; fresh.push(e); } catch { }
+    }
+  }
+  if (fresh.length) alertErrors(fresh);
+}
+
+function alertErrors(list) {
+  const level = (settings && settings.errorAlerts) || 'fatal';
+  if (level === 'off') return;
+  let muted = [];
+  try { muted = JSON.parse(fs.readFileSync(ERR_MUTED, 'utf8')); } catch { }
+  const now = Date.now();
+  const show = [];
+  for (const e of list) {
+    const sev = errSeverity(e.type);
+    if (SEV_RANK[sev] < LEVEL_MIN[level] || muted.includes(e.site)) continue;
+    const file = String(e.file || '').replace(/\//g, '\\');
+    const key = `${e.site}|${e.type}|${file}|${e.line}|${e.msg}`;
+    if (now - (errAlerted.get(key) || 0) < 600000) continue;
+    errAlerted.set(key, now);
+    show.push({ ...e, sev, file, key });
+  }
+  if (!show.length) return;
+  for (const [k, t] of errAlerted) if (now - t > 600000) errAlerted.delete(k);
+  show.sort((a, b) => SEV_RANK[b.sev] - SEV_RANK[a.sev]);
+  const top = show[0];
+  const sites = [...new Set(show.map(e => e.site))];
+
+  // Already looking at that list: the window shows it, no toast.
+  if (win && win.isVisible() && win.isFocused() && !win.isMinimized()) {
+    const hash = decodeURIComponent((win.webContents.getURL().split('#')[1] || ''));
+    if (hash.startsWith('errors') || (sites.length === 1 && hash === `site/${sites[0]}/errors`)) return;
+  }
+
+  const root = path.join(BASE, 'sites', top.site, 'public') + '\\';
+  const rel = top.file.toLowerCase().startsWith(root.toLowerCase()) ? top.file.slice(root.length) : path.basename(top.file);
+  const msg = String(top.msg || '').replace(` in ${top.file}:${top.line}`, '');
+  const title = show.length === 1 ? `${SEV_NAME[top.sev]} · ${top.site}`
+    : `${show.length} new errors · ${sites.length === 1 ? top.site : `${sites.length} sites`}`;
+  const body = `${msg}\n${rel}:${top.line}${show.length > 1 ? `\n+${show.length - 1} more` : ''}`;
+  // The dashboard's id for an error group: md5 of the same key, first 8 bytes.
+  const id = crypto.createHash('md5').update(top.key).digest('hex').slice(0, 16);
+  const target = show.length === 1 ? `#errors/${id}` : sites.length === 1 ? `#site/${encodeURIComponent(top.site)}/errors` : '#errors';
+  notify(title, body, top.sev === 'fatal' ? 'err' : top.sev === 'warning' ? 'warn' : 'info', () => {
     showWindow();
-    if (win) win.webContents.executeJavaScript(`location.hash = '#errors/${f.id}'`).catch(() => { });
-  });
+    if (win) win.webContents.executeJavaScript(`location.hash = ${JSON.stringify(target)}`).catch(() => { });
+  }, { sticky: top.sev === 'fatal', silent: SEV_RANK[top.sev] < 2 });
 }
 
 // ---- taskbar progress and tray colour -----------------------------------------
@@ -494,7 +621,6 @@ async function poll() {
   else if (!busy && job && status) { jobDone(job.name, job.task, job.afterSeq); job = null; }
   if (status) lastSeq = status.seq;
   mailCheck(status && status.mail);
-  errorCheck(status && status.errors);
   showProgress(status);
   if (tray) buildMenu();
   pollTimer = setTimeout(poll, busy ? 1000 : 4000);
@@ -565,6 +691,8 @@ if (!app.requestSingleInstanceLock()) {
     tray.on('click', showWindow);
     tray.on('balloon-click', () => { const f = balloonAction; balloonAction = null; if (f) f(); });
     createWindow();
+    ensureToastShortcut();
+    startErrorWatch();
     applyLoginItem();
     // Sign-in start with "Start the stack too": start it unless it already runs.
     if (atStartup && settings && settings.startupStack) {
