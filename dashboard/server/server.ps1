@@ -606,7 +606,10 @@ function Test-ErrorCatcherReady {
 $script:ErrMutedFile = Join-Path $script:BASE 'config\error-alerts-muted.json'
 function Get-ErrMuted {
     if (-not (Test-Path -LiteralPath $script:ErrMutedFile)) { return @() }
-    try { return @(Get-Content -LiteralPath $script:ErrMutedFile -Raw | ConvertFrom-Json | ForEach-Object { "$_" }) } catch { return @() }
+    # ConvertFrom-Json in PowerShell 5.1 passes a JSON array down the pipeline as one object, so
+    # unwrap it with foreach; entries that aren't a single site name (old, broken saves) are dropped.
+    try { $data = Get-Content -LiteralPath $script:ErrMutedFile -Raw | ConvertFrom-Json } catch { return @() }
+    return @(foreach ($x in @($data)) { $s = "$x".Trim(); if ($s -match '^\S+$') { $s } })
 }
 
 function Get-ErrFiles { @(Get-ChildItem -LiteralPath $script:ErrDir -Filter '*.jsonl' -File -ErrorAction SilentlyContinue) }

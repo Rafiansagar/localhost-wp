@@ -5,5 +5,6 @@
     "closeAction":  "tray",
     "stopBackup":  "none",
     "notifyMail":  true,
-    "notifyJobs":  true
+    "notifyJobs":  true,
+    "errorAlerts":  "all"
 }
