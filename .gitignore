@@ -45,3 +45,10 @@ back/
 /_mailpit.zip
 /_mailpit.zip.part
 /_mailpit_tmp/
+
+# Error and network catchers: on/off choices, read marks, muted sites, blocking rules
+/config/error-catcher.txt
+/config/error-catcher-seen.json
+/config/error-alerts-muted.json
+/config/network-catcher.txt
+/config/network-rules.json
