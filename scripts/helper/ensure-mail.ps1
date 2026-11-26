@@ -22,32 +22,33 @@ $stateFile = Join-Path $Base 'config\mail-catcher.txt'
 $on = -not ((Test-Path $stateFile) -and "$(Get-Content -LiteralPath $stateFile -TotalCount 1)".Trim() -eq 'off')
 
 # ---- php.ini -----------------------------------------------------------------
-# On:  SMTP to the catcher, and mail-catcher.php loaded before every request.
-# Off: PHP's own defaults back (SMTP = localhost, smtp_port = 25, no prepend),
-#      so sites and their SMTP plugins send mail exactly as they normally would.
+# On:  SMTP to the catcher.
+# Off: PHP's own defaults back (SMTP = localhost, smtp_port = 25), so sites and
+#      their SMTP plugins send mail exactly as they normally would.
+# Either way scripts\php\localhost-wp.php is loaded before every request: it
+# loads the error catcher and, while mail is on, mail-catcher.php (each reads
+# its own config\<name>.txt switch on every request).
 # A php.ini edit counts from the next PHP start (Start Stack runs this first).
 $ini = Join-Path $Base 'php\php.ini'
 if (Test-Path $ini) {
-    $prepend = "$($Base.Replace('\', '/'))/scripts/php/mail-catcher.php"
+    $prepend = "$($Base.Replace('\', '/'))/scripts/php/localhost-wp.php"
     $old = @(Get-Content -LiteralPath $ini)
     $new = foreach ($line in $old) {
         if ($line -match '^\s*SMTP\s*=') { if ($on) { 'SMTP = 127.0.0.1' } else { 'SMTP = localhost' } }
         elseif ($line -match '^\s*smtp_port\s*=') { if ($on) { 'smtp_port = 1025' } else { 'smtp_port = 25' } }
         elseif ($line -match '^\s*auto_prepend_file\s*=\s*(.*)$') {
-            # Only an empty value, or ours (moved stack folder, or the earlier
-            # mail-from.php name); never someone else's file.
+            # Only an empty value, or ours (moved stack folder, or an earlier
+            # name: mail-catcher.php, mail-from.php); never someone else's file.
             $cur = $Matches[1].Trim().Trim('"')
-            $ours = $cur -like '*/scripts/php/mail-catcher.php' -or $cur -like '*/scripts/php/mail-from.php'
-            if ($on -and (-not $cur -or $ours)) { "auto_prepend_file = `"$prepend`"" }
-            elseif (-not $on -and $ours) { 'auto_prepend_file =' }
-            else { $line }
+            $ours = $cur -like '*/scripts/php/localhost-wp.php' -or $cur -like '*/scripts/php/mail-catcher.php' -or $cur -like '*/scripts/php/mail-from.php'
+            if (-not $cur -or $ours) { "auto_prepend_file = `"$prepend`"" } else { $line }
         }
         else { $line }
     }
     if (($new -join "`n") -ne ($old -join "`n")) {
         Set-Content -LiteralPath $ini -Value $new
-        if ($on) { Write-Host "[+] php.ini: WordPress mail goes to the mail catcher (127.0.0.1:1025)." }
-        else     { Write-Host "[+] php.ini: mail settings back to PHP's defaults (mail catcher off)." }
+        if ($on) { Write-Host "[+] php.ini updated: catchers load before every request, mail goes to 127.0.0.1:1025." }
+        else     { Write-Host "[+] php.ini updated: catchers load before every request, mail settings are PHP's defaults (mail catcher off)." }
     }
 }
 

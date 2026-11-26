@@ -527,6 +527,7 @@ $script:SettingsDefaults = [ordered]@{
     stopBackup   = 'backup' # backup | ask | none
     notifyMail   = $true
     notifyJobs   = $true
+    notifyErrors = $true    # a new fatal error in the error catcher
 }
 $script:SettingsChoices = @{ closeAction = @('tray', 'ask', 'stop'); stopBackup = @('backup', 'ask', 'none') }
 $script:SettingsFile = Join-Path $script:BASE 'config\app-settings.json'
@@ -564,6 +565,135 @@ function Set-AppSettings($body) {
     if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force $dir | Out-Null }
     [System.IO.File]::WriteAllText($script:SettingsFile, (ConvertTo-Json -InputObject $s), (New-Object System.Text.UTF8Encoding $false))
     return $s
+}
+
+# ---- error catcher -------------------------------------------------------------
+# scripts\php\error-catcher.php appends one JSON line per distinct error per
+# request to logs\errors\<site>.jsonl (rotated to <site>.old.jsonl at 4 MB).
+# Here they are grouped across requests by site, type, file, line and message.
+# Read state lives in config\error-catcher-seen.json: a time per site, "*" for all.
+$script:ErrDir      = Join-Path $script:BASE 'logs\errors'
+$script:ErrSeenFile = Join-Path $script:BASE 'config\error-catcher-seen.json'
+$script:ErrState    = Join-Path $script:BASE 'config\error-catcher.txt'
+$script:ErrCache    = $null
+$script:ErrStampWas = ''
+$script:ErrTypes = @{
+    1 = 'E_ERROR'; 2 = 'E_WARNING'; 4 = 'E_PARSE'; 8 = 'E_NOTICE'; 16 = 'E_CORE_ERROR'; 32 = 'E_CORE_WARNING'
+    64 = 'E_COMPILE_ERROR'; 128 = 'E_COMPILE_WARNING'; 256 = 'E_USER_ERROR'; 512 = 'E_USER_WARNING'
+    1024 = 'E_USER_NOTICE'; 2048 = 'E_STRICT'; 4096 = 'E_RECOVERABLE_ERROR'; 8192 = 'E_DEPRECATED'; 16384 = 'E_USER_DEPRECATED'
+}
+
+function Get-ErrSeverity([int]$t) {
+    if ($t -band 4437)  { return 'fatal' }       # E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR, E_RECOVERABLE_ERROR
+    if ($t -band 674)   { return 'warning' }     # E_WARNING, E_CORE_WARNING, E_COMPILE_WARNING, E_USER_WARNING
+    if ($t -band 24576) { return 'deprecated' }  # E_DEPRECATED, E_USER_DEPRECATED
+    return 'notice'
+}
+
+function Get-ErrorCatcherOn {
+    -not ((Test-Path -LiteralPath $script:ErrState) -and "$(Get-Content -LiteralPath $script:ErrState -TotalCount 1)".Trim() -eq 'off')
+}
+
+# php.ini loads localhost-wp.php (Start stack puts it there); until then nothing is caught.
+function Test-ErrorCatcherReady {
+    $ini = Join-Path $script:BASE 'php\php.ini'
+    if (-not (Test-Path -LiteralPath $ini)) { return $false }
+    return [bool](Select-String -LiteralPath $ini -Pattern '^\s*auto_prepend_file\s*=\s*"?[^"]*/scripts/php/localhost-wp\.php' -Quiet)
+}
+
+function Get-ErrFiles { @(Get-ChildItem -LiteralPath $script:ErrDir -Filter '*.jsonl' -File -ErrorAction SilentlyContinue) }
+
+function Get-ErrSeen {
+    $seen = @{ '*' = 0 }
+    if (Test-Path -LiteralPath $script:ErrSeenFile) {
+        try { foreach ($p in (Get-Content -LiteralPath $script:ErrSeenFile -Raw | ConvertFrom-Json).PSObject.Properties) { $seen[$p.Name] = [long]$p.Value } } catch { }
+    }
+    return $seen
+}
+
+function Set-ErrSeen($seen) {
+    $dir = Split-Path -Parent $script:ErrSeenFile
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force $dir | Out-Null }
+    [System.IO.File]::WriteAllText($script:ErrSeenFile, (ConvertTo-Json -InputObject $seen -Compress), (New-Object System.Text.UTF8Encoding $false))
+}
+
+# Grouped errors, newest first. Re-read only when a log file changed.
+function Get-ErrorGroups {
+    $files = Get-ErrFiles
+    $stamp = ($files | ForEach-Object { "$($_.Name):$($_.Length):$($_.LastWriteTimeUtc.Ticks)" }) -join '|'
+    if ($null -ne $script:ErrCache -and $stamp -eq $script:ErrStampWas) { return , $script:ErrCache }
+    if (-not $script:JsonSer) {
+        Add-Type -AssemblyName System.Web.Extensions
+        $script:JsonSer = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+        $script:JsonSer.MaxJsonLength = 16MB
+    }
+    $md5 = [System.Security.Cryptography.MD5]::Create()
+    $groups = New-Object 'System.Collections.Generic.Dictionary[string,object]'
+    # .old first, so the current file's newer lines win the "latest" fields.
+    foreach ($f in ($files | Sort-Object { $_.Name -notlike '*.old.jsonl' }, Name)) {
+        $site = $f.Name -replace '(\.old)?\.jsonl$', ''
+        $siteRoot = (Join-Path $script:SitesDir "$site\public") + '\'
+        foreach ($ln in (Read-Tail $f.FullName 3145728)) {
+            if ($ln[0] -ne '{') { continue }
+            try { $o = $script:JsonSer.DeserializeObject($ln) } catch { continue }
+            $type = [int]$o['type']; $file = "$($o['file'])".Replace('/', '\'); $line = [int]$o['line']; $msg = "$($o['msg'])"
+            $key = "$site|$type|$file|$line|$msg"
+            $t = [long]$o['t']; $n = if ($o.ContainsKey('n')) { [int]$o['n'] } else { 1 }
+            $g = $null
+            if ($groups.TryGetValue($key, [ref]$g)) {
+                $g.times += $n; $g.requests++
+                if ($t -lt $g.first) { $g.first = $t }
+                if ($t -ge $g.last) {
+                    $g.last = $t; $g.url = "$($o['url'])"; $g.method = "$($o['method'])"
+                    if ($o.ContainsKey('trace')) { $g.trace = "$($o['trace'])" }
+                }
+            } else {
+                $id = -join ($md5.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($key))[0..7] | ForEach-Object { $_.ToString('x2') })
+                $rel = if ($file.StartsWith($siteRoot, [StringComparison]::OrdinalIgnoreCase)) { $file.Substring($siteRoot.Length) }
+                       elseif ($file.StartsWith($script:BASE + '\', [StringComparison]::OrdinalIgnoreCase)) { $file.Substring($script:BASE.Length + 1) }
+                       else { $file }
+                # "Uncaught X: ... in C:\path\file.php:12" repeats the file and line shown beside it.
+                $short = $msg -replace (' in ' + [regex]::Escape($file) + ':' + $line + '$'), ''
+                $groups[$key] = [ordered]@{
+                    id = $id; site = $site; type = $type; typeName = "$($script:ErrTypes[$type])"; sev = Get-ErrSeverity $type
+                    msg = $short; file = $file; rel = $rel; line = $line
+                    times = $n; requests = 1; first = $t; last = $t
+                    url = "$($o['url'])"; method = "$($o['method'])"; trace = if ($o.ContainsKey('trace')) { "$($o['trace'])" } else { '' }
+                }
+            }
+        }
+    }
+    $md5.Dispose()
+    $list = @($groups.Values | Sort-Object { $_.last } -Descending | Select-Object -First 1000)
+    $script:ErrCache = $list
+    $script:ErrStampWas = $stamp
+    return , $list
+}
+
+function Test-ErrNew($g, $seen) {
+    $since = [Math]::Max([long]$seen['*'], [long]$(if ($seen.ContainsKey($g.site)) { $seen[$g.site] } else { 0 }))
+    return $g.last -gt $since
+}
+
+# For /api/status: small, cheap (the groups are cached).
+function Get-ErrorSummary {
+    $on = Get-ErrorCatcherOn
+    $groups = Get-ErrorGroups
+    $seen = Get-ErrSeen
+    $fatal = @($groups | Where-Object { $_.sev -eq 'fatal' -and (Test-ErrNew $_ $seen) })
+    $latest = $fatal | Select-Object -First 1
+    $perSite = @{}
+    foreach ($g in $fatal) { $perSite[$g.site] = 1 + [int]$perSite[$g.site] }
+    [ordered]@{
+        enabled     = $on
+        ready       = Test-ErrorCatcherReady
+        total       = $groups.Count
+        newCount    = @($groups | Where-Object { Test-ErrNew $_ $seen }).Count
+        fatalNew    = $fatal.Count
+        fatalBySite = $perSite
+        latestFatal = if ($latest) { [ordered]@{ id = $latest.id; site = $latest.site; msg = $latest.msg; last = $latest.last } } else { $null }
+        stamp       = $script:ErrStampWas
+    }
 }
 
 # ---- mail catcher inbox (Mailpit's API on 127.0.0.1:8025) ---------------------
@@ -720,6 +850,7 @@ function Handle-Request($ctx) {
                 missing  = @(Get-MissingParts)
                 services = $svc
                 mail     = Get-MailState
+                errors   = Get-ErrorSummary
                 foreign  = $foreign
                 busy     = $shared.Busy
                 task     = $script:opArg
@@ -737,6 +868,67 @@ function Handle-Request($ctx) {
             $body = Read-Body $req
             if (-not $body) { Send-Error $ctx 400 'Send the settings to change.'; return }
             try { Send-Json $ctx (Set-AppSettings $body) } catch { Send-Error $ctx 400 $_.Exception.Message }
+            return
+        }
+        '^GET /api/errors$' {
+            Send-Json $ctx ([ordered]@{
+                enabled = Get-ErrorCatcherOn
+                ready   = Test-ErrorCatcherReady
+                seen    = Get-ErrSeen
+                groups  = Get-ErrorGroups
+            })
+            return
+        }
+        # Mark as read: one site, or all ("*").
+        '^POST /api/errors/read$' {
+            $site = "$((Read-Body $req).site)"
+            if ($site -and -not (Test-KnownSite $site)) { Send-Error $ctx 404 "No site named '$site'."; return }
+            $seen = Get-ErrSeen
+            $now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+            if ($site) { $seen[$site] = $now } else { $seen = @{ '*' = $now } }
+            Set-ErrSeen $seen
+            Send-Json $ctx @{ ok = $true; seen = $seen }
+            return
+        }
+        # Clear: one site's errors, or every site's.
+        '^POST /api/errors/clear$' {
+            $site = "$((Read-Body $req).site)"
+            if ($site -and $site -notmatch '^[A-Za-z0-9_-]+$') { Send-Error $ctx 400 'Unknown site.'; return }
+            $gone = 0
+            foreach ($f in (Get-ErrFiles)) {
+                if ($site -and ($f.Name -replace '(\.old)?\.jsonl$', '') -ne $site) { continue }
+                try { Remove-Item -LiteralPath $f.FullName -Force -ErrorAction Stop; $gone++ } catch { Write-Log "Couldn't remove logs\errors\$($f.Name): $($_.Exception.Message)" 'err' }
+            }
+            $script:ErrCache = $null
+            Write-Log $(if ($site) { "Cleared the errors caught from $site." } else { 'Cleared all caught errors.' }) 'ok'
+            Send-Json $ctx @{ ok = $true; removed = $gone }
+            return
+        }
+        # Opens the file at the error's line: VS Code when it is here, else the folder with the file selected.
+        '^POST /api/errors/open$' {
+            $id = "$((Read-Body $req).id)"
+            $g = Get-ErrorGroups | Where-Object { $_.id -eq $id } | Select-Object -First 1
+            if (-not $g) { Send-Error $ctx 404 'That error is no longer in the list.'; return }
+            $file = $g.file
+            if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { Write-Log "File not found: $file" 'warn'; Send-Error $ctx 404 "The file isn't there any more."; return }
+            if ($script:VsCode) {
+                Start-Process -FilePath $script:VsCode -ArgumentList '-g', "`"$($file):$($g.line)`""
+                Write-Log "Opened $($g.rel) at line $($g.line) in VS Code"
+            } else {
+                Start-Process explorer.exe "/select,`"$file`""
+                Write-Log "VS Code not found - showed $($g.rel) in its folder (line $($g.line))." 'warn'
+            }
+            Send-Json $ctx @{ ok = $true }
+            return
+        }
+        '^POST /api/errors/enabled$' {
+            $b = Read-Body $req
+            if ($b.on -isnot [bool]) { Send-Error $ctx 400 'Send on: true or false.'; return }
+            $cfg = Split-Path -Parent $script:ErrState
+            if (-not (Test-Path $cfg)) { New-Item -ItemType Directory -Force $cfg | Out-Null }
+            Set-Content -LiteralPath $script:ErrState -Value $(if ($b.on) { 'on' } else { 'off' })
+            Write-Log $(if ($b.on) { 'Error catcher on - PHP errors from every site show on the Errors page.' } else { 'Error catcher off - PHP errors are no longer collected.' }) 'ok'
+            Send-Json $ctx (Get-ErrorSummary)
             return
         }
         '^GET /api/mail/messages$' {

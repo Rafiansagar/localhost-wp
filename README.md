@@ -77,7 +77,7 @@ Every email your sites send (password resets, contact forms, WooCommerce orders)
 - Open it with the **Mail** button next to phpMyAdmin (it shows how many are unread) or **Mail inbox** in the tray. **Stack info** lists its address and version.
 - Each new email pops up a Windows notification with its sender and subject (or "3 new emails" when several arrive together); clicking it opens the inbox. Mail already there when the app starts does not pop up.
 - No plugin and no change to the sites: `php.ini` sends PHP's mail to the catcher (`SMTP = 127.0.0.1`, `smtp_port = 1025`).
-- `scripts\php\mail-catcher.php`, loaded before every request by `php.ini`'s `auto_prepend_file`, makes sure nothing slips out:
+- `scripts\php\mail-catcher.php`, loaded before every request (see [What runs before every request](#what-runs-before-every-request)), makes sure nothing slips out:
   - **SMTP plugins** set to send through Gmail, SendGrid, Brevo and the like are switched to PHP mail with their own constants: `WPMS_ON` / `WPMS_MAILER` (WP Mail SMTP) and `EASY_WP_SMTP_ON` / `EASY_WP_SMTP_MAILER` (Easy WP SMTP). Their settings pages show the mailer as set by a constant; nothing is saved to the database, so the site's real settings stay as they are.
   - Any other plugin that switches WordPress's mailer to SMTP is switched back to PHP mail just before sending.
   - WordPress sends from `wordpress@<site host>`, and for a site on `localhost` it rejects that address itself (no dot). It becomes `wordpress@localhost.test` in that one case; a From address a site or plugin sets is kept.
@@ -87,10 +87,25 @@ Every email your sites send (password resets, contact forms, WooCommerce orders)
 **Turning it off.** The **Mail catcher** panel on **Stack info** has a **Turn off / Turn on** button, and the tray menu has a **Mail catcher** checkbox; both ask first. Off means the stack leaves mail completely alone:
 
 - Mailpit does not run (and is not downloaded on a stack that never had it).
-- `php.ini` gets PHP's defaults back (`SMTP = localhost`, `smtp_port = 25`, empty `auto_prepend_file`), so `mail-catcher.php` is not loaded and SMTP plugins send with their own settings again, to real addresses.
+- `php.ini` gets PHP's defaults back (`SMTP = localhost`, `smtp_port = 25`) and `mail-catcher.php` is no longer loaded, so SMTP plugins send with their own settings again, to real addresses.
 - Mail already in the inbox is kept for when it is turned back on.
 
 PHP reads `php.ini` only when it starts, so switching while the stack runs restarts PHP for about a second; MySQL and Nginx keep running. With the stack stopped, the choice applies at the next start. It is remembered per stack in `config\mail-catcher.txt` (on unless that file says `off`).
+
+### Error catcher
+
+Every PHP error your sites report is collected in one place: **Errors** in the sidebar, and an **Errors** tab on each site's page.
+
+- Errors are grouped: the same message from the same file and line is one row, with how many times it happened, in how many requests, and when it was first and last seen. Fatal errors (including uncaught exceptions, with their stack trace) are marked red, warnings amber.
+- Click a row for the details: the stack trace, the request that caused it (click to open it again), and **Open in VS Code**, which opens the file at that line. Without VS Code, **Show the file** selects it in Explorer.
+- Filter by Fatal, Warnings, Notices or Deprecated, and by site. **Mark all as read** and **Clear** work for the list you are looking at.
+- New fatal errors show as a red count on **Errors** in the sidebar and as "1 fatal" on the site's row in **Sites**. With the window in the background, the tray shows a notification; clicking it opens that error. **Settings > Notifications** turns that off.
+- It only watches. PHP's own handling goes on unchanged, so `debug.log`, errors shown on the page and WordPress's "critical error" page behave exactly as before. It records what PHP reports: with **Debug mode** off WordPress leaves out notices and deprecations, and anything silenced with `@` is not recorded.
+- Stored per site in `logs\errors\<site>.jsonl` (moved to `<site>.old.jsonl` at 4 MB). The **Errors** page has an on/off switch; it applies to the next request, no restart. It is remembered in `config\error-catcher.txt` (on unless that file says `off`).
+
+### What runs before every request
+
+`php.ini`'s `auto_prepend_file` loads `scripts\php\localhost-wp.php` before every PHP request. It loads `error-catcher.php` and `mail-catcher.php`, each unless its `config\<name>.txt` says `off`. Those files are read on every request, so switching a catcher on or off needs no PHP restart. **Start stack** points `php.ini` at it (`scripts\helper\ensure-mail.ps1`), and leaves an `auto_prepend_file` of your own alone.
 
 ---
 
@@ -169,12 +184,14 @@ localhost-wp/
 │  ├─ cp-stack.ps1            Start/Stop/Reload stack logic
 │  ├─ cp-sites.ps1            New site, backup, delete logic
 │  ├─ php/
+│  │  ├─ localhost-wp.php     Loaded before every request; loads the catchers that are on
+│  │  ├─ error-catcher.php    Records PHP errors per site for the Errors page
 │  │  └─ mail-catcher.php     Keeps WordPress mail in the catcher (SMTP plugins, From address)
 │  └─ helper/
 │     ├─ setup.ps1            First-time setup (downloads + configures)
 │     ├─ download.ps1         Download/extract helpers shared by setup
 │     ├─ get-electron.ps1     Portable Electron into electron\ (checksum verified)
-│     ├─ ensure-mail.ps1      Mailpit into mailpit\ and php.ini's mail lines
+│     ├─ ensure-mail.ps1      Mailpit into mailpit\, php.ini's mail lines and auto_prepend_file
 │     ├─ versions.ps1         Reads versions.json, finds PHP builds
 │     ├─ ensure-php-runtime.ps1
 │     ├─ start-php.ps1

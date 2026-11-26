@@ -308,6 +308,25 @@ function mailCheck(mail) {
   notify(title.slice(0, 63), body.slice(0, 255), 'info', () => shell.openExternal('http://localhost:8025'));
 }
 
+// A new fatal error in the error catcher: one notification per error group the
+// first time it shows up new. Clicking opens the Errors page.
+let fatalSeen;   // undefined until the first poll, so errors from before launch stay quiet
+function errorCheck(errors) {
+  if (!errors) return;
+  const f = errors.latestFatal;
+  const key = f ? `${f.id}:${f.last}` : '';
+  const prev = fatalSeen;
+  fatalSeen = key;
+  if (prev === undefined || !f || key === prev) return;
+  if (settings && settings.notifyErrors === false) return;
+  if (win && win.isVisible() && win.isFocused()) return;   // the badge in the window says it
+  const n = errors.fatalNew || 1;
+  notify(`${n > 1 ? `${n} new fatal errors` : 'Fatal error'} on ${f.site}`.slice(0, 63), String(f.msg || '').slice(0, 255), 'err', () => {
+    showWindow();
+    if (win) win.webContents.executeJavaScript(`location.hash = '#errors/${f.id}'`).catch(() => { });
+  });
+}
+
 // ---- taskbar progress and tray colour -----------------------------------------
 function showProgress(st) {
   if (!win) return;
@@ -475,6 +494,7 @@ async function poll() {
   else if (!busy && job && status) { jobDone(job.name, job.task, job.afterSeq); job = null; }
   if (status) lastSeq = status.seq;
   mailCheck(status && status.mail);
+  errorCheck(status && status.errors);
   showProgress(status);
   if (tray) buildMenu();
   pollTimer = setTimeout(poll, busy ? 1000 : 4000);

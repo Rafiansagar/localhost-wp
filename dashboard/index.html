@@ -351,6 +351,36 @@
   .mail .meta span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mail .when { grid-row: 1 / 3; grid-column: 3; align-self: center; font-size: 12.5px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
   .list-foot { padding: 12px 20px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); }
+  /* ---- error catcher ---- */
+  .nav .badge.bad { background: var(--badge); }
+  .cnt.bad { background: color-mix(in srgb, var(--off) 14%, transparent); color: var(--off); }
+  .feed-head .seg button:disabled { opacity: .45; cursor: default; }
+  .feed-head select.pick { height: 30px; padding: 0 28px 0 10px; font-size: 13px; }
+  .list-note { display: flex; align-items: center; gap: 8px; padding: 9px 20px; font-size: 13px; color: var(--wait-text); background: color-mix(in srgb, var(--wait) 9%, transparent); border-bottom: 1px solid var(--line); }
+  .list-note svg { width: 14px; height: 14px; flex: none; }
+  .err { border-bottom: 1px solid var(--line); }
+  .err-row { display: grid; grid-template-columns: 10px 86px minmax(0, 1fr) auto; gap: 4px 12px; align-items: start; width: 100%; padding: 12px 20px 12px 14px; border: 0; background: none; text-align: left; cursor: pointer; color: var(--ink); font: inherit; }
+  .err-row:hover, .err.open .err-row { background: color-mix(in srgb, var(--panel-2) 70%, transparent); }
+  .err-row .dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 7px; }
+  .err.new .err-row .dot { background: var(--action); }
+  .sev { justify-self: start; font-size: 11.5px; font-weight: 600; line-height: 20px; padding: 0 8px; border-radius: 999px; background: var(--panel-2); color: var(--muted); white-space: nowrap; }
+  .sev.fatal { color: var(--off); background: color-mix(in srgb, var(--off) 12%, transparent); }
+  .sev.warning { color: var(--wait-text); background: color-mix(in srgb, var(--wait) 12%, transparent); }
+  .err-row .msg { font-size: 13.5px; font-weight: 500; line-height: 1.45; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .err.new .err-row .msg { font-weight: 650; }
+  .err.open .err-row .msg { display: block; -webkit-line-clamp: unset; white-space: pre-wrap; }
+  .err-row .meta { grid-column: 3; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; font-size: 12.5px; color: var(--muted); min-width: 0; }
+  .err-row .meta code { font-size: 12px; color: var(--ink); overflow-wrap: anywhere; }
+  .err-row .when { grid-column: 4; grid-row: 1 / 3; text-align: right; font-size: 12.5px; color: var(--muted); white-space: nowrap; line-height: 1.6; font-variant-numeric: tabular-nums; }
+  .err-row .times { color: var(--ink); font-weight: 600; }
+  .err-more { display: grid; gap: 12px; padding: 2px 20px 16px 134px; background: color-mix(in srgb, var(--panel-2) 70%, transparent); }
+  .err-more pre { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); font: 11.5px/1.6 var(--mono); color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow: auto; }
+  .err-more dl { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 5px 12px; margin: 0; font-size: 12.5px; }
+  .err-more dt { color: var(--muted); }
+  .err-more dd { margin: 0; overflow-wrap: anywhere; }
+  .err-more dd code { font-size: 12px; }
+  .err-more .btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  @media (max-width: 1180px) { .err-row { grid-template-columns: 10px 78px minmax(0, 1fr) auto; } .err-more { padding-left: 20px; } }
   .chead { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 20px; }
   .chead .grow { flex: 1; min-width: 0; }
   .chead h2 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; }
@@ -474,6 +504,7 @@
   <symbol id="i-code" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 4.5L2 8l3.5 3.5M10.5 4.5L14 8l-3.5 3.5"/></symbol>
   <symbol id="i-backup" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v7M5 7l3 3 3-3M3 12.5h10"/></symbol>
   <symbol id="i-trash" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.5h11M6 4.5V3h4v1.5M4 4.5l.7 8.5h6.6l.7-8.5"/></symbol>
+  <symbol id="i-bug" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="6" height="8.5" rx="3"/><path d="M6.3 5.2a1.7 1.7 0 0 1 3.4 0M8 8.2v5.3M2.5 9H5M11 9h2.5M3.2 5.2l1.9 1.3M12.8 5.2l-1.9 1.3M3.2 13l1.9-1.4M12.8 13l-1.9-1.4"/></symbol>
   <symbol id="i-warn" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5M8 11h.01"/></symbol>
   <symbol id="i-dl" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13.5h10"/></symbol>
   <symbol id="i-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3 3 7-7"/></symbol>
@@ -816,9 +847,14 @@
     const s = st(), mail = s?.mail || {};
     const n = (state.sites || []).length;
     const u = state.mail ? unread() : (mail.unread || 0);
+    const err = s?.errors || {};
+    const errState = err.enabled === false ? '<span class="n off">Off</span>'
+      : err.fatalNew ? `<span class="badge bad" title="${err.fatalNew} new fatal ${err.fatalNew === 1 ? 'error' : 'errors'}">${err.fatalNew > 99 ? '99+' : err.fatalNew}</span>`
+      : err.newCount ? `<span class="n" title="${err.newCount} new">${err.newCount}</span>` : '';
     const mailState = mail.enabled === false ? '<span class="n off">Off</span>' : mail.enabled && !mail.installed ? '<span class="n off">Not set up</span>' : u ? `<span class="badge" title="${u} unread">${u > 99 ? '99+' : u}</span>` : '';
     const html = `<a href="#sites" data-nav="sites"><svg><use href="#i-sites"/></svg>Sites<span class="n">${n || ''}</span></a>
       <h2>Catchers</h2>
+      <a href="#errors" data-nav="errors"><svg><use href="#i-bug"/></svg>Errors${errState}</a>
       <a href="#mail" data-nav="mail"><svg><use href="#i-mail"/></svg>Mail${mailState}</a>`;
     if ($('#navMain').innerHTML !== html) $('#navMain').innerHTML = html;
     markNav();
@@ -966,6 +1002,8 @@
   function siteSignals(s) {
     const out = [];
     if (s.server === 'disabled') return '<span>Disabled</span>';
+    const f = errNewFatal(s.name);
+    if (f) out.push(`<a class="sig bad" href="#site/${encodeURIComponent(s.name)}/errors" title="New fatal errors">${ic('bug', 12)}${f} fatal</a>`);
     const u = unread(s.name);
     if (u) out.push(`<a class="sig new" href="#site/${encodeURIComponent(s.name)}/mail">${ic('mail', 12)}${u} new</a>`);
     if (s.db === 'no') out.push(`<span class="sig warn">No database</span>`);
@@ -992,7 +1030,7 @@
   }
   function renderSiteList(force) {
     const wrap = $('#siteList'); if (!wrap) return;
-    const sig = JSON.stringify([state.sites, state.search, host(), svcs(), busy(), st()?.task, st()?.progress, state.mail && state.mail.messages.map(m => m.site + m.read)]);
+    const sig = JSON.stringify([state.sites, state.search, host(), svcs(), busy(), st()?.task, st()?.progress, state.mail && state.mail.messages.map(m => m.site + m.read), st()?.errors?.fatalBySite]);
     if (!force && wrap.dataset.sig === sig) return;
     wrap.dataset.sig = sig;
     const all = state.sites || [];
@@ -1053,7 +1091,8 @@
       const can = s.port && svcs().nginx && s.server !== 'disabled';
       const dis = can ? '' : `disabled title="${s.server === 'disabled' ? 'This site is disabled' : 'Start the stack first'}"`;
       const pill = s.server === 'live' ? '<span class="pill live"><i></i>Live</span>' : s.server === 'disabled' ? '<span class="pill"><i></i>Disabled</span>' : svcs().nginx ? '<span class="pill warn"><i></i>Not answering</span>' : '<span class="pill"><i></i>Offline</span>';
-      const tabs = [['overview', 'Overview'], ['mail', 'Mail', u]];
+      const eNew = state.errors ? errorsOf(name).filter(errIsNew).length : 0, eFatal = errNewFatal(name);
+      const tabs = [['overview', 'Overview'], ['errors', 'Errors', eFatal || eNew, eFatal ? 'bad' : ''], ['mail', 'Mail', u]];
       let body = '';
       if (tab === 'overview') {
         const info = siteInfo[name];
@@ -1116,12 +1155,13 @@
         </div>`;
       }
       if (tab === 'mail') body = mailFeed(name);
+      if (tab === 'errors') body = errorsFeed(name);
       return {
         html: `<a class="back" href="#sites">${ic('left', 12)}Sites</a>
           <div class="phead"><h2>${esc(name)}</h2>${pill}
             <span class="push"><button class="btn" data-a="site" ${dis}>${ic('ext', 15)}Open site</button><button class="btn" data-a="admin" ${dis}>${ic('wp', 15)}WP admin</button><button class="icon-btn" data-a="more" aria-haspopup="menu" aria-expanded="false" aria-label="More actions for ${esc(name)}">${ic('more', 16)}</button></span>
             <div class="sub">${s.port ? `<span class="addr-line">${can ? `<button class="addr-link" data-a="site" title="Open site">${esc(siteUrl(s.port))}</button>` : `<code>${esc(siteUrl(s.port))}</code>`}<button class="copy" data-copy="${esc(siteUrl(s.port))}" title="Copy address" aria-label="Copy address">${ic('copy', 14)}</button></span>` : ''}<span>${esc(siteSub(s))}</span></div></div>
-          <div class="tabs2" role="tablist" aria-label="${esc(name)}">${tabs.map(([k, l, n]) => `<button role="tab" data-tab="${k}" id="tab-${k}" aria-selected="${k === tab}" tabindex="${k === tab ? 0 : -1}" aria-controls="tabpanel">${l}${n ? `<span class="cnt">${n}</span>` : ''}</button>`).join('')}</div>
+          <div class="tabs2" role="tablist" aria-label="${esc(name)}">${tabs.map(([k, l, n, c]) => `<button role="tab" data-tab="${k}" id="tab-${k}" aria-selected="${k === tab}" tabindex="${k === tab ? 0 : -1}" aria-controls="tabpanel">${l}${n ? `<span class="cnt ${c || ''}">${n}</span>` : ''}</button>`).join('')}</div>
           <div role="tabpanel" id="tabpanel" aria-labelledby="tab-${tab}">${body}</div>`,
         after() {
           for (const b of $$('[data-a]', $('#pageInner'))) b.onclick = e => { e.preventDefault(); if (!b.disabled) siteAction(b.dataset.a, s, b); };
@@ -1143,6 +1183,22 @@
             await pullLog(); renderPage(true);
           };
           wireMail(name);
+          wireErrors(name);
+        },
+      };
+    },
+    errors(focus) {
+      const e = st()?.errors || {};
+      // #errors/<id> (a notification, a link) opens that error.
+      if (focus && !errOpen.has(focus) && errorsOf(null).some(g => g.id === focus)) { errOpen.add(focus); errSite = ''; errFilter = 'all'; }
+      const status = e.enabled === false ? 'Off. PHP errors are not collected.' : 'Every PHP error your sites report, grouped, with the file and line to open.';
+      return {
+        html: `<div class="chead"><div class="grow"><h2 id="errTitle">Error catcher</h2><p>${esc(status)}</p></div>
+            <span class="sw">${e.enabled === false ? 'Off' : 'On'}<button class="switch" role="switch" aria-checked="${e.enabled !== false}" aria-labelledby="errTitle" data-err-act="toggle" ${e.enabled == null ? 'disabled' : ''}></button></span></div>
+          ${errorsFeed(null)}`,
+        after() {
+          wireErrors(null);
+          if (focus) $(`[data-err="${CSS.escape(focus)}"]`)?.scrollIntoView({ block: 'center' });
         },
       };
     },
@@ -1220,6 +1276,7 @@
               ${row('s-host', 'Open site links using', 'The network address works from your phone or another device on the same network', `<select class="pick" id="hostSel" aria-labelledby="s-host">${state.hosts.map(h => `<option value="${esc(h)}" ${h === host() ? 'selected' : ''}>${h === 'localhost' ? 'This PC (localhost)' : `Network address (${esc(h)})`}</option>`).join('')}</select>`)}</div>
             <div class="opt-group" id="g-Notifications"><h3>Notifications</h3>
               ${IS_APP ? '<p>Shown from the tray icon, only while the window is not in front.</p>' : '<p>These need the localhost-wp app (localhost-wp.exe).</p>'}
+              ${row('s-notifyErrors', 'A new fatal error in the error catcher', '', sw('notifyErrors', cfg.notifyErrors, appOnly))}
               ${row('s-notifyMail', 'New mail in the mail catcher', '', sw('notifyMail', cfg.notifyMail, appOnly))}
               ${row('s-notifyJobs', 'A job finished (start, stop, new site, backup)', '', sw('notifyJobs', cfg.notifyJobs, appOnly))}</div>
             <div class="opt-group" id="g-Appearance"><h3>Appearance</h3>
@@ -1270,6 +1327,97 @@
       try { await navigator.clipboard.writeText(b.dataset.copy); } catch { return; }
       b.innerHTML = ic('check', 15); b.dataset.done = '';
       setTimeout(() => { b.innerHTML = ic('copy', 15); delete b.dataset.done; }, 1400);
+    };
+  }
+
+  // ---- error catcher (Errors page and a site's Errors tab share it) ----
+  const SEV = { fatal: 'Fatal', warning: 'Warning', notice: 'Notice', deprecated: 'Deprecated' };
+  let errFilter = (() => { try { return localStorage.getItem('cp-err-filter') || 'all'; } catch { return 'all'; } })();
+  let errSite = '';            // site picked on the Errors page
+  let errClearAsk = false;     // Clear waits for its confirm
+  const errOpen = new Set();   // expanded rows, by id
+  const errorsOf = site => (state.errors?.groups || []).filter(g => !site || g.site === site);
+  const errIsNew = g => g.last > Math.max(state.errors?.seen?.['*'] || 0, state.errors?.seen?.[g.site] || 0);
+  const errNewFatal = site => site ? (st()?.errors?.fatalBySite?.[site] || 0) : (st()?.errors?.fatalNew || 0);
+  async function loadErrors(force) {
+    const e = st()?.errors; if (!e) return;
+    const sig = `${e.stamp}|${e.newCount}|${e.fatalNew}|${e.enabled}`;
+    if (!force && state.errors && sig === state.errSig) return;
+    state.errSig = sig;
+    try { state.errors = await call('GET', '/api/errors'); } catch { return; }
+    renderNav(); renderPage();
+  }
+  function errorsFeed(site) {
+    const e = st()?.errors;
+    const empty = (icon, h, p, btn = '') => `<div class="card"><div class="empty"><span class="ico">${ic(icon, 20)}</span><h3>${h}</h3><p>${p}</p>${btn}</div></div>`;
+    if (e && e.enabled === false) return empty('bug', 'The error catcher is off', 'Turn it on to collect the PHP errors from every site in one place: grouped, counted, with the file and line to open.', '<button class="btn primary" data-err-act="on">Turn on</button>');
+    if (!state.errors) return '<div class="card"><div class="empty"><span class="skel" style="width:240px"></span></div></div>';
+    const scope = site || errSite;
+    if (errSite && !site && !errorsOf(errSite).length) errSite = '';
+    const all = errorsOf(scope);
+    const counts = { all: all.length, fatal: 0, warning: 0, notice: 0, deprecated: 0 };
+    for (const g of all) counts[g.sev]++;
+    const filter = errFilter !== 'all' && !counts[errFilter] ? 'all' : errFilter;
+    const list = filter === 'all' ? all : all.filter(g => g.sev === filter);
+    const nNew = all.filter(errIsNew).length;
+    const seg = `<div class="seg" role="group" aria-label="Show">${[['all', 'All'], ['fatal', 'Fatal'], ['warning', 'Warnings'], ['notice', 'Notices'], ['deprecated', 'Deprecated']]
+      .map(([k, l]) => `<button data-err-filter="${k}" aria-pressed="${filter === k}" ${k !== 'all' && !counts[k] ? 'disabled' : ''}>${l}<span class="n">${counts[k]}</span></button>`).join('')}</div>`;
+    const sites = [...new Set(errorsOf(null).map(g => g.site))].sort();
+    const pick = site || sites.length < 2 ? '' : `<select class="pick" data-err-site aria-label="Site"><option value="">All sites</option>${sites.map(n => `<option value="${esc(n)}" ${n === errSite ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>`;
+    const clear = errClearAsk
+      ? `<span class="confirm">Delete ${all.length} ${all.length === 1 ? 'error' : 'errors'}${scope ? ` from ${esc(scope)}` : ''}?<button class="btn sm danger" data-err-act="clear-yes">Delete</button><button class="btn quiet sm" data-err-act="clear-no">Cancel</button></span>`
+      : `<button class="btn quiet sm" data-err-act="clear" ${all.length ? '' : 'disabled'}>Clear</button>`;
+    const head = `<div class="feed-head">${all.length ? seg : `<span>No errors</span>`}${pick}<span class="spacer"></span>${site ? '<a class="link" href="#errors">All sites</a>' : ''}
+      <button class="btn quiet sm" data-err-act="read" ${nNew ? '' : 'disabled'}>Mark all as read</button><span class="clear-slot">${clear}</span></div>`;
+    const note = e && !e.ready ? `<div class="list-note">${ic('warn', 14)}<span>${svcs().php ? 'Stop and start the stack once: PHP picks up the error catcher when it starts.' : 'Catching starts with the next Start stack.'}</span></div>` : '';
+    const rows = list.length ? list.map(g => errRow(g, !!site)).join('')
+      : `<div class="empty"><span class="ico">${ic('check', 20)}</span><h3>No PHP errors</h3><p>${scope ? `${esc(scope)} hasn't reported any.` : "None of your sites has reported any."} New ones show up here as they happen.</p></div>`;
+    const foot = `<div class="list-foot">Shows what PHP reports. With Debug mode off, WordPress leaves out notices and deprecations: turn it on ${site ? 'under Overview, Debugging' : "from a site's page"} to see them too.</div>`;
+    return `<div class="card feed-card">${head}${note}<div class="feed-list">${rows}${foot}</div></div>`;
+  }
+  function errRow(g, hideSite) {
+    const open = errOpen.has(g.id), when = new Date(g.last * 1000);
+    const s = (state.sites || []).find(x => x.name === g.site);
+    const url = g.url && s?.port && svcs().nginx ? siteUrl(s.port, g.url) : '';
+    return `<div class="err ${errIsNew(g) ? 'new' : ''} ${open ? 'open' : ''}" data-err="${g.id}">
+      <button class="err-row" data-err-toggle aria-expanded="${open}"><span class="dot"></span><span class="sev ${g.sev}">${SEV[g.sev]}</span><span class="msg">${esc(g.msg)}</span>
+        <span class="when" title="${esc(when.toLocaleString())}">${esc(timeAgo(when))}${g.times > 1 ? `<br><span class="times" title="${g.times} times in ${g.requests} ${g.requests === 1 ? 'request' : 'requests'}">×${g.times > 9999 ? '9999+' : g.times}</span>` : ''}</span>
+        <span class="meta">${hideSite ? '' : `<span class="site-tag">${esc(g.site)}</span>`}<code>${esc(g.rel)}:${g.line}</code></span></button>
+      ${open ? `<div class="err-more">
+        ${g.trace ? `<pre>${esc(g.trace)}</pre>` : ''}
+        <dl><dt>Type</dt><dd>${esc(g.typeName)}</dd>
+          <dt>Happened</dt><dd>${g.times} ${g.times === 1 ? 'time' : 'times'} in ${g.requests} ${g.requests === 1 ? 'request' : 'requests'}</dd>
+          <dt>First</dt><dd>${esc(fmtWhen(new Date(g.first * 1000)))}</dd><dt>Last</dt><dd>${esc(fmtWhen(when))}</dd>
+          ${g.url ? `<dt>Request</dt><dd>${esc(g.method)} ${url ? `<button class="link" data-err-url="${esc(url)}">${esc(g.url)}</button>` : esc(g.url)}</dd>` : ''}
+          <dt>File</dt><dd><code>${esc(g.file)}</code> line ${g.line}</dd></dl>
+        <div class="btns"><button class="btn sm" data-err-open="${g.id}">${ic('code', 14)}${state.vscode ? 'Open in VS Code' : 'Show the file'}</button><button class="btn sm quiet" data-err-copy="${g.id}">${ic('copy', 14)}Copy</button></div>
+      </div>` : ''}</div>`;
+  }
+  function wireErrors(site) {
+    const root = $('#pageInner');
+    fitFeed();
+    const scope = () => site || errSite || undefined;
+    for (const b of $$('[data-err-toggle]', root)) b.onclick = () => { const id = b.closest('[data-err]').dataset.err; errOpen.has(id) ? errOpen.delete(id) : errOpen.add(id); renderPage(true); $(`[data-err="${id}"] [data-err-toggle]`)?.focus(); };
+    for (const b of $$('[data-err-filter]', root)) b.onclick = () => { errFilter = b.dataset.errFilter; try { localStorage.setItem('cp-err-filter', errFilter); } catch { } renderPage(true); };
+    const pick = $('[data-err-site]', root);
+    if (pick) pick.onchange = () => { errSite = pick.value; errClearAsk = false; renderPage(true); };
+    for (const b of $$('[data-err-open]', root)) b.onclick = () => act('POST', '/api/errors/open', { id: b.dataset.errOpen });
+    for (const b of $$('[data-err-url]', root)) b.onclick = () => openUrl(b.dataset.errUrl);
+    for (const b of $$('[data-err-copy]', root)) b.onclick = async () => {
+      const g = errorsOf(null).find(x => x.id === b.dataset.errCopy); if (!g) return;
+      try { await navigator.clipboard.writeText(`${g.typeName}: ${g.msg}\n${g.file}:${g.line}${g.trace ? '\n' + g.trace : ''}`); toast('Copied'); } catch { }
+    };
+    for (const b of $$('[data-err-act]', root)) b.onclick = async () => {
+      const a = b.dataset.errAct;
+      if (a === 'clear') { errClearAsk = true; renderPage(true); $('[data-err-act="clear-no"]')?.focus(); return; }
+      if (a === 'clear-no') { errClearAsk = false; renderPage(true); return; }
+      b.disabled = true;
+      try {
+        if (a === 'read') await call('POST', '/api/errors/read', { site: scope() });
+        if (a === 'clear-yes') { errClearAsk = false; await call('POST', '/api/errors/clear', { site: scope() }); errOpen.clear(); toast('Cleared'); }
+        if (a === 'toggle' || a === 'on') await call('POST', '/api/errors/enabled', { on: a === 'on' || b.getAttribute('aria-checked') !== 'true' });
+      } catch (e) { localLog(e.message); }
+      await pullLog(); await tick(); await loadErrors(true);
     };
   }
 
@@ -1385,7 +1533,7 @@
     const key = `${page}/${a || ''}/${b || ''}/${st()?.setup}`;
     const s = st();
     if (page === 'site' && a) loadSiteInfo(a);   // before the early returns, so it keeps refreshing
-    const dataSig = JSON.stringify([key, page === 'sites' ? '' : state.sites, s && [s.services, s.mail, s.busy, s.setup, s.missing], page === 'mail' || page === 'site' ? state.mail : '', page === 'stack' ? state.info : '', page === 'site' ? siteInfo[a] || '' : '', page === 'settings' ? !!(state.settings || s?.settings) : '', host()]);
+    const dataSig = JSON.stringify([key, page === 'sites' ? '' : state.sites, s && [s.services, s.mail, s.busy, s.setup, s.missing], page === 'mail' || page === 'site' ? state.mail : '', page === 'errors' || page === 'site' ? [state.errors, s?.errors?.enabled, s?.errors?.ready, s?.errors?.fatalBySite] : '', page === 'stack' ? state.info : '', page === 'site' ? siteInfo[a] || '' : '', page === 'settings' ? !!(state.settings || s?.settings) : '', host()]);
     if (!force && key === pageKey && pageObj?.refresh) { pageObj.refresh(); return; }
     if (!force && renderPage.sig === dataSig) return;
     renderPage.sig = dataSig;
@@ -1393,6 +1541,7 @@
     let obj;
     if (page === 'site') obj = PAGES.site(a, b || 'overview');
     else if (page === 'settings') obj = PAGES.settings(a);
+    else if (page === 'errors') obj = PAGES.errors(a);
     else obj = (PAGES[page] || PAGES.sites)();
     if (s && !s.setup && page !== 'settings' && page !== 'stack') obj = setupPage();
     $('#page').onscroll = null; $('#page').onwheel = null; $('#page').onkeydown = null;
@@ -1404,6 +1553,7 @@
     markNav();
     if (page === 'stack' && !state.info) loadInfo();
     if ((page === 'mail' || page === 'site') && !state.mail) loadMail();
+    if ((page === 'errors' || page === 'site') && !state.errors) loadErrors();
   }
   window.addEventListener('hashchange', () => { closeMenu(); renderPage(true); try { localStorage.setItem('cp-route', location.hash); } catch { } });
 
@@ -1461,6 +1611,7 @@
       if ((prev?.busy && !s.busy) || sig !== state.siteSig || !state.sites) { state.siteSig = sig; await loadSites(); }
       if (prev?.busy && !s.busy) { state.info = null; for (const k in siteInfoAt) siteInfoAt[k] = 0; }
       await loadMail();
+      if (state.errors || ['errors', 'site'].includes(parseRoute().page)) await loadErrors();
       renderPage();
     } catch (e) {
       if (e.status === 403) return location.reload();   // the server restarted with a new token
@@ -1524,6 +1675,7 @@
       ['Actions', 'Open mail inbox', 'mail', () => doAction('inbox'), '', 'mailpit', !st()?.mail?.running],
       ['Actions', 'Switch theme', 'gear', () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'), '', 'dark light'],
       ['Go to', 'Sites', 'sites', () => { location.hash = '#sites'; }],
+      ['Go to', 'Errors', 'bug', () => { location.hash = '#errors'; }, '', 'php error catcher fatal warning'],
       ['Go to', 'Mail', 'mail', () => { location.hash = '#mail'; }],
       ['Go to', 'Stack', 'stack', () => { location.hash = '#stack'; }],
       ['Go to', 'Settings', 'gear', () => { location.hash = '#settings'; }],

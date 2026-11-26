@@ -1,5 +1,6 @@
 <?php
-// localhost-wp: loaded before every PHP request (php.ini auto_prepend_file).
+// localhost-wp mail catcher, loaded by localhost-wp.php before every request
+// while the mail catcher is on.
 // Makes sure WordPress mail ends up in the mail catcher (http://localhost:8025)
 // and never goes out for real. Scripts that are not WordPress ignore all of it.
 //
