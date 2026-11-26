@@ -45,6 +45,7 @@ let tray = null;
 let port = 0;
 let token = '';
 let quitting = false;
+let serverProc = null;         // the dashboard server (server.ps1) this app started
 let hintShown = false;
 let status = null;
 let settings = null;          // config\app-settings.json, read through the dashboard API
@@ -60,6 +61,7 @@ function startServer() {
       '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', SERVER,
       '-Base', BASE, '-NoWindow', '-ParentPid', String(process.pid),
     ], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    serverProc = ps;
 
     let out = '', err = '';
     const timer = setTimeout(() => reject(new Error('The dashboard server did not answer within 30 seconds.')), 30000);
@@ -502,9 +504,20 @@ async function stopAndQuit() {
   quit();
 }
 
+// Quitting always ends the process: the dashboard server and the tray icon go
+// first, and if Electron has not exited 3 s after app.quit() (a pending handle
+// can keep it alive with no window and no tray), it is ended outright.
 function quit() {
   quitting = true;
+  stopServer();
+  try { if (tray) { tray.destroy(); tray = null; } } catch { }
   app.quit();
+  setTimeout(() => app.exit(0), 3000);
+}
+
+function stopServer() {
+  if (!serverProc || serverProc.exitCode !== null) return;
+  try { serverProc.kill(); } catch { }
 }
 
 // ---- start -----------------------------------------------------------------
@@ -514,6 +527,9 @@ if (!app.requestSingleInstanceLock()) {
   app.on('second-instance', showWindow);
   app.on('window-all-closed', () => { if (quitting) app.quit(); });
   app.on('before-quit', () => { quitting = true; });
+  // However the app ends (tray Quit, closing, Windows sign-out), its dashboard server ends with it.
+  app.on('will-quit', stopServer);
+  app.on('quit', stopServer);
 
   app.whenReady().then(async () => {
     try {
