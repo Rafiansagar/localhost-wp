@@ -1520,10 +1520,14 @@
     else if (!o.enabled) out.push(`<div class="row"><span class="k">OPcache</span><span class="meta">Not running in PHP right now.${wantOn ? ' It starts with PHP\'s next start: Stop and Start the stack.' : ''}</span></div>`);
     else {
       const pct = o.memory ? Math.round(100 * (o.used + o.wasted) / o.memory) : 0;
-      const rate = o.hits + o.misses ? Math.round(100 * o.hits / (o.hits + o.misses)) : 0;
       const mb = n => Math.round(n / 1048576);
-      out.push(`<div class="row"><span class="k">OPcache</span><span class="bar"><i class="${o.full || pct >= 95 ? 'warn' : ''}" style="width:${pct}%"></i></span><span>${mb(o.used + o.wasted)} of ${mb(o.memory)} MB · ${o.files.toLocaleString()} of ${o.maxFiles.toLocaleString()} files · ${rate}% from cache</span><button class="btn quiet sm" data-tune-clear>Clear cache</button></div>`);
-      if (o.full) out.push(`<div class="row"><span class="k"></span><span class="warn-t">The cache is full, so new files aren't cached. Raise OPcache memory or max files.</span></div>`);
+      const tight = o.full || pct >= 90 || o.files >= 0.9 * o.maxFiles;
+      const what = o.files > 1
+        ? `<b>Working</b> · ${o.files.toLocaleString()} files kept ready · ${mb(o.used + o.wasted)} of ${mb(o.memory)} MB used`
+        : `<b>Ready</b> · it fills up as you open site pages`;
+      const tip = 'PHP compiles each file once and keeps it in memory, so later page loads skip that work. It only takes more room for files PHP has not seen before, like a new site or plugin.';
+      out.push(`<div class="row" title="${tip}"><span class="k">OPcache</span><span class="bar"><i class="${tight ? 'warn' : ''}" style="width:${pct}%"></i></span><span>${what}</span><button class="btn quiet sm" data-tune-clear>Clear cache</button></div>`);
+      if (tight) out.push(`<div class="row"><span class="k"></span><span class="warn-t">${o.full ? "Out of room, so new files aren't kept." : 'Almost out of room.'} Raise OPcache memory or max files in <a class="link" href="#settings/php">Settings</a>.</span></div>`);
     }
     return out.join('');
   }
