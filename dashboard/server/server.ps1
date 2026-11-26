@@ -904,6 +904,58 @@ function Send-Json($ctx, $obj, [int]$code = 200) {
 
 function Send-Error($ctx, [int]$code, [string]$msg) { Send-Json $ctx @{ error = $msg } $code }
 
+# ---- PHP & MySQL settings (Stack page) ---------------------------------------
+# What was changed (config\php-tuning.json), the stack's own values (php.ini,
+# my.ini; read again only when one of them changes) and the allowed choices.
+$script:tuneStock = $null
+$script:tuneStockKey = ''
+function Get-TuningView {
+    $stamp = foreach ($f in 'php\php.ini', 'mysql\my.ini') {
+        $i = Get-Item -LiteralPath (Join-Path $script:BASE $f) -ErrorAction SilentlyContinue
+        if ($i) { $i.LastWriteTimeUtc.Ticks } else { 0 }
+    }
+    $stamp = $stamp -join '|'
+    if (-not $script:tuneStock -or $script:tuneStockKey -ne $stamp) {
+        $script:tuneStock = Get-TuningStock $script:BASE
+        $script:tuneStockKey = $stamp
+    }
+    $options = [ordered]@{}
+    foreach ($k in $script:TuningSpec.Keys) { $options[$k] = @($script:TuningSpec[$k]) }
+    [ordered]@{ set = Get-Tuning $script:BASE; stock = $script:tuneStock; options = $options }
+}
+
+# Asks a PHP worker through phpMyAdmin's port (localhost-wp.php answers before
+# phpMyAdmin runs). $null when PHP doesn't answer within 1.5 s, which is
+# itself the sign that every worker is busy.
+function Invoke-PhpStatus([string]$what) {
+    $port = (Get-Ports).pma
+    try {
+        $r = [Net.HttpWebRequest]::Create("http://127.0.0.1:$port/index.php?__localhost_wp=$what")
+        $r.Timeout = 1500; $r.ReadWriteTimeout = 1500; $r.Proxy = $null; $r.KeepAlive = $false
+        $r.Host = "localhost:$port"
+        $res = $r.GetResponse()
+        try { $txt = (New-Object IO.StreamReader($res.GetResponseStream())).ReadToEnd() } finally { $res.Close() }
+        return $txt | ConvertFrom-Json
+    } catch { return $null }
+}
+
+# Live numbers: PHP workers (busy = open connections from Nginx to PHP's port)
+# and OPcache as the workers see it.
+function Get-TuningLive {
+    $out = [ordered]@{ php = $null; opcache = $null; answered = $false }
+    $procs = @(Get-StackProc 'php-cgi')
+    if (-not $procs.Count) { return $out }
+    if (Test-Proc 'nginx') {
+        $o = Invoke-PhpStatus 'status'
+        if ($o) { $out.answered = $true; $out.opcache = $o }
+    }
+    $ids = @($procs | ForEach-Object { $_.Id })
+    $phpPort = (Get-Ports).php
+    $busy = @(Get-NetTCPConnection -LocalPort $phpPort -State Established -ErrorAction SilentlyContinue | Where-Object { $ids -contains $_.OwningProcess }).Count
+    $out.php = [ordered]@{ workers = [math]::Max(1, $procs.Count - 1); busy = $busy }
+    return $out
+}
+
 function Read-Body($req) {
     if (-not $req.HasEntityBody) { return $null }
     $sr = New-Object System.IO.StreamReader($req.InputStream, [System.Text.Encoding]::UTF8)
@@ -1200,6 +1252,31 @@ function Handle-Request($ctx) {
             $body = Read-Body $req
             if (-not $body -or $body.on -isnot [bool]) { Send-Error $ctx 400 'Send { "on": true } or { "on": false }.'; return }
             Send-Started $ctx $(if ($body.on) { 'mail-on' } else { 'mail-off' })
+            return
+        }
+        '^GET /api/tuning$' { Send-Json $ctx (Get-TuningView); return }
+        '^GET /api/tuning/live$' { Send-Json $ctx (Get-TuningLive); return }
+        # One setting: { key, value } saves it, { key, value: null } goes back to the
+        # stack's own value. Saved first, then put into effect by the worker.
+        '^POST /api/tuning$' {
+            $b = Read-Body $req
+            $k = "$($b.key)"
+            if (-not $script:TuningSpec.Contains($k)) { Send-Error $ctx 400 "No setting named '$k'."; return }
+            $v = $null
+            if ($null -ne $b.value) {
+                $v = Test-TuningValue $k $b.value
+                if ($null -eq $v) { Send-Error $ctx 400 "'$($b.value)' is not one of the choices for $k."; return }
+            }
+            if ($shared.Busy) { Send-Error $ctx 409 "Busy with '$($shared.Busy)'. Wait for it to finish."; return }
+            Set-TuningValue $script:BASE $k $v
+            Send-Started $ctx 'tuning' $k
+            return
+        }
+        '^POST /api/tuning/opcache-reset$' {
+            $o = Invoke-PhpStatus 'opcache-reset'
+            if (-not $o) { Send-Error $ctx 409 "PHP didn't answer. Start the stack, or wait until PHP isn't busy."; return }
+            Write-Log 'OPcache cleared - pages compile their PHP files again on the next visit.' 'ok'
+            Send-Json $ctx @{ ok = $true; opcache = $o }
             return
         }
         '^POST /api/sites$' {

@@ -4,6 +4,9 @@
 #  (Start Stack / Stop Stack will be added here.)
 # ============================================================================
 
+# The Stack page's PHP & MySQL settings (config\php-tuning.json).
+. (Join-Path $PSScriptRoot 'helper\tuning.ps1')
+
 # ---- REAL stack status (read-only) -----------------------------------------
 function Update-Status {
     $procOf = @{ MySQL = 'mysqld'; PHP = 'php-cgi'; Nginx = 'nginx' }
@@ -104,7 +107,11 @@ function Start-Stack {
             & $mysqld --defaults-file="$myIni" --initialize-insecure 2>&1 | Out-Null
         }
         Write-Log '  Starting MySQL...' ; Flush-UI
-        Start-Process -FilePath $mysqld -ArgumentList "--defaults-file=`"$myIni`"", '--console' -WorkingDirectory (Split-Path $mysqld) -WindowStyle Hidden
+        $mysqlArgs = @("--defaults-file=`"$myIni`"", '--console')
+        # MySQL cache size from the Stack page, over my.ini's (my.ini itself is left alone).
+        $tuning = Get-Tuning $script:BASE
+        if ($tuning.Contains('mysqlBuffer')) { $mysqlArgs += "--innodb-buffer-pool-size=$($tuning.mysqlBuffer)M" }
+        Start-Process -FilePath $mysqld -ArgumentList $mysqlArgs -WorkingDirectory (Split-Path $mysqld) -WindowStyle Hidden
         $ready = $false
         for ($i = 0; $i -lt 20 -and -not $ready; $i++) {
             & $mysqladmin --protocol=TCP --host=127.0.0.1 --port=3307 -u root ping --silent 2>$null | Out-Null
@@ -127,9 +134,12 @@ function Start-Stack {
         Start-Sleep -Milliseconds 800 ; Flush-UI
     }
 
-    # Nginx
+    # Nginx: upload limit from the Stack page, error logs into real files.
+    $nginxConfChanged = $false
+    try { $nginxConfChanged = Update-NginxTuning $script:BASE } catch { Write-Log "  Nginx config not updated: $($_.Exception.Message)" 'warn' }
     if (Test-Proc 'nginx') {
         Write-Log '  Nginx already running.'
+        if ($nginxConfChanged) { Invoke-NginxReload | Out-Null }
     } else {
         Write-Log '  Starting Nginx...' ; Flush-UI
         try {
@@ -216,6 +226,41 @@ function Set-MailCatcher([bool]$On) {
         if (@(Get-StackProc 'mailpit').Count) { Stop-StackProc 'mailpit'; Write-Log '  Mail catcher stopped.' }
         Write-Log 'Mail catcher off - sites send mail the normal way again (SMTP plugins included).' 'ok'
     }
+}
+
+# The Stack page's PHP & MySQL card saved one setting in config\php-tuning.json;
+# this puts it into effect on the running stack. With the stack stopped, the
+# next Start does it. PHP restarts for about a second; MySQL resizes its cache
+# while it runs; Nginx reloads for the upload limit.
+function Set-StackTuning([string]$key) {
+    $t = Get-Tuning $script:BASE
+    $label = @{ opcache = 'OPcache'; opcacheMemory = 'OPcache memory'; opcacheFiles = 'OPcache max files'; workers = 'PHP workers'
+                memoryLimit = 'PHP memory limit'; uploadMax = 'Max upload size'; maxExecution = 'Max execution time'; mysqlBuffer = 'MySQL cache' }[$key]
+    if (-not $label) { Write-Log "Unknown setting '$key'." 'err'; return }
+    if ($t.Contains($key)) { Write-Log "$label set to $(Format-TuningValue $key $t[$key])." }
+    else { Write-Log "$label back to the stack's own value ($(Format-TuningValue $key (Get-TuningStock $script:BASE)[$key]))." }
+
+    if ($key -eq 'uploadMax') {
+        $changed = Update-NginxTuning $script:BASE -ResetBody:(-not $t.Contains('uploadMax'))
+        if ($changed -and (Test-Proc 'nginx')) { Invoke-NginxReload | Out-Null }
+    }
+
+    if ($key -eq 'mysqlBuffer') {
+        if (-not (Test-Proc 'mysqld')) { Write-Log '  MySQL is stopped - it uses this when the stack starts.' 'ok'; return }
+        $mb = if ($t.Contains('mysqlBuffer')) { $t.mysqlBuffer } else { (Get-TuningStock $script:BASE).mysqlBuffer }
+        $out = & $script:MysqlExe --protocol=TCP --host=127.0.0.1 --port=3307 -u root -e "SET GLOBAL innodb_buffer_pool_size = $([long]$mb * 1MB)" 2>&1
+        if ($LASTEXITCODE -eq 0) { Write-Log "  MySQL is resizing its cache to $(Format-TuningValue 'mysqlBuffer' $mb) now, no restart needed." 'ok' }
+        else { Write-Log "  MySQL did not take it: $("$out".Trim()) - it is used from the next stack start." 'err' }
+        return
+    }
+
+    if (-not (Test-Proc 'php-cgi')) { Write-Log '  PHP is stopped - it uses this when the stack starts.' 'ok'; return }
+    Write-Log '  Restarting PHP so it reads the new setting...' ; Flush-UI
+    Stop-StackProc 'php-cgi'
+    Invoke-Helper 'start-php.ps1' @{ PhpCgi = (Join-Path $script:BASE 'php\php-cgi.exe') } | Out-Null
+    Start-Sleep -Milliseconds 800
+    if (Test-Proc 'php-cgi') { Write-Log '  PHP restarted with the new setting.' 'ok' }
+    else { Write-Log '  PHP did not come back up - use Start stack.' 'err' }
 }
 
 # Nginx's own "stop" makes the master end its workers. Killing them one by one

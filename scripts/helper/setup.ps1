@@ -113,8 +113,7 @@ foreach ($ext in @("curl","exif","fileinfo","gd","gd2","intl","mbstring","mysqli
 }
 $ini = $ini -replace "upload_max_filesize = 2M","upload_max_filesize = 64M"
 $ini = $ini -replace "post_max_size = 8M","post_max_size = 64M"
-$ini = $ini -replace "max_execution_time = 30","max_execution_time = 120"
-$ini = $ini -replace "memory_limit = 128M","memory_limit = 256M"
+# memory_limit (128M) and max_execution_time (30) stay PHP's own; the Stack page's PHP & MySQL card changes them.
 Set-Content "$Base\php\php.ini" $ini
 OK "php.ini configured."
 
@@ -164,8 +163,8 @@ Step "Writing Nginx configs..."
 @"
 worker_processes  1;
 
-error_log  off;
-pid        "$BaseSlash/nginx/logs/nginx.pid";
+error_log  logs/error.log;
+pid       "$BaseSlash/nginx/logs/nginx.pid";
 
 events {
     worker_connections  1024;
@@ -244,7 +243,7 @@ server {
     root "$BaseSlash/phpmyadmin";
     index index.php;
     access_log  off;
-    error_log   off;
+    error_log   "$BaseSlash/logs/nginx/phpmyadmin-error.log";
     location / { try_files `$uri `$uri/ =404; }
     location ~ \.php$ {
         try_files `$uri =404;

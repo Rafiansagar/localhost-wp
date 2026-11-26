@@ -460,6 +460,18 @@
   .svc-card .top i.on { background: var(--on); } .svc-card .top i.wait { background: var(--wait); } .svc-card .top i.bad { background: var(--off); }
   .svc-card .st { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
   .svc-card .ver { font: 12px var(--mono); color: var(--muted); }
+  .tune { padding: 0 20px; }
+  .tune .opt .chg { display: block; margin-top: 3px; font-size: 12.5px; color: var(--wait-text); }
+  .tune .opt .chg .link { font-size: 12.5px; }
+  .tune-busy { opacity: .55; }
+  .tune-live { display: grid; gap: 8px; padding: 14px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .tune-live .row { display: flex; align-items: center; gap: 6px 12px; flex-wrap: wrap; min-height: 26px; }
+  .tune-live .k { width: 96px; flex: none; color: var(--muted); }
+  .tune-live .bar { width: 140px; }
+  .tune-live .btn { margin-left: auto; }
+  .bar i.warn { background: var(--wait); }
+  .warn-t { color: var(--wait-text); }
+  .tune-foot { margin: 0; padding: 12px 0 14px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
   .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
   .two .card { padding: 12px 20px 8px; }
   .two h3 { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
@@ -1311,6 +1323,8 @@
         html: `<div class="phead"><h2>Stack</h2><div class="sub">${info?.release ? `Release ${esc(info.release)}` : ''}<span>${esc(info?.base || '')}</span></div></div>
           <h3 class="section-title first">Services</h3>
           <div class="svc-grid">${card('mysql', 'MySQL', v.mysql, p.mysql)}${card('php', 'PHP', v.php, p.php)}${card('nginx', 'Nginx', v.nginx, p.home)}${card('mail', 'Mail catcher', v.mailpit ? `Mailpit ${v.mailpit}` : '', 8025)}</div>
+          <h3 class="section-title">PHP &amp; MySQL</h3>
+          ${tuneCard()}
           <h3 class="section-title">Database<span class="push"><button class="btn sm" data-act="pma" ${svcs().nginx ? '' : 'disabled title="Start the stack first"'}>${ic('ext', 14)}Open phpMyAdmin</button></span></h3>
           <div class="two">
             <div class="card"><h3>MySQL connection</h3>
@@ -1332,6 +1346,7 @@
           for (const b of $$('[data-folder]')) b.onclick = () => act('POST', '/api/open-path', { key: b.dataset.folder });
           for (const b of $$('[data-link]')) b.onclick = () => openUrl(b.dataset.link === 'pma' ? pma : home);
           wireCopy();
+          wireTune();
         },
       };
     },
@@ -1390,6 +1405,130 @@
       };
     },
   };
+
+  // ---- PHP & MySQL card (Stack page) ----
+  // Shows the values in effect: the stack's own (php.ini, my.ini) unless changed
+  // here. Only a changed setting is saved (config\php-tuning.json); picking the
+  // stack's own value again, or Reset, removes it.
+  const TUNE = [
+    ['opcache', 'OPcache', 'Keeps compiled PHP in memory, so a page doesn\'t read and compile every file again. Code edits still show at once.'],
+    ['opcacheMemory', 'OPcache memory', 'Shared by all sites. Files that don\'t fit aren\'t cached and load at normal speed.'],
+    ['opcacheFiles', 'OPcache max files', 'A WordPress site with Elementor and a few plugins is often 3,000 to 5,000 files. OPcache rounds this up to its next size, so the live count can show a bit more.'],
+    ['workers', 'PHP workers', 'Requests PHP handles at once, for every site and phpMyAdmin together. Each uses about 30 to 60 MB.'],
+    ['memoryLimit', 'PHP memory limit', 'Per request (memory_limit).'],
+    ['uploadMax', 'Max upload size', 'upload_max_filesize, post_max_size and Nginx\'s client_max_body_size together.'],
+    ['maxExecution', 'Max execution time', 'max_execution_time. Nginx stops waiting for a WordPress page after 300 seconds either way.'],
+    ['mysqlBuffer', 'MySQL cache', 'innodb_buffer_pool_size, shared by every database. Changes without restarting MySQL.'],
+  ];
+  const tuneMB = v => { const s = String(v); if (s === '-1') return Infinity; const m = /^(\d+)\s*([KMG]?)/i.exec(s); if (!m) return 0; const n = +m[1], u = m[2].toUpperCase(); return u === 'G' ? n * 1024 : u === 'K' ? n / 1024 : u === 'M' ? n : n / 1048576; };
+  const tuneSize = mb => mb === Infinity ? 'No limit' : mb >= 1024 && mb % 1024 === 0 ? `${mb / 1024} GB` : `${mb} MB`;
+  function tuneLabel(k, v) {
+    if (k === 'opcache') return v ? 'On' : 'Off';
+    if (k === 'opcacheMemory' || k === 'mysqlBuffer') return tuneSize(+v);
+    if (k === 'opcacheFiles') return +v % 1000 === 0 ? `${+v / 1000}k` : (+v).toLocaleString();
+    if (k === 'memoryLimit' || k === 'uploadMax') return tuneSize(tuneMB(v));
+    if (k === 'maxExecution') return +v === 0 ? 'No limit' : `${v} s`;
+    return String(v);
+  }
+  const tuneOrder = (k, v) => k === 'memoryLimit' || k === 'uploadMax' ? tuneMB(v) : k === 'maxExecution' && +v === 0 ? Infinity : +v;
+  const tuneSame = (k, a, b) => k === 'memoryLimit' || k === 'uploadMax' ? tuneMB(a) === tuneMB(b) : String(a) === String(b);
+  let tuneTimer = 0, tuneLiveBusy = false;
+
+  function tuneCard() {
+    const t = state.tuning;
+    if (!t) return `<div class="card tune"><p class="meta" style="padding:14px 0"><span class="skel" style="width:220px"></span></p></div>`;
+    const busy = st()?.busy;
+    const opcacheOn = 'opcache' in t.set ? t.set.opcache : t.stock.opcache;
+    // OPcache's memory and file limit only matter while it's on.
+    const rows = TUNE.filter(([k]) => opcacheOn || (k !== 'opcacheMemory' && k !== 'opcacheFiles')).map(([k, name, help]) => {
+      const stock = t.stock[k], changed = k in t.set, cur = changed ? t.set[k] : stock;
+      const mark = changed && stock !== undefined ? `<span class="chg">Changed from ${esc(tuneLabel(k, stock))} · <button class="link" data-tune-reset="${k}">Reset</button></span>` : '';
+      let ctrl;
+      if (k === 'opcache') ctrl = `<button class="switch" role="switch" aria-checked="${!!cur}" aria-labelledby="tn-${k}" data-tune="${k}"></button>`;
+      else {
+        const opts = [...t.options[k]];
+        if (stock !== undefined && stock !== null && !opts.some(o => tuneSame(k, o, stock))) opts.push(stock);
+        opts.sort((a, b) => tuneOrder(k, a) - tuneOrder(k, b));
+        ctrl = `<div class="seg" role="group" aria-labelledby="tn-${k}" data-tune="${k}">${opts.map(o => `<button aria-pressed="${tuneSame(k, o, cur)}" data-v="${esc(String(o))}">${esc(tuneLabel(k, o))}</button>`).join('')}</div>`;
+      }
+      return `<div class="opt"><span><span class="t" id="tn-${k}">${name}</span><span class="s">${help}</span>${mark}</span><span class="ok" aria-live="polite"></span>${ctrl}</div>`;
+    }).join('');
+    return `<div class="card tune">
+      <div class="tune-live" id="tuneLive">${tuneLiveHtml()}</div>
+      <div ${busy ? 'inert' : ''} class="${busy ? 'tune-busy' : ''}">${rows}</div>
+      <p class="tune-foot">${busy === 'tuning' ? 'Applying… ' : ''}A PHP change restarts PHP for about a second; MySQL and Nginx keep running. With the stack stopped, changes apply when it starts. Only what you change here is saved, in <code>config\\php-tuning.json</code>; the rest is the stack's own <code>php.ini</code> and <code>my.ini</code>, which are never edited.</p>
+    </div>`;
+  }
+
+  function tuneLiveHtml() {
+    const l = state.tuneLive, t = state.tuning;
+    if (!svcs().php) return `<div class="row"><span class="meta">Start the stack to see PHP's live numbers.</span></div>`;
+    if (!l) return `<div class="row"><span class="skel" style="width:260px"></span></div>`;
+    const out = [];
+    if (l.php) {
+      const full = l.php.busy >= l.php.workers;
+      out.push(`<div class="row"><span class="k">PHP workers</span><span class="bar"><i class="${full ? 'warn' : ''}" style="width:${Math.min(100, Math.round(100 * l.php.busy / l.php.workers))}%"></i></span><span><b>${l.php.busy}</b> of ${l.php.workers} busy</span>${full ? `<span class="warn-t">All busy: new requests wait in line, and after 60 seconds Nginx gives up with a 504.</span>` : ''}</div>`);
+    }
+    const o = l.opcache;
+    const wantOn = t ? ('opcache' in t.set ? t.set.opcache : t.stock.opcache) : false;
+    if (!wantOn && !(l.answered && o.enabled)) return out.join('');   // off, and not running: nothing to show
+    if (!l.answered) out.push(`<div class="row"><span class="k">OPcache</span><span class="meta">${svcs().nginx ? "PHP didn't answer within 1.5 seconds. Every worker may be busy." : 'Nginx is stopped, so PHP can\'t be asked.'}</span></div>`);
+    else if (!o.enabled) out.push(`<div class="row"><span class="k">OPcache</span><span class="meta">Not running in PHP right now.${wantOn ? ' It starts with PHP\'s next start: Stop and Start the stack.' : ''}</span></div>`);
+    else {
+      const pct = o.memory ? Math.round(100 * (o.used + o.wasted) / o.memory) : 0;
+      const rate = o.hits + o.misses ? Math.round(100 * o.hits / (o.hits + o.misses)) : 0;
+      const mb = n => Math.round(n / 1048576);
+      out.push(`<div class="row"><span class="k">OPcache</span><span class="bar"><i class="${o.full || pct >= 95 ? 'warn' : ''}" style="width:${pct}%"></i></span><span>${mb(o.used + o.wasted)} of ${mb(o.memory)} MB · ${o.files.toLocaleString()} of ${o.maxFiles.toLocaleString()} files · ${rate}% from cache</span><button class="btn quiet sm" data-tune-clear>Clear cache</button></div>`);
+      if (o.full) out.push(`<div class="row"><span class="k"></span><span class="warn-t">The cache is full, so new files aren't cached. Raise OPcache memory or max files.</span></div>`);
+    }
+    return out.join('');
+  }
+
+  async function loadTuning() { try { state.tuning = await call('GET', '/api/tuning'); renderPage(); } catch (e) { localLog(e.message); } }
+  async function loadTuneLive() {
+    if (tuneLiveBusy || document.hidden) return;
+    tuneLiveBusy = true;
+    try { state.tuneLive = svcs().php ? await call('GET', '/api/tuning/live') : null; } catch { state.tuneLive = null; }
+    tuneLiveBusy = false;
+    const box = $('#tuneLive');
+    if (box) { box.innerHTML = tuneLiveHtml(); wireTuneLive(); }
+  }
+  function wireTuneLive() {
+    const b = $('[data-tune-clear]');
+    if (b) b.onclick = async () => {
+      b.disabled = true;
+      try { await call('POST', '/api/tuning/opcache-reset'); } catch (e) { localLog(e.message); }
+      await pullLog(); loadTuneLive();
+    };
+  }
+  async function saveTune(k, value, el) {
+    const t = state.tuning;
+    const v = value === null || tuneSame(k, value, t.stock[k]) ? null : value;   // the stack's own value = no change saved
+    try {
+      await call('POST', '/api/tuning', { key: k, value: v });
+      if (v === null) delete t.set[k]; else t.set[k] = v;
+      savedFlash(el);
+      if (k === 'opcache') renderPage(true);   // shows or hides OPcache's own rows
+    } catch (e) { localLog(e.message); }
+    state.tuneDirty = true;
+    tick();
+  }
+  function wireTune() {
+    if (!state.tuning) loadTuning();
+    else if (state.tuneDirty && !st()?.busy) { state.tuneDirty = false; loadTuning(); setTimeout(loadTuneLive, 300); }
+    for (const b of $$('.switch[data-tune]')) b.onclick = () => { const on = b.getAttribute('aria-checked') !== 'true'; b.setAttribute('aria-checked', on); saveTune(b.dataset.tune, on, b); };
+    for (const g of $$('.seg[data-tune]')) g.onclick = e => {
+      const b = e.target.closest('button'); if (!b || b.getAttribute('aria-pressed') === 'true') return;
+      for (const x of $$('button', g)) x.setAttribute('aria-pressed', x === b);
+      const k = g.dataset.tune, raw = b.dataset.v;
+      saveTune(k, k === 'memoryLimit' || k === 'uploadMax' ? raw : +raw, g);
+    };
+    for (const b of $$('[data-tune-reset]')) b.onclick = () => saveTune(b.dataset.tuneReset, null, b);
+    wireTuneLive();
+    clearInterval(tuneTimer);
+    loadTuneLive();
+    tuneTimer = setInterval(() => { if (parseRoute().page !== 'stack') { clearInterval(tuneTimer); return; } loadTuneLive(); }, 4000);
+  }
 
   function setupPage() {
     const s = st();
@@ -1771,7 +1910,7 @@
     const key = `${page}/${a || ''}/${b || ''}/${st()?.setup}`;
     const s = st();
     if (page === 'site' && a) loadSiteInfo(a);   // before the early returns, so it keeps refreshing
-    const dataSig = JSON.stringify([key, page === 'sites' ? '' : state.sites, s && [s.services, s.mail, s.busy, s.setup, s.missing], page === 'mail' || page === 'site' ? state.mail : '', page === 'errors' || page === 'site' ? [state.errors, s?.errors?.enabled, s?.errors?.ready, s?.errors?.fatalBySite] : '', page === 'network' || page === 'site' ? [state.net, s?.network] : '', page === 'stack' ? state.info : '', page === 'site' ? siteInfo[a] || '' : '', page === 'settings' ? !!(state.settings || s?.settings) : '', host()]);
+    const dataSig = JSON.stringify([key, page === 'sites' ? '' : state.sites, s && [s.services, s.mail, s.busy, s.setup, s.missing], page === 'mail' || page === 'site' ? state.mail : '', page === 'errors' || page === 'site' ? [state.errors, s?.errors?.enabled, s?.errors?.ready, s?.errors?.fatalBySite] : '', page === 'network' || page === 'site' ? [state.net, s?.network] : '', page === 'stack' ? [state.info, state.tuning] : '', page === 'site' ? siteInfo[a] || '' : '', page === 'settings' ? !!(state.settings || s?.settings) : '', host()]);
     if (!force && key === pageKey && pageObj?.refresh) { pageObj.refresh(); return; }
     if (!force && renderPage.sig === dataSig) return;
     renderPage.sig = dataSig;

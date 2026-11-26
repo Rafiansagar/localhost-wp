@@ -121,6 +121,26 @@ Every call your sites make to the internet through WordPress (update checks, lic
 
 `php.ini`'s `auto_prepend_file` loads `scripts\php\localhost-wp.php` before every PHP request. It loads `error-catcher.php`, `mail-catcher.php` and `network-catcher.php`, each unless its `config\<name>.txt` says `off`. Those files are read on every request, so switching a catcher on or off needs no PHP restart. **Start stack** points `php.ini` at it (`scripts\helper\ensure-mail.ps1`), and leaves an `auto_prepend_file` of your own alone.
 
+It also answers the Stack page's live OPcache numbers (`?__localhost_wp=status` on any PHP page, only for requests from this PC); everyone else gets the page as usual.
+
+### PHP & MySQL settings
+
+The **Stack** page's **PHP & MySQL** card shows the values in effect and changes them: OPcache on or off, its memory and file limit, the number of PHP workers, PHP's memory limit, upload size and execution time, and MySQL's cache (`innodb_buffer_pool_size`).
+
+- Nothing is changed by default. Every setting shows the stack's own value from `php.ini`, `my.ini` and `start-php.ps1` (4 workers) until someone changes it.
+- A fresh setup gives: OPcache off, 4 PHP workers, PHP's own memory limit (128M) and execution time (30 s), 64M uploads (PHP and Nginx), and a 128M MySQL cache.
+- Only a changed setting is saved, in `config\php-tuning.json`. Picking the stack's own value again, or **Reset**, removes it.
+- `php.ini` and `my.ini` are never edited for these, so setup and PHP version switches don't undo them:
+  - PHP reads the changed values from `config\php-ini\localhost-wp.ini` after `php.ini` (`PHP_INI_SCAN_DIR`, set by `start-php.ps1` for PHP only).
+  - MySQL gets `--innodb-buffer-pool-size` when it starts, and the new size live (`SET GLOBAL`) while it runs.
+  - The upload size also sets Nginx's `client_max_body_size` in `nginx.conf`; Reset puts setup's 64M back.
+- A PHP change restarts PHP for about a second; MySQL and Nginx keep running. With the stack stopped, changes apply at the next start.
+- Turning OPcache on here also makes PHP check files for changes on every request (`opcache.revalidate_freq=0`), so code edits show at once.
+- Live numbers while the stack runs: PHP workers busy (open connections from Nginx to PHP), and OPcache's memory, files and hit rate, with **Clear cache**. When every worker is busy, new requests wait in line, and Nginx answers 504 after 60 seconds.
+- Windows Defender scans every PHP file as it is read, which slows first loads. Excluding the stack folder in **Windows Security > Virus & threat protection > Exclusions** helps; it needs admin rights, so localhost-wp doesn't do it.
+
+Nginx's error logs go to real files: `nginx\logs\error.log`, and phpMyAdmin's to `logs\nginx\phpmyadmin-error.log`. Stacks set up earlier wrote them to a file named `nginx\off`; **Start stack** fixes that.
+
 ---
 
 ## What Setup Does
@@ -199,6 +219,7 @@ localhost-wp/
 │  ├─ cp-sites.ps1            New site, backup, delete logic
 │  ├─ php/
 │  │  ├─ localhost-wp.php     Loaded before every request; loads the catchers that are on
+│  │  ├─ ini-values.php       Prints php.ini's values for the PHP & MySQL card
 │  │  ├─ error-catcher.php    Records PHP errors per site for the Errors page
 │  │  ├─ network-catcher.php  Records (and can block) the calls sites make to the internet
 │  │  └─ mail-catcher.php     Keeps WordPress mail in the catcher (SMTP plugins, From address)
@@ -209,7 +230,8 @@ localhost-wp/
 │     ├─ ensure-mail.ps1      Mailpit into mailpit\, php.ini's mail lines and auto_prepend_file
 │     ├─ versions.ps1         Reads versions.json, finds PHP builds
 │     ├─ ensure-php-runtime.ps1
-│     ├─ start-php.ps1
+│     ├─ start-php.ps1        Starts PHP FastCGI with the PHP & MySQL card's settings
+│     ├─ tuning.ps1           The PHP & MySQL card's settings: saved, checked, put into effect
 │     ├─ backup-databases.ps1
 │     └─ create-nginx-conf.ps1
 ├─ control-panel.bat          Entry point — launch this

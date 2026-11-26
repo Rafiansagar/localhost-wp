@@ -52,3 +52,7 @@ back/
 /config/error-alerts-muted.json
 /config/network-catcher.txt
 /config/network-rules.json
+
+# Stack page's PHP & MySQL settings and the ini file PHP reads from them
+/config/php-tuning.json
+/config/php-ini/

@@ -18,6 +18,7 @@ switch ($Action) {
     'delete'        { Invoke-DeleteSite $Arg }
     'mail-on'       { Set-MailCatcher $true }
     'mail-off'      { Set-MailCatcher $false }
+    'tuning'        { Set-StackTuning $Arg }
     'setup' {
         Write-Log 'Starting setup - downloading MySQL, PHP, Nginx, phpMyAdmin...' 'warn'
         $ProgressPreference = 'SilentlyContinue'
