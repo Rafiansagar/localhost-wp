@@ -380,6 +380,51 @@
   .err-more dd { margin: 0; overflow-wrap: anywhere; }
   .err-more dd code { font-size: 12px; }
   .err-more .btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  /* ---- network catcher ---- */
+  .nav .n.warn { color: var(--wait-text); font-weight: 600; }
+  .cnt.warn { background: color-mix(in srgb, var(--wait) 14%, transparent); color: var(--wait-text); }
+  .net-mode { display: grid; gap: 10px; padding: 14px 20px; margin-bottom: 16px; }
+  .net-mode .top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .net-mode .top .t { font-size: 14px; font-weight: 600; }
+  .net-mode p { margin: 0; font-size: 13px; color: var(--muted); }
+  .net-mode .chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12.5px; color: var(--muted); }
+  .chip { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 4px 0 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); font: 500 12px var(--mono); }
+  .chip button { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--muted); cursor: pointer; }
+  .chip button:hover { color: var(--ink); background: var(--line); }
+  .chip button svg { width: 11px; height: 11px; }
+  .chip.slow { border-color: color-mix(in srgb, var(--wait) 35%, var(--line)); }
+  .nc { border-bottom: 1px solid var(--line); }
+  .nc-row { display: grid; grid-template-columns: 70px minmax(0, 1fr) 72px 78px; gap: 3px 12px; align-items: start; width: 100%; padding: 11px 20px 11px 16px; border: 0; background: none; text-align: left; cursor: pointer; color: var(--ink); font: inherit; }
+  .nc-row:hover, .nc.open .nc-row { background: color-mix(in srgb, var(--panel-2) 70%, transparent); }
+  .st { justify-self: start; font: 600 11.5px/20px var(--mono); padding: 0 7px; border-radius: 6px; background: var(--panel-2); color: var(--muted); white-space: nowrap; }
+  .st.ok { color: var(--on); background: color-mix(in srgb, var(--on) 11%, transparent); }
+  .st.warn { color: var(--wait-text); background: color-mix(in srgb, var(--wait) 12%, transparent); }
+  .st.bad { color: var(--off); background: color-mix(in srgb, var(--off) 12%, transparent); }
+  .st.blocked { color: var(--muted); background: transparent; border: 1px dashed var(--line); line-height: 18px; }
+  .nc-row .u { font-size: 13.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nc-row .u b { font: 600 11.5px var(--mono); color: var(--muted); margin-right: 6px; }
+  .nc-row .u .h { font-weight: 600; }
+  .nc-row .u .path { color: var(--muted); }
+  .nc-row .ms { text-align: right; font: 500 12.5px var(--mono); color: var(--muted); white-space: nowrap; }
+  .nc-row .ms.slow { color: var(--wait-text); font-weight: 600; }
+  .nc-row .ms.bad { color: var(--off); font-weight: 600; }
+  .nc-row .when { text-align: right; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+  .nc-row .meta { grid-column: 2 / 5; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; font-size: 12.5px; color: var(--muted); min-width: 0; }
+  .nc-more { display: grid; gap: 12px; padding: 2px 20px 16px 98px; background: color-mix(in srgb, var(--panel-2) 70%, transparent); }
+  .nc-more dl { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 5px 12px; margin: 0; font-size: 12.5px; }
+  .nc-more dt { color: var(--muted); }
+  .nc-more dd { margin: 0; overflow-wrap: anywhere; }
+  .nc-more dd code { font-size: 12px; }
+  .nc-more .btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .hosts { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .hosts th { text-align: left; font-size: 12px; font-weight: 600; color: var(--muted); padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .hosts td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .hosts th:first-child, .hosts td:first-child { padding-left: 20px; }
+  .hosts th:last-child, .hosts td:last-child { padding-right: 20px; text-align: right; }
+  .hosts .num { text-align: right; font: 500 12.5px var(--mono); white-space: nowrap; }
+  .hosts .h { font-weight: 600; overflow-wrap: anywhere; }
+  .hosts .sub { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 3px; font-size: 12px; color: var(--muted); }
+  .hosts .act { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
   @media (max-width: 1180px) { .err-row { grid-template-columns: 10px 78px minmax(0, 1fr) auto; } .err-more { padding-left: 20px; } }
   .chead { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 20px; }
   .chead .grow { flex: 1; min-width: 0; }
@@ -505,6 +550,8 @@
   <symbol id="i-backup" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v7M5 7l3 3 3-3M3 12.5h10"/></symbol>
   <symbol id="i-trash" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.5h11M6 4.5V3h4v1.5M4 4.5l.7 8.5h6.6l.7-8.5"/></symbol>
   <symbol id="i-bug" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="6" height="8.5" rx="3"/><path d="M6.3 5.2a1.7 1.7 0 0 1 3.4 0M8 8.2v5.3M2.5 9H5M11 9h2.5M3.2 5.2l1.9 1.3M12.8 5.2l-1.9 1.3M3.2 13l1.9-1.4M12.8 13l-1.9-1.4"/></symbol>
+  <symbol id="i-net" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c1.7 1.7 2.5 3.7 2.5 6S9.7 12.3 8 14M8 2C6.3 3.7 5.5 5.7 5.5 8s.8 4.3 2.5 6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></symbol>
   <symbol id="i-warn" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5M8 11h.01"/></symbol>
   <symbol id="i-dl" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13.5h10"/></symbol>
   <symbol id="i-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3 3 7-7"/></symbol>
@@ -851,11 +898,14 @@
     const errState = err.enabled === false ? '<span class="n off">Off</span>'
       : err.fatalNew ? `<span class="badge bad" title="${err.fatalNew} new fatal ${err.fatalNew === 1 ? 'error' : 'errors'}">${err.fatalNew > 99 ? '99+' : err.fatalNew}</span>`
       : err.newCount ? `<span class="n" title="${err.newCount} new">${err.newCount}</span>` : '';
+    const net = s?.network || {};
+    const netState = net.enabled === false ? '<span class="n off">Off</span>' : net.hourSlow ? `<span class="n warn" title="${net.hourSlow} slow or failed in the last hour">${net.hourSlow}</span>` : '';
     const mailState = mail.enabled === false ? '<span class="n off">Off</span>' : mail.enabled && !mail.installed ? '<span class="n off">Not set up</span>' : u ? `<span class="badge" title="${u} unread">${u > 99 ? '99+' : u}</span>` : '';
     const html = `<a href="#sites" data-nav="sites"><svg><use href="#i-sites"/></svg>Sites<span class="n">${n || ''}</span></a>
       <h2>Catchers</h2>
       <a href="#errors" data-nav="errors"><svg><use href="#i-bug"/></svg>Errors${errState}</a>
-      <a href="#mail" data-nav="mail"><svg><use href="#i-mail"/></svg>Mail${mailState}</a>`;
+      <a href="#mail" data-nav="mail"><svg><use href="#i-mail"/></svg>Mail${mailState}</a>
+      <a href="#network" data-nav="network"><svg><use href="#i-net"/></svg>Network${netState}</a>`;
     if ($('#navMain').innerHTML !== html) $('#navMain').innerHTML = html;
     markNav();
   }
@@ -1004,6 +1054,8 @@
     if (s.server === 'disabled') return '<span>Disabled</span>';
     const f = errNewFatal(s.name);
     if (f) out.push(`<a class="sig bad" href="#site/${encodeURIComponent(s.name)}/errors" title="New fatal errors">${ic('bug', 12)}${f} fatal</a>`);
+    const sl = st()?.network?.enabled !== false ? (st()?.network?.slowBySite?.[s.name] || 0) : 0;
+    if (sl) out.push(`<a class="sig warn" href="#site/${encodeURIComponent(s.name)}/network" title="Slow or failed calls to the internet in the last hour">${ic('net', 12)}${sl} slow</a>`);
     const u = unread(s.name);
     if (u) out.push(`<a class="sig new" href="#site/${encodeURIComponent(s.name)}/mail">${ic('mail', 12)}${u} new</a>`);
     if (s.db === 'no') out.push(`<span class="sig warn">No database</span>`);
@@ -1030,7 +1082,7 @@
   }
   function renderSiteList(force) {
     const wrap = $('#siteList'); if (!wrap) return;
-    const sig = JSON.stringify([state.sites, state.search, host(), svcs(), busy(), st()?.task, st()?.progress, state.mail && state.mail.messages.map(m => m.site + m.read), st()?.errors?.fatalBySite]);
+    const sig = JSON.stringify([state.sites, state.search, host(), svcs(), busy(), st()?.task, st()?.progress, state.mail && state.mail.messages.map(m => m.site + m.read), st()?.errors?.fatalBySite, st()?.network?.slowBySite, st()?.network?.enabled]);
     if (!force && wrap.dataset.sig === sig) return;
     wrap.dataset.sig = sig;
     const all = state.sites || [];
@@ -1092,7 +1144,8 @@
       const dis = can ? '' : `disabled title="${s.server === 'disabled' ? 'This site is disabled' : 'Start the stack first'}"`;
       const pill = s.server === 'live' ? '<span class="pill live"><i></i>Live</span>' : s.server === 'disabled' ? '<span class="pill"><i></i>Disabled</span>' : svcs().nginx ? '<span class="pill warn"><i></i>Not answering</span>' : '<span class="pill"><i></i>Offline</span>';
       const eNew = state.errors ? errorsOf(name).filter(errIsNew).length : 0, eFatal = errNewFatal(name);
-      const tabs = [['overview', 'Overview'], ['errors', 'Errors', eFatal || eNew, eFatal ? 'bad' : ''], ['mail', 'Mail', u]];
+      const nSlow = st()?.network?.slowBySite?.[name] || 0;
+      const tabs = [['overview', 'Overview'], ['errors', 'Errors', eFatal || eNew, eFatal ? 'bad' : ''], ['mail', 'Mail', u], ['network', 'Network', nSlow, 'warn']];
       let body = '';
       if (tab === 'overview') {
         const info = siteInfo[name];
@@ -1156,6 +1209,7 @@
       }
       if (tab === 'mail') body = mailFeed(name);
       if (tab === 'errors') body = errorsFeed(name);
+      if (tab === 'network') body = netCalls(name);
       return {
         html: `<a class="back" href="#sites">${ic('left', 12)}Sites</a>
           <div class="phead"><h2>${esc(name)}</h2>${pill}
@@ -1184,6 +1238,7 @@
           };
           wireMail(name);
           wireErrors(name);
+          wireNet(name);
         },
       };
     },
@@ -1200,6 +1255,20 @@
           wireErrors(null);
           if (focus) $(`[data-err="${CSS.escape(focus)}"]`)?.scrollIntoView({ block: 'center' });
         },
+      };
+    },
+    network(view) {
+      const n = st()?.network || {};
+      if (view === 'calls' || view === 'hosts') { netView = view; lsSet('cp-net-view', view); }
+      const status = n.enabled === false ? 'Off. Calls are not recorded, and nothing is blocked.' : "Every call your sites make to the internet through WordPress: how long it took, what answered, and which plugin made it.";
+      const hosts = state.net?.hosts || [];
+      return {
+        html: `<div class="chead"><div class="grow"><h2 id="netTitle">Network catcher</h2><p>${esc(status)}</p></div>
+            <span class="sw">${n.enabled === false ? 'Off' : 'On'}<button class="switch" role="switch" aria-checked="${n.enabled !== false}" aria-labelledby="netTitle" data-net-act="toggle" ${n.enabled == null ? 'disabled' : ''}></button></span></div>
+          ${n.enabled === false || !state.net ? '' : netModeCard()}
+          ${n.enabled === false || !state.net ? '' : `<div class="tabs2" role="tablist" aria-label="Network">${[['calls', 'Calls', state.net.calls.length], ['hosts', 'Hosts', hosts.filter(h => !h.local).length]].map(([k, l, c]) => `<button role="tab" data-net-view="${k}" aria-selected="${netView === k}" tabindex="${netView === k ? 0 : -1}">${l}<span class="cnt">${c}</span></button>`).join('')}</div>`}
+          ${netView === 'hosts' && state.net && n.enabled !== false ? netHosts() : netCalls(null)}`,
+        after() { wireNet(null); },
       };
     },
     mail() {
@@ -1421,6 +1490,135 @@
     };
   }
 
+  // ---- network catcher (Network page and a site's Network tab share it) ----
+  const lsGet = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch { } };
+  let netView = lsGet('cp-net-view', 'calls'), netFilter = lsGet('cp-net-filter', 'all'), netLocal = lsGet('cp-net-local', '') === '1';
+  let netSite = '', netClearAsk = false;
+  const netOpen = new Set();
+  async function loadNet(force) {
+    const n = st()?.network; if (!n) return;
+    const sig = `${n.stamp}|${n.mode}|${n.enabled}|${n.blocked}|${n.hourSlow}`;
+    if (!force && state.net && sig === state.netSig) return;
+    state.netSig = sig;
+    try { state.net = await call('GET', '/api/network'); } catch { return; }
+    renderNav(); renderPage();
+  }
+  const fmtMs = ms => ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(ms < 10000 ? 1 : 0)} s`;
+  const callerLabel = c => !c || c === 'core' ? 'WordPress' : c.replace(/^(plugin|theme):/, '');
+  const callerKind = c => c?.startsWith('theme:') ? 'theme' : c?.startsWith('plugin:') ? 'plugin' : '';
+  const netSlow = c => !c.blocked && !c.async && !c.local && (c.ms >= (state.net?.slowMs || 2000) || /timed out|timeout|cURL error 28/i.test(c.error));
+  const netFailed = c => !c.blocked && (!!c.error || c.code >= 500);
+  function netStatus(c) {
+    if (c.blocked) return ['blocked', 'Blocked'];
+    if (c.error) return ['bad', /timed out|timeout|cURL error 28/i.test(c.error) ? 'Timeout' : 'Failed'];
+    if (c.async) return ['', 'Sent'];
+    if (c.code >= 500) return ['bad', c.code];
+    if (c.code >= 400) return ['warn', c.code];
+    return ['ok', c.code || '—'];
+  }
+  function netModeCard() {
+    const r = state.net.rules;
+    const text = { log: 'Calls are recorded and nothing is blocked, except hosts you block yourself.', slow: `A host that takes ${(state.net.blockMs || 5000) / 1000} s or more, or times out, is blocked for an hour: its calls fail at once instead of making the page wait.`, all: 'Every call to the internet fails at once, as if this PC were offline. Calls to your own sites still work.' }[r.mode];
+    const chips = [...r.block.map(h => [h, 'manual']), ...(r.mode === 'slow' ? r.auto.filter(h => !r.block.includes(h)).map(h => [h, 'slow']) : [])];
+    return `<div class="card net-mode"><div class="top"><span class="t" id="netMode">Blocking</span>
+        <div class="seg" role="group" aria-labelledby="netMode">${[['log', 'Log only'], ['slow', 'Block slow hosts'], ['all', 'Block all external']].map(([k, l]) => `<button data-net-mode="${k}" aria-pressed="${r.mode === k}">${l}</button>`).join('')}</div></div>
+      <p>${esc(text)}</p>
+      ${chips.length ? `<div class="chips">Blocked now: ${chips.map(([h, why]) => `<span class="chip ${why}" title="${why === 'slow' ? 'Blocked for being slow' : 'Blocked by you'}">${esc(h)}<button data-net-unblock="${esc(h)}" aria-label="Unblock ${esc(h)}" title="Unblock">${ic('x', 11)}</button></span>`).join('')}</div>` : ''}</div>`;
+  }
+  function netCalls(site) {
+    const n = st()?.network;
+    const empty = (icon, h, p, btn = '') => `<div class="card"><div class="empty"><span class="ico">${ic(icon, 20)}</span><h3>${h}</h3><p>${p}</p>${btn}</div></div>`;
+    if (n && n.enabled === false) return empty('net', 'The network catcher is off', "Turn it on to see every call your sites make to the internet, and to block the slow ones so pages don't wait on them.", '<button class="btn primary" data-net-act="on">Turn on</button>');
+    if (!state.net) return '<div class="card"><div class="empty"><span class="skel" style="width:240px"></span></div></div>';
+    if (netSite && !site && !state.net.calls.some(c => c.site === netSite)) netSite = '';
+    const scope = site || netSite;
+    const inScope = state.net.calls.filter(c => (!scope || c.site === scope) && (netLocal || !c.local));
+    const counts = { all: inScope.length, slow: inScope.filter(netSlow).length, failed: inScope.filter(netFailed).length, blocked: inScope.filter(c => c.blocked).length };
+    const filter = netFilter !== 'all' && !counts[netFilter] ? 'all' : netFilter;
+    const list = inScope.filter({ all: () => true, slow: netSlow, failed: netFailed, blocked: c => !!c.blocked }[filter]).slice(0, 400);
+    const seg = `<div class="seg" role="group" aria-label="Show">${[['all', 'All'], ['slow', 'Slow'], ['failed', 'Failed'], ['blocked', 'Blocked']].map(([k, l]) => `<button data-net-filter="${k}" aria-pressed="${filter === k}" ${k !== 'all' && !counts[k] ? 'disabled' : ''}>${l}<span class="n">${counts[k]}</span></button>`).join('')}</div>`;
+    const sites = [...new Set(state.net.calls.map(c => c.site))].sort();
+    const pick = site || sites.length < 2 ? '' : `<select class="pick" data-net-site aria-label="Site"><option value="">All sites</option>${sites.map(x => `<option value="${esc(x)}" ${x === netSite ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>`;
+    const localBtn = `<button class="btn quiet sm" data-net-local aria-pressed="${netLocal}" title="Calls to this PC and your own sites, such as WP-Cron">${netLocal ? 'Hide' : 'Show'} local calls</button>`;
+    const total = state.net.calls.filter(c => !scope || c.site === scope).length;
+    const clear = netClearAsk
+      ? `<span class="confirm">Delete ${total} recorded ${total === 1 ? 'call' : 'calls'}${scope ? ` from ${esc(scope)}` : ''}?<button class="btn sm danger" data-net-act="clear-yes">Delete</button><button class="btn quiet sm" data-net-act="clear-no">Cancel</button></span>`
+      : `<button class="btn quiet sm" data-net-act="clear" ${total ? '' : 'disabled'}>Clear</button>`;
+    const head = `<div class="feed-head">${seg}${pick}<span class="spacer"></span>${site ? '<a class="link" href="#network">All sites</a>' : ''}${localBtn}<span class="clear-slot">${clear}</span></div>`;
+    const note = n && !n.ready ? `<div class="list-note">${ic('warn', 14)}<span>${svcs().php ? 'Stop and start the stack once: PHP picks up the network catcher when it starts.' : 'Recording starts with the next Start stack.'}</span></div>` : '';
+    const rows = list.length ? list.map(c => netRow(c, !!site)).join('')
+      : `<div class="empty"><span class="ico">${ic('net', 20)}</span><h3>No calls yet</h3><p>${scope ? `${esc(scope)} hasn't` : "Your sites haven't"} called out to the internet${netLocal ? '' : ' (local calls are hidden)'}. Update checks, licence checks and APIs show up here as they happen.</p></div>`;
+    const foot = `<div class="list-foot">Calls made through WordPress (wp_remote_get, wp_remote_post…), which is what core, plugins and themes use. Code that calls cURL directly isn't seen. Secrets in addresses are masked.</div>`;
+    return `<div class="card feed-card">${head}${note}<div class="feed-list">${rows}${foot}</div></div>`;
+  }
+  function netRow(c, hideSite) {
+    const open = netOpen.has(c.id), [cls, label] = netStatus(c), when = new Date(c.t * 1000);
+    let path = '';
+    try { const u = new URL(c.url); path = u.pathname + u.search; } catch { path = c.url; }
+    const msCls = c.error && !c.blocked ? 'bad' : netSlow(c) ? 'slow' : '';
+    const ms = c.blocked ? '0 ms' : c.async ? '—' : fmtMs(c.ms);
+    const kind = callerKind(c.caller);
+    const s = (state.sites || []).find(x => x.name === c.site);
+    const pageUrl = c.page && s?.port && svcs().nginx ? siteUrl(s.port, c.page) : '';
+    const r = state.net.rules, blockedByHand = r.block.includes(c.host);
+    return `<div class="nc ${open ? 'open' : ''}" data-nc="${esc(c.id)}">
+      <button class="nc-row" data-nc-toggle aria-expanded="${open}"><span class="st ${cls}">${esc(String(label))}</span>
+        <span class="u"><b>${esc(c.method)}</b><span class="h">${esc(c.host)}</span><span class="path">${esc(path)}</span></span>
+        <span class="ms ${msCls}" title="${c.async ? 'Sent without waiting for the answer' : ''}">${ms}</span><span class="when" title="${esc(when.toLocaleString())}">${esc(timeAgo(when))}</span>
+        <span class="meta">${hideSite ? '' : `<span class="site-tag">${esc(c.site)}</span>`}<span>${kind ? `${kind} ` : ''}<b style="color:var(--ink);font-weight:500">${esc(callerLabel(c.caller))}</b></span>${c.size ? `<span>${esc(fmtSize(c.size))}</span>` : ''}${c.local ? '<span>local</span>' : ''}</span></button>
+      ${open ? `<div class="nc-more"><dl>
+          <dt>Address</dt><dd><code>${esc(c.url)}</code></dd>
+          <dt>Result</dt><dd>${c.blocked ? `Blocked by localhost-wp (${{ manual: 'blocked by you', slow: 'slow host', all: 'all external calls blocked' }[c.blocked] || c.blocked})` : c.error ? esc(c.error) : c.async ? 'Sent without waiting for the answer' : `HTTP ${c.code}`}</dd>
+          ${!c.blocked && !c.async ? `<dt>Took</dt><dd>${fmtMs(c.ms)}</dd>` : ''}
+          <dt>Made by</dt><dd>${kind ? `The ${kind} <b>${esc(callerLabel(c.caller))}</b>` : 'WordPress itself'}</dd>
+          ${c.page ? `<dt>On page</dt><dd>${pageUrl ? `<button class="link" data-net-url="${esc(pageUrl)}">${esc(c.page)}</button>` : esc(c.page)}</dd>` : ''}
+          <dt>When</dt><dd>${esc(fmtWhen(when))}</dd></dl>
+        <div class="btns">${c.local ? '' : blockedByHand ? `<button class="btn sm" data-net-unblock="${esc(c.host)}">Unblock ${esc(c.host)}</button>` : `<button class="btn sm" data-net-block="${esc(c.host)}">Block ${esc(c.host)}</button>`}<button class="btn sm quiet" data-net-copy="${esc(c.url)}">${ic('copy', 14)}Copy address</button></div>
+      </div>` : ''}</div>`;
+  }
+  function netHosts() {
+    const hosts = state.net.hosts.filter(h => netLocal || !h.local);
+    const status = h => h.blocked === 'manual' ? '<span class="st blocked">Blocked</span>' : h.blocked === 'slow' ? '<span class="st warn">Blocked: slow</span>' : h.blocked === 'all' ? '<span class="st blocked">Blocked</span>' : h.slowHost ? '<span class="st warn">Slow</span>' : h.local ? '<span class="st">Local</span>' : '';
+    const action = h => h.local ? '' : (h.blocked === 'manual' || h.blocked === 'slow') ? `<button class="btn sm quiet" data-net-unblock="${esc(h.host)}">Unblock</button>` : h.blocked === 'all' ? '' : `<button class="btn sm quiet" data-net-block="${esc(h.host)}">Block</button>`;
+    const rows = hosts.map(h => `<tr><td><div class="h">${esc(h.host)}</div><div class="sub">${h.sites.map(x => `<span class="site-tag">${esc(x)}</span>`).join('')}<span>${h.callers.map(callerLabel).map(esc).join(', ')}</span></div></td>
+      <td class="num">${h.calls}</td><td class="num">${h.avgMs ? fmtMs(h.avgMs) : '—'}</td><td class="num" style="${h.maxMs >= (state.net.slowMs || 2000) ? 'color:var(--wait-text);font-weight:600' : ''}">${h.maxMs ? fmtMs(h.maxMs) : '—'}</td>
+      <td class="num" style="${h.failed ? 'color:var(--off);font-weight:600' : ''}">${h.failed || '—'}</td><td class="num">${esc(timeAgo(new Date(h.last * 1000)))}</td><td><span class="act">${status(h)}${action(h)}</span></td></tr>`).join('');
+    const head = `<div class="feed-head"><span>${hosts.length} ${hosts.length === 1 ? 'host' : 'hosts'}</span><span class="spacer"></span><button class="btn quiet sm" data-net-local aria-pressed="${netLocal}">${netLocal ? 'Hide' : 'Show'} local</button></div>`;
+    return `<div class="card feed-card">${head}<div class="feed-list">${hosts.length ? `<table class="hosts"><thead><tr><th>Host</th><th class="num">Calls</th><th class="num">Average</th><th class="num">Slowest</th><th class="num">Failed</th><th class="num">Last</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty"><span class="ico">${ic('net', 20)}</span><h3>No hosts yet</h3><p>Hosts your sites call show up here with how fast they answer.</p></div>`}</div></div>`;
+  }
+  function wireNet(site) {
+    const root = $('#pageInner');
+    fitFeed();
+    const after = async () => { await pullLog(); await tick(); await loadNet(true); };
+    for (const b of $$('[data-nc-toggle]', root)) b.onclick = () => { const id = b.closest('[data-nc]').dataset.nc; netOpen.has(id) ? netOpen.delete(id) : netOpen.add(id); renderPage(true); $(`[data-nc="${CSS.escape(id)}"] [data-nc-toggle]`)?.focus(); };
+    for (const b of $$('[data-net-filter]', root)) b.onclick = () => { netFilter = b.dataset.netFilter; lsSet('cp-net-filter', netFilter); renderPage(true); };
+    for (const b of $$('[data-net-view]', root)) b.onclick = () => { location.hash = `#network/${b.dataset.netView}`; };
+    rovingTabs($('.tabs2', root));
+    for (const b of $$('[data-net-local]', root)) b.onclick = () => { netLocal = !netLocal; lsSet('cp-net-local', netLocal ? '1' : ''); renderPage(true); };
+    const pick = $('[data-net-site]', root);
+    if (pick) pick.onchange = () => { netSite = pick.value; netClearAsk = false; renderPage(true); };
+    for (const b of $$('[data-net-url]', root)) b.onclick = () => openUrl(b.dataset.netUrl);
+    for (const b of $$('[data-net-copy]', root)) b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.netCopy); toast('Copied'); } catch { } };
+    for (const b of $$('[data-net-mode]', root)) b.onclick = async () => { if (b.getAttribute('aria-pressed') === 'true') return; try { await call('POST', '/api/network/mode', { mode: b.dataset.netMode }); } catch (e) { localLog(e.message); } await after(); };
+    for (const b of $$('[data-net-block], [data-net-unblock]', root)) b.onclick = async () => {
+      const block = 'netBlock' in b.dataset; b.disabled = true;
+      try { await call('POST', '/api/network/block', { host: block ? b.dataset.netBlock : b.dataset.netUnblock, block }); toast(block ? 'Blocked' : 'Unblocked'); } catch (e) { localLog(e.message); }
+      await after();
+    };
+    for (const b of $$('[data-net-act]', root)) b.onclick = async () => {
+      const a = b.dataset.netAct;
+      if (a === 'clear') { netClearAsk = true; renderPage(true); $('[data-net-act="clear-no"]')?.focus(); return; }
+      if (a === 'clear-no') { netClearAsk = false; renderPage(true); return; }
+      b.disabled = true;
+      try {
+        if (a === 'clear-yes') { netClearAsk = false; await call('POST', '/api/network/clear', { site: site || netSite || undefined }); netOpen.clear(); toast('Cleared'); }
+        if (a === 'toggle' || a === 'on') await call('POST', '/api/network/enabled', { on: a === 'on' || b.getAttribute('aria-checked') !== 'true' });
+      } catch (e) { localLog(e.message); }
+      await after();
+    };
+  }
+
   // ---- mail list (Mail page and a site's Mail tab share it) ----
   function mailBlock(list, site, compact) {
     const m = st()?.mail || {};
@@ -1533,7 +1731,7 @@
     const key = `${page}/${a || ''}/${b || ''}/${st()?.setup}`;
     const s = st();
     if (page === 'site' && a) loadSiteInfo(a);   // before the early returns, so it keeps refreshing
-    const dataSig = JSON.stringify([key, page === 'sites' ? '' : state.sites, s && [s.services, s.mail, s.busy, s.setup, s.missing], page === 'mail' || page === 'site' ? state.mail : '', page === 'errors' || page === 'site' ? [state.errors, s?.errors?.enabled, s?.errors?.ready, s?.errors?.fatalBySite] : '', page === 'stack' ? state.info : '', page === 'site' ? siteInfo[a] || '' : '', page === 'settings' ? !!(state.settings || s?.settings) : '', host()]);
+    const dataSig = JSON.stringify([key, page === 'sites' ? '' : state.sites, s && [s.services, s.mail, s.busy, s.setup, s.missing], page === 'mail' || page === 'site' ? state.mail : '', page === 'errors' || page === 'site' ? [state.errors, s?.errors?.enabled, s?.errors?.ready, s?.errors?.fatalBySite] : '', page === 'network' || page === 'site' ? [state.net, s?.network] : '', page === 'stack' ? state.info : '', page === 'site' ? siteInfo[a] || '' : '', page === 'settings' ? !!(state.settings || s?.settings) : '', host()]);
     if (!force && key === pageKey && pageObj?.refresh) { pageObj.refresh(); return; }
     if (!force && renderPage.sig === dataSig) return;
     renderPage.sig = dataSig;
@@ -1542,6 +1740,7 @@
     if (page === 'site') obj = PAGES.site(a, b || 'overview');
     else if (page === 'settings') obj = PAGES.settings(a);
     else if (page === 'errors') obj = PAGES.errors(a);
+    else if (page === 'network') obj = PAGES.network(a);
     else obj = (PAGES[page] || PAGES.sites)();
     if (s && !s.setup && page !== 'settings' && page !== 'stack') obj = setupPage();
     $('#page').onscroll = null; $('#page').onwheel = null; $('#page').onkeydown = null;
@@ -1554,6 +1753,7 @@
     if (page === 'stack' && !state.info) loadInfo();
     if ((page === 'mail' || page === 'site') && !state.mail) loadMail();
     if ((page === 'errors' || page === 'site') && !state.errors) loadErrors();
+    if ((page === 'network' || page === 'site') && !state.net) loadNet();
   }
   window.addEventListener('hashchange', () => { closeMenu(); renderPage(true); try { localStorage.setItem('cp-route', location.hash); } catch { } });
 
@@ -1612,6 +1812,7 @@
       if (prev?.busy && !s.busy) { state.info = null; for (const k in siteInfoAt) siteInfoAt[k] = 0; }
       await loadMail();
       if (state.errors || ['errors', 'site'].includes(parseRoute().page)) await loadErrors();
+      if (state.net || ['network', 'site'].includes(parseRoute().page)) await loadNet();
       renderPage();
     } catch (e) {
       if (e.status === 403) return location.reload();   // the server restarted with a new token
@@ -1677,6 +1878,7 @@
       ['Go to', 'Sites', 'sites', () => { location.hash = '#sites'; }],
       ['Go to', 'Errors', 'bug', () => { location.hash = '#errors'; }, '', 'php error catcher fatal warning'],
       ['Go to', 'Mail', 'mail', () => { location.hash = '#mail'; }],
+      ['Go to', 'Network', 'net', () => { location.hash = '#network'; }, '', 'network catcher http calls slow block'],
       ['Go to', 'Stack', 'stack', () => { location.hash = '#stack'; }],
       ['Go to', 'Settings', 'gear', () => { location.hash = '#settings'; }],
       ['Go to', 'Activity', 'up', () => toggleDrawer(true), '', 'log'],

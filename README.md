@@ -103,9 +103,21 @@ Every PHP error your sites report is collected in one place: **Errors** in the s
 - It only watches. PHP's own handling goes on unchanged, so `debug.log`, errors shown on the page and WordPress's "critical error" page behave exactly as before. It records what PHP reports: with **Debug mode** off WordPress leaves out notices and deprecations, and anything silenced with `@` is not recorded.
 - Stored per site in `logs\errors\<site>.jsonl` (moved to `<site>.old.jsonl` at 4 MB). The **Errors** page has an on/off switch; it applies to the next request, no restart. It is remembered in `config\error-catcher.txt` (on unless that file says `off`).
 
+### Network catcher
+
+Every call your sites make to the internet through WordPress (update checks, licence checks, APIs, remote fonts) is recorded: **Network** in the sidebar, and a **Network** tab on each site's page.
+
+- **Calls** lists each one: status (or Failed / Timeout / Blocked), method, host and path, how long it took (amber from 2 s), size, and the plugin or theme that made it. Click a call for the full address, the result, the page it happened on, and **Block** for its host. Filter by Slow, Failed or Blocked, and by site; local calls (WP-Cron, the site calling itself) are hidden unless you show them.
+- **Hosts** has one row per host: calls, average and slowest time, failures, which sites and plugins use it, and **Block / Unblock**.
+- **Blocking** has three modes. **Log only** (the default) blocks nothing except hosts you block yourself. **Block slow hosts** blocks a host for an hour once a call to it takes 5 s or more or times out. **Block all external** works as if this PC were offline. A blocked call fails at once with a WordPress error, so the page no longer waits on it. Calls to this PC, private addresses and the site itself are never blocked.
+- Sites with slow or failed calls in the last hour show "2 slow" in **Sites**, and the count shows on **Network** in the sidebar.
+- Values in addresses that look like secrets (`key=`, `token=`, `license=`, ...) are masked before anything is written.
+- It sees calls made through WordPress's HTTP API (`wp_remote_get`, `wp_remote_post`, ...), which is what core, plugins and themes use. Code that calls cURL or `file_get_contents` directly is not seen.
+- Stored per site in `logs\network\<site>.jsonl` (moved to `<site>.old.jsonl` at 4 MB). The blocking rules are in `config\network-rules.json`. The **Network** page has an on/off switch, remembered in `config\network-catcher.txt`.
+
 ### What runs before every request
 
-`php.ini`'s `auto_prepend_file` loads `scripts\php\localhost-wp.php` before every PHP request. It loads `error-catcher.php` and `mail-catcher.php`, each unless its `config\<name>.txt` says `off`. Those files are read on every request, so switching a catcher on or off needs no PHP restart. **Start stack** points `php.ini` at it (`scripts\helper\ensure-mail.ps1`), and leaves an `auto_prepend_file` of your own alone.
+`php.ini`'s `auto_prepend_file` loads `scripts\php\localhost-wp.php` before every PHP request. It loads `error-catcher.php`, `mail-catcher.php` and `network-catcher.php`, each unless its `config\<name>.txt` says `off`. Those files are read on every request, so switching a catcher on or off needs no PHP restart. **Start stack** points `php.ini` at it (`scripts\helper\ensure-mail.ps1`), and leaves an `auto_prepend_file` of your own alone.
 
 ---
 
@@ -186,6 +198,7 @@ localhost-wp/
 │  ├─ php/
 │  │  ├─ localhost-wp.php     Loaded before every request; loads the catchers that are on
 │  │  ├─ error-catcher.php    Records PHP errors per site for the Errors page
+│  │  ├─ network-catcher.php  Records (and can block) the calls sites make to the internet
 │  │  └─ mail-catcher.php     Keeps WordPress mail in the catcher (SMTP plugins, From address)
 │  └─ helper/
 │     ├─ setup.ps1            First-time setup (downloads + configures)

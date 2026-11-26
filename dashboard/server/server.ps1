@@ -696,6 +696,138 @@ function Get-ErrorSummary {
     }
 }
 
+# ---- network catcher -----------------------------------------------------------
+# scripts\php\network-catcher.php appends one JSON line per HTTP call a site
+# makes to logs\network\<site>.jsonl, and blocks what config\network-rules.json
+# says: { mode: log|slow|all, block: [hosts by hand], auto: [slow hosts],
+# unblocked: { host: unix time } }. "auto" is kept here: a host whose call took
+# 5 s or more, or timed out, in the last hour (unless unblocked since).
+$script:NetDir       = Join-Path $script:BASE 'logs\network'
+$script:NetRulesFile = Join-Path $script:BASE 'config\network-rules.json'
+$script:NetState     = Join-Path $script:BASE 'config\network-catcher.txt'
+$script:NetCache     = $null
+$script:NetStampWas  = ''
+$script:NetSlowMs    = 2000    # shown as slow
+$script:NetBlockMs   = 5000    # makes its host "slow" for blocking
+$script:NetBlockFor  = 3600    # ...for an hour
+
+function Get-NetworkCatcherOn {
+    -not ((Test-Path -LiteralPath $script:NetState) -and "$(Get-Content -LiteralPath $script:NetState -TotalCount 1)".Trim() -eq 'off')
+}
+
+function Get-NetRules {
+    $r = [ordered]@{ mode = 'log'; block = @(); auto = @(); unblocked = @{} }
+    if (Test-Path -LiteralPath $script:NetRulesFile) {
+        try {
+            $j = Get-Content -LiteralPath $script:NetRulesFile -Raw | ConvertFrom-Json
+            if ($j.mode -in 'log', 'slow', 'all') { $r.mode = $j.mode }
+            if ($j.block) { $r.block = @($j.block | ForEach-Object { "$_".ToLower() }) }
+            if ($j.auto) { $r.auto = @($j.auto | ForEach-Object { "$_".ToLower() }) }
+            if ($j.unblocked) { foreach ($p in $j.unblocked.PSObject.Properties) { $r.unblocked[$p.Name] = [long]$p.Value } }
+        } catch { }
+    }
+    return $r
+}
+
+function Set-NetRules($r) {
+    $json = ConvertTo-Json -InputObject ([ordered]@{ mode = $r.mode; block = @($r.block | Sort-Object -Unique); auto = @($r.auto | Sort-Object -Unique); unblocked = $r.unblocked }) -Compress
+    if ((Test-Path -LiteralPath $script:NetRulesFile) -and (Get-Content -LiteralPath $script:NetRulesFile -Raw) -eq $json) { return }
+    $dir = Split-Path -Parent $script:NetRulesFile
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force $dir | Out-Null }
+    [System.IO.File]::WriteAllText($script:NetRulesFile, $json, (New-Object System.Text.UTF8Encoding $false))
+}
+
+# Every recorded call, newest first. Re-read only when a log file changed.
+function Get-NetCalls {
+    $files = @(Get-ChildItem -LiteralPath $script:NetDir -Filter '*.jsonl' -File -ErrorAction SilentlyContinue)
+    $stamp = ($files | ForEach-Object { "$($_.Name):$($_.Length):$($_.LastWriteTimeUtc.Ticks)" }) -join '|'
+    if ($null -ne $script:NetCache -and $stamp -eq $script:NetStampWas) { return , $script:NetCache }
+    if (-not $script:JsonSer) {
+        Add-Type -AssemblyName System.Web.Extensions
+        $script:JsonSer = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+        $script:JsonSer.MaxJsonLength = 16MB
+    }
+    $calls = New-Object System.Collections.Generic.List[object]
+    foreach ($f in $files) {
+        $site = $f.Name -replace '(\.old)?\.jsonl$', ''
+        $i = 0
+        foreach ($ln in (Read-Tail $f.FullName 2097152)) {
+            if ($ln[0] -ne '{') { continue }
+            try { $o = $script:JsonSer.DeserializeObject($ln) } catch { continue }
+            $i++
+            # A missing key reads as $null, so optional fields need no checks.
+            $calls.Add([ordered]@{
+                id = "$($f.Name):$i"; site = $site; t = [long]$o['t']; method = "$($o['method'])"; url = "$($o['url'])"; host = "$($o['host'])"
+                caller = "$($o['caller'])"; ms = [int]$o['ms']; code = [int]$o['code']; size = [long]$o['size']
+                error = "$($o['error'])"; blocked = "$($o['blocked'])"; local = [bool]$o['local']; async = [bool]$o['async']; page = "$($o['page'])"
+            })
+        }
+    }
+    $list = @($calls | Sort-Object { $_.t } -Descending)
+    $script:NetCache = $list
+    $script:NetStampWas = $stamp
+    return , $list
+}
+
+function Test-NetFailed($c) { -not $c.blocked -and ($c.error -or $c.code -ge 500) }
+function Test-NetSlow($c) { -not $c.blocked -and -not $c.async -and -not $c.local -and ($c.ms -ge $script:NetSlowMs -or ($c.error -and $c.error -match 'timed out|timeout|cURL error 28')) }
+function Test-NetBlockable($c) { -not $c.blocked -and -not $c.async -and -not $c.local -and ($c.ms -ge $script:NetBlockMs -or ($c.error -and $c.error -match 'timed out|timeout|cURL error 28')) }
+
+# Slow hosts of the last hour into the rules file, so the PHP side can block them.
+function Update-NetAuto($calls) {
+    $r = Get-NetRules
+    $since = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - $script:NetBlockFor
+    $auto = @($calls | Where-Object { $_.t -ge $since -and (Test-NetBlockable $_) -and (-not $r.unblocked.ContainsKey($_.host) -or $_.t -gt $r.unblocked[$_.host]) } | ForEach-Object { $_.host } | Sort-Object -Unique)
+    if ((@($r.auto | Sort-Object -Unique) -join ',') -ne ($auto -join ',')) { $r.auto = $auto; Set-NetRules $r }
+    $r.auto = $auto
+    return $r
+}
+
+# One row per host: how often, how fast, how often it failed, blocked or not.
+function Get-NetHosts($calls, $rules) {
+    $by = @{}
+    foreach ($c in $calls) {
+        if (-not $c.host) { continue }
+        if (-not $by.ContainsKey($c.host)) { $by[$c.host] = [ordered]@{ host = $c.host; local = $c.local; calls = 0; done = 0; failed = 0; slow = 0; blockedCalls = 0; totalMs = 0; maxMs = 0; last = 0; sites = @{}; callers = @{} } }
+        $h = $by[$c.host]
+        $h.calls++; $h.sites[$c.site] = 1; if ($c.caller) { $h.callers[$c.caller] = 1 }
+        if ($c.t -gt $h.last) { $h.last = $c.t }
+        if ($c.blocked) { $h.blockedCalls++; continue }
+        if (Test-NetFailed $c) { $h.failed++ }
+        if (Test-NetSlow $c) { $h.slow++ }
+        if (-not $c.async) { $h.done++; $h.totalMs += $c.ms; if ($c.ms -gt $h.maxMs) { $h.maxMs = $c.ms } }
+    }
+    @($by.Values | ForEach-Object {
+        [ordered]@{
+            host = $_.host; local = $_.local; calls = $_.calls; failed = $_.failed; slow = $_.slow; blockedCalls = $_.blockedCalls
+            avgMs = if ($_.done) { [int]($_.totalMs / $_.done) } else { 0 }; maxMs = $_.maxMs; last = $_.last
+            sites = @($_.sites.Keys | Sort-Object); callers = @($_.callers.Keys | Sort-Object)
+            blocked = if ($rules.block -contains $_.host) { 'manual' } elseif ($rules.auto -contains $_.host -and $rules.mode -eq 'slow') { 'slow' } elseif ($rules.mode -eq 'all' -and -not $_.local) { 'all' } else { '' }
+            slowHost = $rules.auto -contains $_.host
+        }
+    } | Sort-Object { $_.last } -Descending)
+}
+
+# For /api/status: counts of the last hour, per site.
+function Get-NetworkSummary {
+    $calls = Get-NetCalls
+    $rules = Update-NetAuto $calls
+    $since = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - 3600
+    $recent = @($calls | Where-Object { $_.t -ge $since -and -not $_.local })
+    $slowBySite = @{}
+    foreach ($c in $recent) { if ((Test-NetSlow $c) -or (Test-NetFailed $c)) { $slowBySite[$c.site] = 1 + [int]$slowBySite[$c.site] } }
+    [ordered]@{
+        enabled    = Get-NetworkCatcherOn
+        ready      = Test-ErrorCatcherReady
+        mode       = $rules.mode
+        hourCalls  = $recent.Count
+        hourSlow   = @($recent | Where-Object { (Test-NetSlow $_) -or (Test-NetFailed $_) }).Count
+        slowBySite = $slowBySite
+        blocked    = @($rules.block).Count + $(if ($rules.mode -eq 'slow') { @($rules.auto).Count } else { 0 })
+        stamp      = $script:NetStampWas
+    }
+}
+
 # ---- mail catcher inbox (Mailpit's API on 127.0.0.1:8025) ---------------------
 $script:MailApi = 'http://127.0.0.1:8025/api/v1'
 
@@ -851,6 +983,7 @@ function Handle-Request($ctx) {
                 services = $svc
                 mail     = Get-MailState
                 errors   = Get-ErrorSummary
+                network  = Get-NetworkSummary
                 foreign  = $foreign
                 busy     = $shared.Busy
                 task     = $script:opArg
@@ -929,6 +1062,69 @@ function Handle-Request($ctx) {
             Set-Content -LiteralPath $script:ErrState -Value $(if ($b.on) { 'on' } else { 'off' })
             Write-Log $(if ($b.on) { 'Error catcher on - PHP errors from every site show on the Errors page.' } else { 'Error catcher off - PHP errors are no longer collected.' }) 'ok'
             Send-Json $ctx (Get-ErrorSummary)
+            return
+        }
+        '^GET /api/network$' {
+            $calls = Get-NetCalls
+            $rules = Update-NetAuto $calls
+            Send-Json $ctx ([ordered]@{
+                enabled = Get-NetworkCatcherOn
+                ready   = Test-ErrorCatcherReady
+                rules   = [ordered]@{ mode = $rules.mode; block = @($rules.block); auto = @($rules.auto) }
+                slowMs  = $script:NetSlowMs
+                blockMs = $script:NetBlockMs
+                calls   = @($calls | Select-Object -First 1000)
+                hosts   = @(Get-NetHosts $calls $rules)
+            })
+            return
+        }
+        '^POST /api/network/enabled$' {
+            $b = Read-Body $req
+            if ($b.on -isnot [bool]) { Send-Error $ctx 400 'Send on: true or false.'; return }
+            $cfg = Split-Path -Parent $script:NetState
+            if (-not (Test-Path $cfg)) { New-Item -ItemType Directory -Force $cfg | Out-Null }
+            Set-Content -LiteralPath $script:NetState -Value $(if ($b.on) { 'on' } else { 'off' })
+            Write-Log $(if ($b.on) { 'Network catcher on - calls from your sites to the internet show on the Network page.' } else { 'Network catcher off - calls are no longer recorded or blocked.' }) 'ok'
+            Send-Json $ctx (Get-NetworkSummary)
+            return
+        }
+        '^POST /api/network/mode$' {
+            $mode = "$((Read-Body $req).mode)"
+            if ($mode -notin 'log', 'slow', 'all') { Send-Error $ctx 400 'Mode is log, slow or all.'; return }
+            $r = Get-NetRules; $r.mode = $mode; Set-NetRules $r
+            Write-Log $(switch ($mode) { 'log' { 'Network catcher: recording only, nothing blocked (except hosts blocked by hand).' } 'slow' { 'Network catcher: slow hosts are blocked for an hour.' } 'all' { 'Network catcher: every external call is blocked (local calls still work).' } }) 'ok'
+            Send-Json $ctx (Get-NetworkSummary)
+            return
+        }
+        # Block or unblock one host. Unblocking a slow host also forgets its slow calls until now.
+        '^POST /api/network/block$' {
+            $b = Read-Body $req
+            $h = "$($b.host)".Trim().ToLower()
+            if ($h -notmatch '^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$' -or $b.block -isnot [bool]) { Send-Error $ctx 400 'Send a host name and block: true or false.'; return }
+            $r = Get-NetRules
+            if ($b.block) {
+                $r.block = @(@($r.block) + $h | Sort-Object -Unique)
+                Write-Log "Network catcher: $h blocked." 'ok'
+            } else {
+                $r.block = @($r.block | Where-Object { $_ -ne $h })
+                $r.auto = @($r.auto | Where-Object { $_ -ne $h })
+                $r.unblocked[$h] = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+                Write-Log "Network catcher: $h unblocked." 'ok'
+            }
+            Set-NetRules $r
+            Send-Json $ctx (Get-NetworkSummary)
+            return
+        }
+        '^POST /api/network/clear$' {
+            $site = "$((Read-Body $req).site)"
+            if ($site -and $site -notmatch '^[A-Za-z0-9_-]+$') { Send-Error $ctx 400 'Unknown site.'; return }
+            foreach ($f in @(Get-ChildItem -LiteralPath $script:NetDir -Filter '*.jsonl' -File -ErrorAction SilentlyContinue)) {
+                if ($site -and ($f.Name -replace '(\.old)?\.jsonl$', '') -ne $site) { continue }
+                try { Remove-Item -LiteralPath $f.FullName -Force -ErrorAction Stop } catch { Write-Log "Couldn't remove logs\network\$($f.Name): $($_.Exception.Message)" 'err' }
+            }
+            $script:NetCache = $null
+            Write-Log $(if ($site) { "Cleared the calls recorded from $site." } else { 'Cleared all recorded calls.' }) 'ok'
+            Send-Json $ctx @{ ok = $true }
             return
         }
         '^GET /api/mail/messages$' {
