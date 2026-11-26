@@ -19,7 +19,7 @@
 //  sight, fills the taskbar button during long jobs, colours the tray icon
 //  by stack state, and says when a newer GitHub release is out.
 // ============================================================================
-const { app, BrowserWindow, Tray, Menu, nativeImage, shell, dialog, screen } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, shell, dialog, screen, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -107,6 +107,11 @@ function createWindow() {
     autoHideMenuBar: true,
     icon: fs.existsSync(APP_ICO) ? APP_ICO : path.join(ICONS, 'icon-192.png'),
     title: `localhost-wp - ${BASE}`,
+    // No Windows title bar: the page draws a draggable band, and Windows keeps
+    // its own minimise / maximise / close buttons (snap layouts included) on top.
+    titleBarStyle: 'hidden',
+    titleBarOverlay: { color: nativeTheme.shouldUseDarkColors ? '#161B22' : '#E9EDF1', symbolColor: nativeTheme.shouldUseDarkColors ? '#E3E8EE' : '#1B2330', height: 32 },
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#161B22' : '#E9EDF1',
     webPreferences: { contextIsolation: true, sandbox: true, backgroundThrottling: false },
   });
   win.removeMenu();
@@ -147,6 +152,24 @@ function createWindow() {
   // Windows shutdown, restart or sign-out.
   win.on('query-session-end', stopForShutdown);
   win.on('session-end', stopForShutdown);
+
+  // The window buttons take the page's colours, following its theme (Settings >
+  // Appearance or Windows). Read from the page: on load, on focus, and every 2 s
+  // while shown, which is cheap and catches a theme switch.
+  let overlayKey = '';
+  const syncOverlay = async () => {
+    if (!win || win.isDestroyed() || !win.isVisible()) return;
+    try {
+      const c = await win.webContents.executeJavaScript(`(() => { const s = getComputedStyle(document.documentElement);
+        return [s.getPropertyValue('--paper').trim(), s.getPropertyValue('--ink').trim()]; })()`);
+      const key = c.join('|');
+      if (c[0] && c[1] && key !== overlayKey) { overlayKey = key; win.setTitleBarOverlay({ color: c[0], symbolColor: c[1], height: 32 }); }
+    } catch { }
+  };
+  win.webContents.on('did-finish-load', syncOverlay);
+  win.on('focus', syncOverlay);
+  win.on('show', syncOverlay);
+  setInterval(syncOverlay, 2000);
 
   // Opened by Windows at sign-in: stays in the tray unless "Show the window" is on.
   win.once('ready-to-show', () => { if (!atStartup || (settings && settings.startupShow)) win.show(); });
