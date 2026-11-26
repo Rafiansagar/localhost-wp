@@ -364,6 +364,88 @@ function Get-WpVersion([string]$name) {
     return $null
 }
 
+# Last part of a (possibly large) text file, read from the end.
+function Read-Tail([string]$path, [int]$bytes = 262144) {
+    try {
+        $fs = [System.IO.File]::Open($path, 'Open', 'Read', 'ReadWrite')
+        try {
+            $start = [Math]::Max(0, $fs.Length - $bytes)
+            $null = $fs.Seek($start, 'Begin')
+            $text = (New-Object System.IO.StreamReader($fs)).ReadToEnd()
+            $lines = $text -split "`r?`n"
+            if ($start -gt 0 -and $lines.Count) { $lines = $lines[1..($lines.Count - 1)] }   # first line is cut
+            return , @($lines | Where-Object { $_ })
+        } finally { $fs.Dispose() }
+    } catch { return , @() }
+}
+
+# A log file for the site page: size, last change, and what its recent part says.
+function Get-LogSummary([string]$path, [string]$kind) {
+    if (-not (Test-Path -LiteralPath $path)) { return [ordered]@{ exists = $false } }
+    $f = Get-Item -LiteralPath $path
+    $lines = Read-Tail $path
+    $counts = [ordered]@{ fatal = 0; warning = 0; notice = 0 }
+    $last = $null
+    foreach ($l in $lines) {
+        if ($kind -eq 'php') {
+            if ($l -match 'PHP (Fatal|Parse) error|Uncaught') { $counts.fatal++; $last = $l }
+            elseif ($l -match 'PHP Warning') { $counts.warning++; $last = $l }
+            elseif ($l -match 'PHP (Notice|Deprecated)') { $counts.notice++; if (-not $last) { $last = $l } }
+        } else {
+            if ($l -match '\[(emerg|alert|crit|error)\]') { $counts.fatal++; $last = $l }
+            elseif ($l -match '\[warn\]' -and $l -notmatch 'buffered to a temporary file') { $counts.warning++; $last = $l }
+        }
+    }
+    if ($last -and $last.Length -gt 400) { $last = $last.Substring(0, 400) }
+    [ordered]@{
+        exists   = $true
+        size     = $f.Length
+        modified = $f.LastWriteTime.ToString('o')
+        counts   = $counts
+        last     = $last
+        partial  = $f.Length -gt 262144
+    }
+}
+
+# Everything the site page shows that comes from files, so it works while the stack is stopped.
+function Get-SiteInfo([string]$name) {
+    $dir = Join-Path $script:SitesDir $name
+    $pub = Join-Path $dir 'public'
+    $sql = @(Get-ChildItem -LiteralPath (Join-Path $dir 'sql') -Filter '*.sql' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending)
+    $debug = $null; $prefix = $null
+    $cfg = Join-Path $pub 'wp-config.php'
+    if (Test-Path -LiteralPath $cfg) {
+        $t = [System.IO.File]::ReadAllText($cfg)
+        $debug = [ordered]@{}
+        foreach ($k in 'WP_DEBUG', 'WP_DEBUG_LOG', 'WP_DEBUG_DISPLAY') {
+            $m = [regex]::Match($t, "(?mi)^\s*define\s*\(\s*['""]$k['""]\s*,\s*([^)]+?)\s*\)")
+            # Not defined: WordPress defaults (debug off, log off, display on).
+            $debug[$k] = if ($m.Success) { $m.Groups[1].Value -notmatch '^(false|0|'''')$' } elseif ($k -eq 'WP_DEBUG_DISPLAY') { $true } else { $false }
+        }
+        $m = [regex]::Match($t, "(?m)^\s*\`$table_prefix\s*=\s*['""]([^'""]*)['""]")
+        if ($m.Success) { $prefix = $m.Groups[1].Value }
+    }
+    $content = Join-Path $pub 'wp-content'
+    $count = { param($sub) @(Get-ChildItem -LiteralPath (Join-Path $content $sub) -Directory -ErrorAction SilentlyContinue).Count }
+    [ordered]@{
+        name    = $name
+        created = if (Test-Path -LiteralPath $dir) { (Get-Item -LiteralPath $dir).CreationTime.ToString('o') } else { $null }
+        prefix  = $prefix
+        debug   = $debug
+        plugins = if (Test-Path -LiteralPath $content) { & $count 'plugins' } else { $null }
+        themes  = if (Test-Path -LiteralPath $content) { & $count 'themes' } else { $null }
+        backups = [ordered]@{
+            count  = $sql.Count
+            total  = [long](($sql | Measure-Object Length -Sum).Sum)
+            latest = if ($sql.Count) { [ordered]@{ file = $sql[0].Name; size = $sql[0].Length; time = $sql[0].LastWriteTime.ToString('o') } } else { $null }
+        }
+        logs    = [ordered]@{
+            php   = Get-LogSummary (Join-Path $content 'debug.log') 'php'
+            nginx = Get-LogSummary (Join-Path $script:BASE "logs\nginx\$name-error.log") 'nginx'
+        }
+    }
+}
+
 # ---- app settings (config\app-settings.json) ----------------------------------
 # Read by the page (Settings) and by the Electron shell through /api/status:
 # start with Windows, what closing the window does, backups on stop, notifications.
@@ -640,6 +722,31 @@ function Handle-Request($ctx) {
             $name = "$((Read-Body $req).name)".Trim()
             if ($name -notmatch '^[a-zA-Z0-9_-]+$') { Send-Error $ctx 400 'Use letters, numbers, - or _ in the site name.'; return }
             Send-Started $ctx 'new-site' $name
+            return
+        }
+        '^GET /api/sites/([^/]+)/info$' {
+            $name = [uri]::UnescapeDataString($Matches[1])
+            if (-not (Test-KnownSite $name)) { Send-Error $ctx 404 "No site named '$name'."; return }
+            Send-Json $ctx (Get-SiteInfo $name)
+            return
+        }
+        '^POST /api/sites/([^/]+)/open-(sql|php-log|nginx-log)$' {
+            $name = [uri]::UnescapeDataString($Matches[1]); $what = $Matches[2]
+            if (-not (Test-KnownSite $name)) { Send-Error $ctx 404 "No site named '$name'."; return }
+            $target = switch ($what) {
+                'sql'       { Join-Path $script:SitesDir "$name\sql" }
+                'php-log'   { Join-Path $script:SitesDir "$name\public\wp-content\debug.log" }
+                'nginx-log' { Join-Path $script:BASE "logs\nginx\$name-error.log" }
+            }
+            $rel = $target.Substring($script:BASE.Length).TrimStart('\')
+            if (-not (Test-Path -LiteralPath $target)) { Write-Log "Not found: $rel" 'warn' }
+            elseif ($what -eq 'sql') { Start-Process explorer.exe $target; Write-Log "Opened folder $rel" }
+            else {
+                # Logs open in VS Code when it is here, else Notepad (a .log may have no default app).
+                if ($script:VsCode) { Start-Process -FilePath $script:VsCode -ArgumentList "`"$target`"" } else { Start-Process notepad.exe "`"$target`"" }
+                Write-Log "Opened $rel"
+            }
+            Send-Json $ctx @{ ok = $true }
             return
         }
         '^POST /api/sites/([^/]+)/(backup|delete|open-dir|open-code)$' {

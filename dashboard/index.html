@@ -283,6 +283,30 @@
   .copy:hover:not(:disabled) { background: var(--panel-2); color: var(--ink); }
   .copy[data-done] { color: var(--on); }
   .copy svg { width: 15px; height: 15px; }
+  .ov .col { display: grid; gap: 16px; align-content: start; min-width: 0; }
+  .ov h3 .cnt { margin-left: 6px; vertical-align: 1px; }
+  .ov .big { display: flex; align-items: baseline; gap: 10px; margin: 4px 0 2px; }
+  .ov .big b { font-size: 18px; font-weight: 600; letter-spacing: -.01em; }
+  .ov .big span { color: var(--muted); font-size: 13px; }
+  .ov .meta { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+  .ov .meta code { font-size: 12px; color: var(--ink); }
+  .ov .btns { display: flex; align-items: center; gap: 6px; margin: 12px 0 6px; flex-wrap: wrap; }
+  .ov .btns .why { color: var(--muted); font-size: 12.5px; margin-left: 4px; }
+  .ov .lg { border-top: 1px solid var(--line); padding: 10px 0 8px; margin-top: 8px; }
+  .ov .lg + .log { margin-top: 0; }
+  .ov .lg .lh { display: flex; align-items: center; gap: 10px; }
+  .ov .lg .lh .t { font-size: 13.5px; font-weight: 500; }
+  .ov .lg .m { color: var(--muted); font-size: 12.5px; }
+  .ov .lg .lh .m { flex: 1; }
+  .ov .lg .counts { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+  .ov .lg .n { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--panel-2); color: var(--muted); }
+  .ov .lg .n.bad { color: var(--off); background: color-mix(in srgb, var(--off) 12%, transparent); }
+  .ov .lg .n.warn { color: var(--wait-text); background: color-mix(in srgb, var(--wait) 12%, transparent); }
+  .ov .lg .last { margin: 8px 0 0; padding: 8px 10px; border-radius: 7px; background: var(--panel-2); font: 11.5px/1.5 var(--mono); color: var(--muted); }
+  .ov .lg .last span { word-break: break-all; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .addr-line { display: inline-flex; align-items: center; gap: 2px; }
+  .addr-line .copy { width: 24px; height: 24px; }
+  @media (max-width: 1100px) { .ov { grid-template-columns: minmax(0, 1fr); } }
   .action-row { display: flex; align-items: center; gap: 16px; padding: 12px 0; }
   .action-row + .action-row { border-top: 1px solid var(--line); }
   .action-row .t { display: block; font-size: 14px; font-weight: 500; }
@@ -290,7 +314,8 @@
   .action-row > span { flex: 1; min-width: 0; }
 
   /* Mail list */
-  .feed-card { overflow: hidden; }
+  .feed-card { overflow: hidden; display: flex; flex-direction: column; }
+  .feed-list { overflow-y: auto; min-height: 0; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
   .feed-head { display: flex; align-items: center; gap: 8px; padding: 10px 20px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted); flex-wrap: wrap; }
   .feed-head .spacer { flex: 1; }
   .confirm { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); }
@@ -593,6 +618,16 @@
     if (s < 172800) return 'Yesterday';
     return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
   };
+  const fmtSize = n => n == null ? '' : n < 1024 ? `${n} B` : n < 1048576 ? `${Math.round(n / 1024)} KB` : n < 1073741824 ? `${(n / 1048576).toFixed(1)} MB` : `${(n / 1073741824).toFixed(2)} GB`;
+  // "Today 09:50", "Yesterday 17:49", "8 Nov 2026"
+  const fmtWhen = iso => {
+    const d = new Date(iso); if (isNaN(d)) return '';
+    const day = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const diff = Math.round((day(new Date()) - day(d)) / 86400000);
+    const t = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    return diff === 0 ? `Today ${t}` : diff === 1 ? `Yesterday ${t}` : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 
   // ================= Activity log =================
   const logEl = $('#log');
@@ -835,6 +870,8 @@
     if (a === 'dir') return act('POST', `${path}/open-dir`);
     if (a === 'code') return act('POST', `${path}/open-code`);
     if (a === 'backup') return act('POST', `${path}/backup`);
+    if (a === 'sql') return act('POST', `${path}/open-sql`);
+    if (a === 'php-log' || a === 'nginx-log') return act('POST', `${path}/open-${a}`);
     if (a === 'delete') return askDelete(s.name);
     if (a === 'pma') return openUrl(`${localUrl(state.ports.pma)}/index.php?route=/database/structure&db=${encodeURIComponent(s.name)}`);
     if (a === 'more') return openMenu(btn, siteMenuItems(s), x => siteAction(x, s));
@@ -989,22 +1026,59 @@
       const tabs = [['overview', 'Overview'], ['mail', 'Mail', u]];
       let body = '';
       if (tab === 'overview') {
+        const info = siteInfo[name];
         const dbText = { yes: 'Exists', no: 'Missing', unknown: 'Start MySQL to check' }[s.db] || '';
-        const mails = mailOf(name).slice(0, 5);
+        const mails = mailOf(name).slice(0, 4);
+        const skel = w => `<span class="skel" style="width:${w}px;height:12px"></span>`;
+        const sw = on => on ? '<span class="pill live"><i></i>On</span>' : '<span class="pill"><i></i>Off</span>';
+        // Backups
+        const bk = info?.backups, latest = bk?.latest;
+        const busyBk = busy() === 'backup' && st()?.task === name;
+        const bkWhy = busy() ? (busyBk ? 'Backing up…' : 'Wait for the current job to finish') : !svcs().mysql ? 'Start the stack to back up' : s.db === 'no' ? 'This site has no database' : '';
+        const backups = `<div class="card"><h3>Backups</h3>
+          ${!info ? `<div class="big">${skel(140)}</div>` : latest
+            ? `<div class="big"><b>${esc(fmtWhen(latest.time))}</b><span>${esc(fmtSize(latest.size))}</span></div>
+               <p class="meta">${esc(plural(bk.count, 'backup'))}, ${esc(fmtSize(bk.total))} in <code>sites\\${esc(name)}\\sql</code>. ${(state.settings?.stopBackup || 'backup') === 'none' ? 'Backups when the stack stops are off in Settings.' : 'A new one is made each time the stack stops.'}</p>`
+            : `<div class="big"><b>No backup yet</b></div><p class="meta">Backups go to <code>sites\\${esc(name)}\\sql</code>.</p>`}
+          <div class="btns"><button class="btn sm" data-a="backup" ${bkWhy ? `disabled title="${esc(bkWhy)}"` : ''}>${ic('backup', 14)}${busyBk ? 'Backing up…' : 'Back up now'}</button>
+            <button class="btn sm quiet" data-a="sql" ${bk?.count ? '' : 'disabled'}>${ic('folder', 14)}Open folder</button>
+            ${bkWhy && !busy() ? `<span class="why">${esc(bkWhy)}</span>` : ''}</div></div>`;
+        // Debugging and logs
+        const logRow = (key, label, file, l) => {
+          if (!l) return `<div class="lg">${skel(200)}</div>`;
+          if (!l.exists) return `<div class="lg"><div class="lh"><span class="t">${label}</span><span class="m">No log yet</span></div></div>`;
+          const c = l.counts, parts = [];
+          if (c.fatal) parts.push(`<span class="n bad">${plural(c.fatal, key === 'php' ? 'fatal error' : 'error')}</span>`);
+          if (c.warning) parts.push(`<span class="n warn">${plural(c.warning, 'warning')}</span>`);
+          if (c.notice) parts.push(`<span class="n">${plural(c.notice, 'notice')}</span>`);
+          return `<div class="lg"><div class="lh"><span class="t">${label}</span><span class="m">${esc(fmtSize(l.size))} · updated ${esc(timeAgo(l.modified).toLowerCase())}</span>
+              <button class="copy" data-a="${key}-log" title="Open ${esc(file)}" aria-label="Open ${esc(file)}">${ic('ext', 14)}</button></div>
+            ${parts.length ? `<div class="counts">${parts.join('')}<span class="m">${l.partial ? 'in the latest 256 KB' : ''}</span></div>` : '<div class="counts"><span class="m">Nothing wrong in it</span></div>'}
+            ${l.last ? `<div class="last" title="${esc(l.last)}"><span>${esc(l.last)}</span></div>` : ''}</div>`;
+        };
+        const d = info?.debug;
+        const debugging = `<div class="card"><h3>Debugging</h3>
+          ${!info ? skel(180) : !d ? '<p class="meta">No wp-config.php, so no debug settings yet.</p>' : `
+            ${kvRow('Debug mode', '', { actions: sw(d.WP_DEBUG) })}
+            ${kvRow('Log to file', '', { actions: sw(d.WP_DEBUG && d.WP_DEBUG_LOG) })}
+            ${kvRow('Show on pages', '', { actions: sw(d.WP_DEBUG && d.WP_DEBUG_DISPLAY) })}`}
+          <p class="meta" style="margin-top:6px">Set in <code>wp-config.php</code>.</p>
+          ${logRow('php', 'PHP errors', 'wp-content\\debug.log', info?.logs?.php)}
+          ${logRow('nginx', 'Nginx errors', `logs\\nginx\\${name}-error.log`, info?.logs?.nginx)}</div>`;
+        const plug = info && info.plugins != null ? `${plural(info.plugins, 'plugin')}, ${plural(info.themes, 'theme')}` : '';
         body = `<div class="ov">
-          <div class="card"><h3>Details</h3>
-            ${kvRow('Address', s.port ? siteUrl(s.port) : 'No port in the Nginx config', { copy: s.port ? siteUrl(s.port) : null, link: can ? 'site' : null })}
-            ${kvRow('Folder', `sites\\${name}`, { actions: `<button class="copy" data-a="dir" title="Open folder" aria-label="Open folder">${ic('folder', 15)}</button>${state.vscode ? `<button class="copy" data-a="code" title="Open in VS Code" aria-label="Open in VS Code">${ic('code', 15)}</button>` : ''}` })}
-            ${kvRow('Database', `${name}`, { note: dbText, actions: `<button class="copy" data-a="pma" title="Open in phpMyAdmin" aria-label="Open database in phpMyAdmin" ${svcs().nginx && s.db === 'yes' ? '' : 'disabled'}>${ic('db', 15)}</button>` })}
-            ${kvRow('WordPress', s.wp || (s.config ? 'Unknown version' : 'Not installed'), { plain: true })}
-            ${kvRow('wp-config', s.config ? 'Present' : 'Missing', { plain: true })}
+          <div class="col">
+            <div class="card"><h3>Details</h3>
+              ${kvRow('Folder', `sites\\${name}`, { actions: `<button class="copy" data-a="dir" title="Open folder" aria-label="Open folder">${ic('folder', 15)}</button>${state.vscode ? `<button class="copy" data-a="code" title="Open in VS Code" aria-label="Open in VS Code">${ic('code', 15)}</button>` : ''}` })}
+              ${kvRow('Database', `${name}`, { note: dbText, actions: `<button class="copy" data-a="pma" title="Open in phpMyAdmin" aria-label="Open database in phpMyAdmin" ${svcs().nginx && s.db === 'yes' ? '' : 'disabled'}>${ic('db', 15)}</button>` })}
+              ${info?.prefix != null ? kvRow('Table prefix', info.prefix) : ''}
+              ${kvRow('wp-config', s.config ? 'Present' : 'Missing', { plain: true })}
+              ${plug ? kvRow('Installed', plug, { plain: true }) : ''}
+              ${info?.created ? kvRow('Created', fmtWhen(info.created), { plain: true }) : ''}
+            </div>
+            <div class="card"><h3>Recent mail${u ? ` <span class="cnt">${u} new</span>` : ''}</h3>${mailBlock(mails, name, true)}</div>
           </div>
-          <div class="card"><h3>Recent mail</h3>${mailBlock(mails, name, true)}</div>
-        </div>
-        <h3 class="section-title">Actions</h3>
-        <div class="card pad" style="padding-top:2px;padding-bottom:2px">
-          <div class="action-row"><span><span class="t">Back up database</span><span class="s">Dumps the database to <code>sites\\${esc(name)}\\sql</code>.</span></span><button class="btn sm" data-a="backup" ${busy() || s.db !== 'yes' ? 'disabled' : ''}>${ic('backup', 14)}Back up</button></div>
-          <div class="action-row"><span><span class="t">Delete site</span><span class="s">Removes the folder, the database and the Nginx config. This can't be undone.</span></span><button class="btn sm danger" data-a="delete" ${busy() ? 'disabled' : ''}>${ic('trash', 14)}Delete site…</button></div>
+          <div class="col">${backups}${debugging}</div>
         </div>`;
       }
       if (tab === 'mail') body = mailFeed(name);
@@ -1012,7 +1086,7 @@
         html: `<a class="back" href="#sites">${ic('left', 12)}Sites</a>
           <div class="phead"><h2>${esc(name)}</h2>${pill}
             <span class="push"><button class="btn" data-a="site" ${dis}>${ic('ext', 15)}Open site</button><button class="btn" data-a="admin" ${dis}>${ic('wp', 15)}WP admin</button><button class="icon-btn" data-a="more" aria-haspopup="menu" aria-expanded="false" aria-label="More actions for ${esc(name)}">${ic('more', 16)}</button></span>
-            <div class="sub">${s.port ? `<code>${esc(siteUrl(s.port))}</code>` : ''}<span>${esc(siteSub(s))}</span></div></div>
+            <div class="sub">${s.port ? `<span class="addr-line"><code>${esc(siteUrl(s.port))}</code><button class="copy" data-copy="${esc(siteUrl(s.port))}" title="Copy address" aria-label="Copy address">${ic('copy', 14)}</button></span>` : ''}<span>${esc(siteSub(s))}</span></div></div>
           <div class="tabs2" role="tablist" aria-label="${esc(name)}">${tabs.map(([k, l, n]) => `<button role="tab" data-tab="${k}" id="tab-${k}" aria-selected="${k === tab}" tabindex="${k === tab ? 0 : -1}" aria-controls="tabpanel">${l}${n ? `<span class="cnt">${n}</span>` : ''}</button>`).join('')}</div>
           <div role="tabpanel" id="tabpanel" aria-labelledby="tab-${tab}">${body}</div>`,
         after() {
@@ -1176,9 +1250,20 @@
     const rows = list.length ? list.map(x => mailRow(x, !!site)).join('')
       : `<div class="empty"><span class="ico">${ic('mail', 20)}</span><h3>No mail yet</h3><p>${site ? `Try a contact form or a password reset on ${esc(site)}.` : 'Try a contact form or a password reset on one of your sites.'} The email shows up here instead of going out.</p></div>`;
     const foot = site ? `<div class="list-foot">Only mail sent since this site was tagged shows here. Older mail is on the <a class="link" href="#mail">Mail</a> page.</div>` : '';
-    return `<div class="card feed-card">${head}${rows}${list.length && site ? foot : ''}</div>`;
+    return `<div class="card feed-card">${head}<div class="feed-list">${rows}${list.length && site ? foot : ''}</div></div>`;
   }
+  // The mail list fills the window down to the status bar and scrolls inside its
+  // card, so the count and Mark all as read / Clear stay in view.
+  function fitFeed() {
+    const card = $('#pageInner .feed-card'), page = $('#page');
+    if (!card) return;
+    const top = card.getBoundingClientRect().top - page.getBoundingClientRect().top + page.scrollTop;
+    const pad = parseFloat(getComputedStyle(page).paddingBottom) || 0;
+    card.style.maxHeight = `${Math.max(320, page.clientHeight - top - pad)}px`;
+  }
+  new ResizeObserver(fitFeed).observe($('#page'));
   function wireMail(site) {
+    fitFeed();
     for (const b of $$('[data-mail]')) b.onclick = () => openUrl(`${MAIL_URL}/view/${b.dataset.mail}`);
     for (const b of $$('[data-act]', $('#pageInner'))) if (b.closest('.feed-card, .card .empty')) b.onclick = () => doAction(b.dataset.act);
     const ids = () => site ? mailOf(site).map(x => x.id) : [];
@@ -1250,7 +1335,7 @@
     const { page, a, b } = parseRoute();
     const key = `${page}/${a || ''}/${b || ''}/${st()?.setup}`;
     const s = st();
-    const dataSig = JSON.stringify([key, page === 'sites' ? '' : state.sites, s && [s.services, s.mail, s.busy, s.setup, s.missing], page === 'mail' || page === 'site' ? state.mail : '', page === 'stack' ? state.info : '', page === 'settings' ? !!(state.settings || s?.settings) : '', host()]);
+    const dataSig = JSON.stringify([key, page === 'sites' ? '' : state.sites, s && [s.services, s.mail, s.busy, s.setup, s.missing], page === 'mail' || page === 'site' ? state.mail : '', page === 'stack' ? state.info : '', page === 'site' ? siteInfo[a] || '' : '', page === 'settings' ? !!(state.settings || s?.settings) : '', host()]);
     if (!force && key === pageKey && pageObj?.refresh) { pageObj.refresh(); return; }
     if (!force && renderPage.sig === dataSig) return;
     renderPage.sig = dataSig;
@@ -1268,6 +1353,7 @@
     pageKey = key;
     markNav();
     if (page === 'stack' && !state.info) loadInfo();
+    if (page === 'site' && a) loadSiteInfo(a);
     if ((page === 'mail' || page === 'site') && !state.mail) loadMail();
   }
   window.addEventListener('hashchange', () => { closeMenu(); renderPage(true); try { localStorage.setItem('cp-route', location.hash); } catch { } });
@@ -1275,6 +1361,13 @@
   // ================= Data =================
   async function loadSites() { const { sites } = await call('GET', '/api/sites'); state.sites = sites; renderNav(); renderPage(); }
   async function loadInfo() { try { state.info = await call('GET', '/api/stackinfo'); renderPage(); } catch (e) { localLog(e.message); } }
+  // Site page extras (backups, logs, debug settings), read from files; refreshed every 15 s while shown.
+  const siteInfo = {}, siteInfoAt = {};
+  async function loadSiteInfo(name, force) {
+    if (!force && Date.now() - (siteInfoAt[name] || 0) < 15000) return;
+    siteInfoAt[name] = Date.now();
+    try { siteInfo[name] = await call('GET', `/api/sites/${encodeURIComponent(name)}/info`); renderPage(); } catch { }
+  }
   async function loadMail(force) {
     const m = st()?.mail;
     if (!m?.running) { if (state.mail) { state.mail = null; renderNav(); renderPage(); } return; }
@@ -1297,7 +1390,7 @@
       await pullLog();
       const sig = JSON.stringify([s.missing, s.services]);
       if ((prev?.busy && !s.busy) || sig !== state.siteSig || !state.sites) { state.siteSig = sig; await loadSites(); }
-      if (prev?.busy && !s.busy) state.info = null;
+      if (prev?.busy && !s.busy) { state.info = null; for (const k in siteInfoAt) siteInfoAt[k] = 0; }
       await loadMail();
       renderPage();
     } catch (e) {
