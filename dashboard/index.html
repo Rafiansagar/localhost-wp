@@ -300,6 +300,11 @@
   .ov .lg .lh .t { font-size: 13.5px; font-weight: 500; }
   .ov .lg .m { color: var(--muted); font-size: 12.5px; }
   .ov .lg .lh .m { flex: 1; }
+  .ov .lg .lh .acts { display: flex; align-items: center; gap: 2px; }
+  .ov .lg .lh .m { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .ov .lg .ask { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding: 6px 6px 6px 10px; border-radius: 7px; font-size: 12.5px; background: color-mix(in srgb, var(--off) 10%, transparent); }
+  .ov .lg .ask span { flex: 1; min-width: 0; }
+  .ov .lg .ask code { font-size: 12px; }
   .ov .lg .counts { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
   .ov .lg .n { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--panel-2); color: var(--muted); }
   .ov .lg .n.bad { color: var(--off); background: color-mix(in srgb, var(--off) 12%, transparent); }
@@ -308,6 +313,8 @@
   .ov .lg .last span { word-break: break-all; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .addr-line { display: inline-flex; align-items: center; gap: 2px; }
   .addr-line .copy { width: 24px; height: 24px; }
+  .addr-link { padding: 0; border: 0; background: none; font: 12.5px var(--mono); color: var(--ink); cursor: pointer; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; transition: text-decoration-color .15s, color .15s; }
+  .addr-link:hover { color: var(--action-text); text-decoration-color: currentColor; }
   @media (max-width: 1100px) { .ov { grid-template-columns: minmax(0, 1fr); } }
   .action-row { display: flex; align-items: center; gap: 16px; padding: 12px 0; }
   .action-row + .action-row { border-top: 1px solid var(--line); }
@@ -1057,9 +1064,11 @@
           if (c.fatal) parts.push(`<span class="n bad">${plural(c.fatal, key === 'php' ? 'fatal error' : 'error')}</span>`);
           if (c.warning) parts.push(`<span class="n warn">${plural(c.warning, 'warning')}</span>`);
           if (c.notice) parts.push(`<span class="n">${plural(c.notice, 'notice')}</span>`);
-          return `<div class="lg"><div class="lh"><span class="t">${label}</span><span class="m">${esc(fmtSize(l.size))} · updated ${esc(timeAgo(l.modified).toLowerCase())}</span>
-              <button class="copy" data-a="${key}-log" title="Open ${esc(file)}" aria-label="Open ${esc(file)}">${ic('ext', 14)}</button></div>
-            ${parts.length ? `<div class="counts">${parts.join('')}<span class="m">${l.partial ? 'in the latest 256 KB' : ''}</span></div>` : '<div class="counts"><span class="m">Nothing wrong in it</span></div>'}
+          const asking = logClearAsk === `${name}:${key}`;
+          return `<div class="lg"><div class="lh"><span class="t">${label}</span><span class="m">${l.size ? `${esc(fmtSize(l.size))} · updated ${esc(timeAgo(l.modified).toLowerCase())}` : 'Empty'}</span>
+              <span class="acts"><button class="copy" data-logask="${key}" title="Clear ${esc(file)}" aria-label="Clear ${esc(file)}" ${l.size && !asking ? '' : 'disabled'}>${ic('trash', 14)}</button><button class="copy" data-a="${key}-log" title="Open ${esc(file)}" aria-label="Open ${esc(file)}">${ic('ext', 14)}</button></span></div>
+            ${asking ? `<div class="ask"><span>Empty <code>${esc(file)}</code>? This can't be undone.</span><button class="btn sm danger" data-logclear="${key}">Clear</button><button class="btn quiet sm" data-logcancel>Cancel</button></div>` : ''}
+            ${!l.size ? '' : parts.length ? `<div class="counts">${parts.join('')}<span class="m">${l.partial ? 'in the latest 256 KB' : ''}</span></div>` : '<div class="counts"><span class="m">Nothing wrong in it</span></div>'}
             ${l.last ? `<div class="last" title="${esc(l.last)}"><span>${esc(l.last)}</span></div>` : ''}</div>`;
         };
         const d = info?.debug;
@@ -1095,13 +1104,21 @@
         html: `<a class="back" href="#sites">${ic('left', 12)}Sites</a>
           <div class="phead"><h2>${esc(name)}</h2>${pill}
             <span class="push"><button class="btn" data-a="site" ${dis}>${ic('ext', 15)}Open site</button><button class="btn" data-a="admin" ${dis}>${ic('wp', 15)}WP admin</button><button class="icon-btn" data-a="more" aria-haspopup="menu" aria-expanded="false" aria-label="More actions for ${esc(name)}">${ic('more', 16)}</button></span>
-            <div class="sub">${s.port ? `<span class="addr-line"><code>${esc(siteUrl(s.port))}</code><button class="copy" data-copy="${esc(siteUrl(s.port))}" title="Copy address" aria-label="Copy address">${ic('copy', 14)}</button></span>` : ''}<span>${esc(siteSub(s))}</span></div></div>
+            <div class="sub">${s.port ? `<span class="addr-line">${can ? `<button class="addr-link" data-a="site" title="Open site">${esc(siteUrl(s.port))}</button>` : `<code>${esc(siteUrl(s.port))}</code>`}<button class="copy" data-copy="${esc(siteUrl(s.port))}" title="Copy address" aria-label="Copy address">${ic('copy', 14)}</button></span>` : ''}<span>${esc(siteSub(s))}</span></div></div>
           <div class="tabs2" role="tablist" aria-label="${esc(name)}">${tabs.map(([k, l, n]) => `<button role="tab" data-tab="${k}" id="tab-${k}" aria-selected="${k === tab}" tabindex="${k === tab ? 0 : -1}" aria-controls="tabpanel">${l}${n ? `<span class="cnt">${n}</span>` : ''}</button>`).join('')}</div>
           <div role="tabpanel" id="tabpanel" aria-labelledby="tab-${tab}">${body}</div>`,
         after() {
           for (const b of $$('[data-a]', $('#pageInner'))) b.onclick = e => { e.preventDefault(); if (!b.disabled) siteAction(b.dataset.a, s, b); };
           for (const t of $$('[data-tab]')) t.onclick = () => { location.hash = `#site/${encodeURIComponent(name)}/${t.dataset.tab}`; };
           rovingTabs($('.tabs2'));
+          for (const b of $$('[data-logask]', $('#pageInner'))) b.onclick = () => { logClearAsk = `${name}:${b.dataset.logask}`; renderPage(true); $('[data-logcancel]')?.focus(); };
+          for (const b of $$('[data-logcancel]', $('#pageInner'))) b.onclick = () => { logClearAsk = null; renderPage(true); };
+          for (const b of $$('[data-logclear]', $('#pageInner'))) b.onclick = async () => {
+            b.disabled = true; logClearAsk = null;
+            try { siteInfo[name] = await call('POST', `/api/sites/${encodeURIComponent(name)}/clear-${b.dataset.logclear}-log`); siteInfoAt[name] = Date.now(); }
+            catch (e) { localLog(e.message); }
+            await pullLog(); renderPage(true);
+          };
           for (const b of $$('[data-debug]', $('#pageInner'))) b.onclick = async () => {
             const on = b.getAttribute('aria-checked') !== 'true';
             b.disabled = true; b.setAttribute('aria-checked', String(on));
@@ -1379,6 +1396,16 @@
   async function loadInfo() { try { state.info = await call('GET', '/api/stackinfo'); renderPage(); } catch (e) { localLog(e.message); } }
   // Site page extras (backups, logs, debug settings), read from files; refreshed every 15 s while shown.
   const siteInfo = {}, siteInfoAt = {};
+  let logClearAsk = null;   // "site:php" while that log's Clear asks to confirm
+  // While a site page is open, check its logs every 2 s and re-read them only when they changed.
+  setInterval(async () => {
+    const { page, a } = parseRoute();
+    if (page !== 'site' || !a || !siteInfo[a] || document.hidden || logClearAsk) return;
+    try {
+      const { stamp } = await call('GET', `/api/sites/${encodeURIComponent(a)}/logstamp`);
+      if (stamp !== siteInfo[a].stamp) loadSiteInfo(a, true);
+    } catch { }
+  }, 2000);
   async function loadSiteInfo(name, force) {
     if (!force && Date.now() - (siteInfoAt[name] || 0) < 15000) return;
     siteInfoAt[name] = Date.now();
@@ -1396,9 +1423,19 @@
 
   async function tick() {
     clearTimeout(timer);
+    // Offline only when the status call itself fails twice in a row: a slow
+    // or failing sites/mail call (MySQL mid-stop, say) is not the server gone.
+    let s;
+    try { s = await call('GET', '/api/status'); tick.fails = 0; }
+    catch (e) {
+      if (e.status === 403) return location.reload();   // the server restarted with a new token
+      tick.fails = (tick.fails || 0) + 1;
+      if (tick.fails >= 2 && state.online !== false) { state.online = false; renderStrip(); }
+      timer = setTimeout(tick, 1500);
+      return;
+    }
     try {
       const prev = st();
-      const s = await call('GET', '/api/status');
       state.online = true;
       state.status = s;
       if (!state.settings) state.settings = s.settings;
@@ -1411,8 +1448,7 @@
       renderPage();
     } catch (e) {
       if (e.status === 403) return location.reload();   // the server restarted with a new token
-      state.online = false;
-      renderStrip();
+      // Status answered, so the server is up; the rest retries on the next tick.
     }
     timer = setTimeout(tick, st()?.busy ? 700 : 2500);
   }

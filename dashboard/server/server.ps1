@@ -371,7 +371,8 @@ function Read-Tail([string]$path, [int]$bytes = 262144) {
         try {
             $start = [Math]::Max(0, $fs.Length - $bytes)
             $null = $fs.Seek($start, 'Begin')
-            $text = (New-Object System.IO.StreamReader($fs)).ReadToEnd()
+            # NULs: a writer that kept its old position after a Clear pads the gap with them.
+            $text = (New-Object System.IO.StreamReader($fs)).ReadToEnd() -replace "`0", ''
             $lines = $text -split "`r?`n"
             if ($start -gt 0 -and $lines.Count) { $lines = $lines[1..($lines.Count - 1)] }   # first line is cut
             return , @($lines | Where-Object { $_ })
@@ -405,6 +406,22 @@ function Get-LogSummary([string]$path, [string]$kind) {
         last     = $last
         partial  = $f.Length -gt 262144
     }
+}
+
+function Get-SiteLogPaths([string]$name) {
+    [ordered]@{
+        php   = Join-Path $script:SitesDir "$name\public\wp-content\debug.log"
+        nginx = Join-Path $script:BASE "logs\nginx\$name-error.log"
+    }
+}
+
+# "size:time|size:time" for both logs; changes whenever either log does.
+function Get-LogStamp([string]$name) {
+    $parts = foreach ($p in (Get-SiteLogPaths $name).Values) {
+        $f = Get-Item -LiteralPath $p -ErrorAction SilentlyContinue
+        if ($f) { "$($f.Length):$($f.LastWriteTime.Ticks)" } else { '-' }
+    }
+    $parts -join '|'
 }
 
 # Everything the site page shows that comes from files, so it works while the stack is stopped.
@@ -441,6 +458,7 @@ function Get-SiteInfo([string]$name) {
             total  = [long](($sql | Measure-Object Length -Sum).Sum)
             latest = if ($sql.Count) { [ordered]@{ file = $sql[0].Name; size = $sql[0].Length; time = $sql[0].LastWriteTime.ToString('o') } } else { $null }
         }
+        stamp   = Get-LogStamp $name
         logs    = [ordered]@{
             php   = Get-LogSummary (Join-Path $content 'debug.log') 'php'
             nginx = Get-LogSummary (Join-Path $script:BASE "logs\nginx\$name-error.log") 'nginx'
@@ -790,6 +808,34 @@ function Handle-Request($ctx) {
             if ($key -notin 'WP_DEBUG', 'WP_DEBUG_LOG', 'WP_DEBUG_DISPLAY' -or $b.on -isnot [bool]) { Send-Error $ctx 400 'Unknown setting.'; return }
             try { Set-WpDebug $name $key $b.on; Send-Json $ctx (Get-SiteInfo $name) }
             catch { Write-Log "$name`: $($_.Exception.Message)" 'err'; Send-Error $ctx 500 $_.Exception.Message }
+            return
+        }
+        # Size and time of both logs; the site page polls this and re-reads the
+        # summaries only when something changed.
+        '^GET /api/sites/([^/]+)/logstamp$' {
+            $name = [uri]::UnescapeDataString($Matches[1])
+            if (-not (Test-KnownSite $name)) { Send-Error $ctx 404 "No site named '$name'."; return }
+            Send-Json $ctx @{ stamp = (Get-LogStamp $name) }
+            return
+        }
+        # Empties a log without deleting it: PHP and Nginx keep writing to the same file.
+        '^POST /api/sites/([^/]+)/clear-(php|nginx)-log$' {
+            $name = [uri]::UnescapeDataString($Matches[1]); $which = $Matches[2]
+            if (-not (Test-KnownSite $name)) { Send-Error $ctx 404 "No site named '$name'."; return }
+            $path = (Get-SiteLogPaths $name)[$which]
+            $rel = $path.Substring($script:BASE.Length).TrimStart('\')
+            if (Test-Path -LiteralPath $path) {
+                try {
+                    $fs = [System.IO.File]::Open($path, 'Open', 'Write', 'ReadWrite, Delete')
+                    try { $fs.SetLength(0) } finally { $fs.Dispose() }
+                    Write-Log "Cleared $rel" 'ok'
+                } catch {
+                    Write-Log "Couldn't clear $rel`: $($_.Exception.Message)" 'err'
+                    Send-Error $ctx 500 "Couldn't clear $rel."
+                    return
+                }
+            }
+            Send-Json $ctx (Get-SiteInfo $name)
             return
         }
         '^POST /api/sites/([^/]+)/open-(sql|php-log|nginx-log)$' {

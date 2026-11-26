@@ -198,7 +198,7 @@ function Get-DbList {
     if (-not (Test-Proc 'mysqld')) { return $null }
     if (-not (Test-Path $script:MysqlExe)) { return $null }
     try {
-        $out = & $script:MysqlExe --protocol=TCP --host=127.0.0.1 --port=3307 -u root -N -e 'SHOW DATABASES;' 2>$null
+        $out = & $script:MysqlExe --protocol=TCP --host=127.0.0.1 --port=3307 --connect-timeout=2 -u root -N -e 'SHOW DATABASES;' 2>$null
         if ($LASTEXITCODE -ne 0) { return $null }
         return @($out | ForEach-Object { $_.Trim() } | Where-Object { $_ })
     } catch { return $null }
